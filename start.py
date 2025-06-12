@@ -89,30 +89,54 @@ if __name__ == "__main__":
     backend_command = None
     backend_cwd = None
     command_backend_console = ['news-blink-backend']
+    backend_env = None
 
-    # Check if running in a virtual environment
-    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        print(f"[SYSTEM] Virtual environment detected at: {sys.prefix}")
-        if os.name == 'nt':
-            venv_executable_path = os.path.join(sys.prefix, 'Scripts', 'news-blink-backend.exe')
-        else: # POSIX (Linux, macOS, Git Bash)
-            venv_executable_path = os.path.join(sys.prefix, 'bin', 'news-blink-backend')
+    # Check if running in our specific virtual environment
+    VENV_NAME = "blink_venv"
+    is_in_blink_venv = False
+    # sys.prefix is the current Python interpreter's environment prefix.
+    # For a venv, this is the root directory of the venv.
+    # os.environ.get('VIRTUAL_ENV') is another common way to get the venv path.
+    current_env_path = os.environ.get('VIRTUAL_ENV', sys.prefix)
 
-        print(f"[SYSTEM] Attempting to use venv executable: {venv_executable_path}")
-        if os.path.exists(venv_executable_path):
-            print(f"[SYSTEM] Found venv executable: {venv_executable_path}")
-            backend_command = [venv_executable_path]
+    if VENV_NAME in os.path.basename(current_env_path): # Check if last part of path is VENV_NAME
+        # More robust check: ensure the current executable itself is from blink_venv
+        if sys.executable.startswith(current_env_path): # sys.executable should be inside the VIRTUAL_ENV path
+            is_in_blink_venv = True
+            print(f"[SYSTEM] '{VENV_NAME}' virtual environment IS ACTIVE and running this script: {sys.prefix}")
+
+    if not is_in_blink_venv and (hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)):
+        # A venv is active, but it might not be blink_venv, or the above check failed.
+        # Fallback to a simpler check for any venv, but still try to see if it's blink_venv related.
+        if VENV_NAME in sys.prefix:
+            is_in_blink_venv = True # Assume it's ours if name matches prefix
+            print(f"[SYSTEM] A virtual environment containing '{VENV_NAME}' in its path is active: {sys.prefix}")
         else:
-            print(f"[SYSTEM] Venv executable not found at: {venv_executable_path}")
-    else:
-        print("[SYSTEM] No virtual environment detected by sys.prefix inspection.")
+            print(f"[SYSTEM] A virtual environment is active ({sys.prefix}), but it does not seem to be '{VENV_NAME}'.")
+    elif not is_in_blink_venv:
+        print(f"[SYSTEM] No virtual environment detected or not identified as '{VENV_NAME}'. VIRTUAL_ENV='{os.environ.get('VIRTUAL_ENV')}', sys.prefix='{sys.prefix}'")
 
-    if not backend_command:
-        print("[SYSTEM] Venv-specific backend script not found or not in a venv. Trying PATH-based lookup.")
+
+    if is_in_blink_venv:
+        print(f"[SYSTEM] Prioritizing direct execution of app.py using Python from '{VENV_NAME}'.")
+        # Use sys.executable to ensure we use the Python interpreter that's running start.py
+        backend_command = [sys.executable, 'app.py']
+        # Correct CWD for app.py relative to project root, assuming news-blink-backend/src/app.py
+        backend_cwd = os.path.join('news-blink-backend', 'src')
+        if not os.path.exists(os.path.join(backend_cwd, 'app.py')):
+            print(f"[SYSTEM-ERROR] Fallback app.py not found at {os.path.join(backend_cwd, 'app.py')}. Backend cannot start with this method.")
+            backend_command = None # Clear command if app.py is missing
+    else:
+        # Original logic if not in blink_venv (or venv detection failed)
+        # This includes PATH-based lookup for news-blink-backend console script,
+        # then fallback to app.py if that fails.
+        print(f"[SYSTEM] Not in '{VENV_NAME}' or venv not detected reliably. Using standard PATH lookup or app.py fallback for backend.")
+
         found_path = shutil.which(command_backend_console[0])
         if found_path:
             print(f"[SYSTEM] '{command_backend_console[0]}' command found via shutil.which at: {found_path}")
             backend_command = command_backend_console
+            backend_cwd = None # Console script typically run from project root
         else:
             print(f"[SYSTEM] shutil.which did not find '{command_backend_console[0]}'. Trying original 'which'/'where'.")
             try:
@@ -120,15 +144,15 @@ if __name__ == "__main__":
                 subprocess.check_output(check_cmd_str, shell=(os.name == 'nt' and check_cmd_str[0] == 'where'), stderr=subprocess.DEVNULL)
                 print(f"[SYSTEM] '{command_backend_console[0]}' command seems available via PATH (using 'which'/'where').")
                 backend_command = command_backend_console
+                backend_cwd = None
             except (subprocess.CalledProcessError, FileNotFoundError):
-                print(f"[SYSTEM] '{command_backend_console[0]}' command not found via PATH. Falling back to app.py.")
-                backend_command = [sys.executable, 'app.py']
+                print(f"[SYSTEM] '{command_backend_console[0]}' command not found via PATH. Falling back to app.py (standard fallback).")
+                backend_command = [sys.executable, 'app.py'] # Use current python, could be global
                 backend_cwd = os.path.join('news-blink-backend', 'src')
                 if not os.path.exists(os.path.join(backend_cwd, 'app.py')):
                     print(f"[SYSTEM-ERROR] Fallback app.py not found at {os.path.join(backend_cwd, 'app.py')}. Backend cannot start.")
                     backend_command = None
 
-    backend_env = None
     if backend_command:
         def start_backend_task():
             global backend_proc
