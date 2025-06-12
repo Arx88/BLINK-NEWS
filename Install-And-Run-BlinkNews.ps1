@@ -55,8 +55,27 @@ try {
 }
 
 Function Test-Admin {
-    $currentUser = New-Object Security.Principal.WindowsPrincipal $(New-Object Security.Principal.WindowsIdentity).GetCurrent()
-    $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+    try {
+        # Get current Windows user identity
+        $windowsIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $windowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($windowsIdentity)
+
+        # Check if the user is an Administrator
+        $isAdmin = $windowsPrincipal.IsInRole([System.Security.Principal.WindowsBuiltinRole]::Administrator)
+        return $isAdmin
+    } catch {
+        Write-Warning "----------------------------------------------------------------------------------"
+        Write-Warning "WARNING: The automatic check for Administrator privileges failed."
+        Write-Warning "Error during check: $($_.Exception.Message)"
+        Write-Warning "The script will attempt to continue. However, operations like installing software"
+        Write-Warning "with winget may require Administrator rights."
+        Write-Warning "If subsequent steps fail, please ensure you are running this script"
+        Write-Warning "from a PowerShell window that was 'Run as administrator'."
+        Write-Warning "----------------------------------------------------------------------------------"
+        # Default to assuming not admin if the check itself fails, to be cautious.
+        # This will trigger the script's main logic to warn about needing admin for winget.
+        return $false
+    }
 }
 
 # --- Main Script Logic ---
@@ -65,26 +84,18 @@ try {
     Write-Host "This script will guide you through installing dependencies and running the application."
     Write-Host "---------------------------------------------------------------------------" # This is the existing line (75 dashes)
 
-    Write-Host "DEBUG: Checkpoint 1 - After initial introductory messages"
     if (-not (Test-Admin)) {
-        Write-Host "DEBUG: Checkpoint 2 - Condition '(-not (Test-Admin))' is TRUE (User is NOT Admin)"
         Write-Warning "This script may need Administrator privileges to install software using winget."
         Write-Warning "If installations fail, please try running this script as an Administrator."
         # No exit here, script will continue and likely fail at winget if admin is truly needed
-    } else {
-        Write-Host "DEBUG: Checkpoint 3 - Condition '(-not (Test-Admin))' is FALSE (User IS Admin or check not triggered)"
     }
 
-    Write-Host "DEBUG: Checkpoint 4 - About to check for winget"
     # --- Check for winget ---
     Write-Host ""
     Write-Host "Step 1: Checking for winget package manager..."
-    Write-Host "DEBUG: Checkpoint 5 - After 'Checking for winget' message"
     $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
-    Write-Host "DEBUG: Checkpoint 6 - After Get-Command winget. wingetPath object is: '$($wingetPath | Out-String -Width 200)'"
 
     if ($null -eq $wingetPath) {
-        Write-Host "DEBUG: Checkpoint 7 - wingetPath is null (winget not found by Get-Command)"
         Write-Warning "----------------------------------------------------------------------------------"
         Write-Warning "ERROR: winget command not found."
         Write-Warning "winget is required to automatically install Python and Node.js."
@@ -98,20 +109,14 @@ try {
         Read-Host -Prompt "Press Enter to exit script"
         exit 1
     } else {
-        Write-Host "DEBUG: Checkpoint 8 - wingetPath is NOT null (winget found by Get-Command)"
         Write-Host "winget found at: $($wingetPath.Source)"
-        Write-Host "DEBUG: Checkpoint 9 - About to try 'winget --version'"
         try {
             $wingetVersionOutput = winget --version
-            Write-Host "DEBUG: Checkpoint 10 - 'winget --version' command successful. Output: $wingetVersionOutput"
         } catch {
-            Write-Host "DEBUG: Checkpoint 11 - 'winget --version' command FAILED"
             Write-Warning "Could not retrieve winget version (command failed), but Get-Command found it. Error: $($_.Exception.Message)"
             # Allow to continue if Get-Command found it, as it might still work
         }
-        Write-Host "DEBUG: Checkpoint 12 - End of winget check block (winget was found)"
     }
-    Write-Host "DEBUG: Checkpoint 13 - After winget check block"
     Write-Host "---------------------------------------------------------------------------"
 
     # --- Install Python via winget if not found ---
