@@ -35,7 +35,8 @@ news-blink-project/
 │   ├── package.json          # Dependencias de Node.js y scripts
 │   ├── vite.config.js        # Configuración de Vite
 │   └── ...
-├── setup.py                  # Script de instalación para el backend
+├── setup.py                  # Script de instalación unificado (backend y frontend)
+├── start.py                  # Script para iniciar la aplicación completa (backend y frontend)
 ├── README.md                 # Esta guía de uso
 └── analisis_funcionalidades.md # Análisis de funcionalidades (proporcionado por el usuario)
 ```
@@ -46,13 +47,13 @@ Para poner en marcha la aplicación News Blink, sigue los siguientes pasos:
 
 ### 2.1. Ollama (Servidor de Modelos de Lenguaje)
 
-Para que el backend pueda generar resúmenes con IA, necesitarás tener Ollama instalado y ejecutándose en tu sistema. Sigue estos pasos:
+Es un **prerrequisito indispensable** tener Ollama instalado y ejecutándose en tu sistema para que el backend pueda generar resúmenes con IA.
 
 1.  **Descarga e instala Ollama:**
     Visita el sitio web oficial de Ollama: `https://ollama.com/` y descarga el instalador para tu sistema operativo (Windows, macOS, Linux). Sigue las instrucciones de instalación.
 
 2.  **Inicia el servidor de Ollama:**
-    Una vez instalado, Ollama se ejecutará automáticamente en segundo plano. Puedes verificar su estado abriendo una terminal y ejecutando:
+    Una vez instalado, Ollama debería ejecutarse automáticamente. Puedes verificar su estado abriendo una terminal y ejecutando:
     ```bash
     ollama list
     ```
@@ -63,65 +64,71 @@ Para que el backend pueda generar resúmenes con IA, necesitarás tener Ollama i
     ```bash
     ollama pull llama3
     ```
-    Este proceso puede tardar un tiempo dependiendo de tu conexión a internet y el tamaño del modelo. Asegúrate de que el modelo `llama3` esté disponible, ya que el código del backend está configurado para usarlo por defecto.
+    Este proceso puede tardar un tiempo. Asegúrate de que el modelo `llama3` esté disponible, ya que el código del backend está configurado para usarlo por defecto.
 
-### 2.2. Backend (Python)
+### 2.2. Instalación Unificada (Backend y Frontend)
+
+El proceso de instalación se ha simplificado para configurar tanto el backend como el frontend.
 
 1.  **Navega al directorio raíz del proyecto:**
+    (Por ejemplo: `/home/ubuntu/news-blink-app/news-blink-project`)
     ```bash
-    cd /home/ubuntu/news-blink-app/news-blink-project
+    cd ruta/al/directorio/raiz/del/proyecto
     ```
-2.  **Instala las dependencias del backend:**
-    Hemos proporcionado un archivo `setup.py` para simplificar la instalación de las dependencias de Python. Ejecuta el siguiente comando:
+
+2.  **Ejecuta el script de instalación:**
+    Utiliza `pip` para instalar el proyecto. Este comando se encargará de:
+    *   Instalar las dependencias de Python para el backend (Flask, nltk, etc.).
+    *   Intentar instalar `pnpm` globalmente usando `npm install -g pnpm` (si `npm` está disponible y los permisos lo permiten). `pnpm` es necesario para las dependencias del frontend.
+    *   Navegar al directorio `news-blink-frontend` y ejecutar `pnpm install` para instalar las dependencias del frontend (como React, Vite, etc.).
+
     ```bash
     pip install .
     ```
-    Esto instalará Flask, Flask-CORS, requests, beautifulsoup4, nltk y la librería `ollama` para Python, y configurará el backend como un paquete Python.
 
-### 2.3. Frontend (Node.js/React)
+3.  **Nota sobre la instalación de dependencias del Frontend:**
+    El proceso de `pip install .` intentará automatizar la instalación de las dependencias del frontend. Sin embargo, debido a posibles limitaciones del entorno de ejecución (como errores de permisos con `sudo` o problemas con `npm`/`pnpm` en entornos específicos), este paso podría fallar.
 
-1.  **Navega al directorio del frontend:**
-    ```bash
-    cd /home/ubuntu/news-blink-app/news-blink-project/news-blink-frontend
-    ```
-2.  **Instala `pnpm` (si no lo tienes):**
-    El proyecto utiliza `pnpm` como gestor de paquetes. Si no lo tienes instalado globalmente, puedes instalarlo con npm:
-    ```bash
-    npm install -g pnpm
-    ```
-3.  **Instala las dependencias del frontend:**
-    ```bash
-    pnpm install
-    ```
+    Si después de ejecutar `pip install .`, la aplicación frontend no se inicia correctamente (por ejemplo, con errores como "vite: not found" o relacionados con `node_modules`), es posible que necesites realizar los siguientes pasos manualmente:
+
+    *   **Asegúrate de tener `pnpm` instalado globalmente:**
+        Si el script no pudo instalarlo o si prefieres hacerlo manualmente:
+        ```bash
+        npm install -g pnpm
+        ```
+    *   **Instala las dependencias del frontend manualmente:**
+        Navega al directorio del frontend:
+        ```bash
+        cd news-blink-frontend
+        ```
+        Y luego ejecuta:
+        ```bash
+        pnpm install
+        ```
+        Luego, regresa al directorio raíz del proyecto para ejecutar la aplicación.
+        ```bash
+        cd ..
+        ```
 
 ## 3. Ejecución de la Aplicación
 
-Para ejecutar la aplicación News Blink, deberás iniciar tanto el backend como el frontend por separado.
+Una vez completada la configuración e instalación:
 
-### 3.1. Iniciar el Backend
-
-1.  **Asegúrate de que Ollama esté corriendo y el modelo `llama3` esté descargado.**
-2.  **Asegúrate de estar en el directorio `src` del backend:**
+1.  **Asegúrate de que Ollama esté corriendo y el modelo `llama3` esté descargado y accesible.** (Ver sección 2.1).
+2.  **Navega al directorio raíz del proyecto** (si no estás ya allí).
+3.  **Ejecuta el script `start.py`:**
+    Este script se encargará de iniciar tanto el servidor backend como el servidor de desarrollo del frontend de manera concurrente.
     ```bash
-    cd /home/ubuntu/news-blink-app/news-blink-project/news-blink-backend/src
+    python start.py
     ```
-3.  **Ejecuta la aplicación Flask:**
+    o, si tienes múltiples versiones de Python:
     ```bash
-    python3 app.py
+    python3 start.py
     ```
-    El backend se iniciará y estará disponible en `http://127.0.0.1:5000` (o el puerto configurado). La base de datos `app.db` se creará automáticamente si no existe.
-
-### 3.2. Iniciar el Frontend
-
-1.  **Asegúrate de estar en el directorio raíz del frontend:**
-    ```bash
-    cd /home/ubuntu/news-blink-app/news-blink-project/news-blink-frontend
-    ```
-2.  **Ejecuta la aplicación React con Vite:**
-    ```bash
-    pnpm run dev
-    ```
-    El frontend se iniciará y se abrirá automáticamente en tu navegador predeterminado (generalmente `http://localhost:5173/` o un puerto similar). Asegúrate de que el backend esté corriendo para que el frontend pueda obtener los datos.
+    *   El **backend** (Flask) intentará iniciarse, generalmente en `http://127.0.0.1:5000`.
+    *   El **frontend** (Vite) intentará iniciarse, generalmente en `http://localhost:5173/`.
+    *   Podrás ver los logs de ambos procesos en la consola, prefijados con `[BACKEND]` o `[FRONTEND]`.
+    *   Para detener ambos servicios, presiona `Ctrl+C` en la terminal donde se está ejecutando `start.py`.
 
 ## 4. Funcionalidades Clave
 
@@ -147,8 +154,8 @@ El frontend, desarrollado con React, proporciona una interfaz intuitiva para:
 
 ## 5. Notas Adicionales
 
--   **Base de Datos:** El backend utiliza una base de datos SQLite (`app.db`) para almacenar la información de las noticias y los blinks. Esta base de datos se creará automáticamente la primera vez que se ejecute el backend.
+-   **Base de Datos:** El backend utiliza una base de datos SQLite (`app.db` dentro de `news-blink-backend/src/database/`) para almacenar la información de las noticias y los blinks.
 -   **Personalización:** Puedes explorar el código fuente en los directorios `news-blink-backend/src` y `news-blink-frontend/src` para personalizar la lógica de recolección de noticias, los algoritmos de resumen o la interfaz de usuario.
 -   **Despliegue:** Para un despliegue en producción, se recomienda utilizar un servidor web como Gunicorn o uWSGI para el backend de Flask y un servidor como Nginx o Apache para servir los archivos estáticos del frontend.
 
-
+```
