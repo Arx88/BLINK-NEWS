@@ -1,1 +1,12 @@
-{"code":"rate-limited","message":"You have hit the rate limit. Please <a class=\"__boltUpgradePlan__\">Upgrade</a> to keep chatting, or you can continue coding for free in the editor.","providerLimitHit":false,"isRetryable":true}
+import React from 'react';
+
+function App() {
+  return (
+    <div>
+      <h1>Hello from Blink News App!</h1>
+      {/* You will need to restore your application's specific components and structure here */}
+    </div>
+  );
+}
+
+export default App;
