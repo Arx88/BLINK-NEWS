@@ -4,6 +4,7 @@ import sys
 import threading
 import signal
 import time
+import shutil # Added shutil
 
 # List to keep track of Popen objects for cleanup
 processes = []
@@ -105,50 +106,58 @@ if __name__ == "__main__":
     frontend_proc = None
 
     # 1. Start Backend
-    backend_cwd = None
+    backend_command = None # Initialize backend_command
+    backend_cwd = None # Initialize backend_cwd
     backend_env = None # Could be set e.g. {'FLASK_ENV': 'development'}
+    command_backend_console = ['news-blink-backend'] # Default console command name
 
-    # Try starting backend with the console script first
-    command_backend_console = ['news-blink-backend']
-    print(f"[SYSTEM] Attempting to start backend using console script: {' '.join(command_backend_console)}")
+    # Check if running in a virtual environment
+    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+        # We are in a virtual environment
+        print(f"[SYSTEM] Virtual environment detected at: {sys.prefix}")
+        if os.name == 'nt': # Windows
+            # Correctly form the path to the executable in Windows
+            venv_executable_path = os.path.join(sys.prefix, 'Scripts', 'news-blink-backend.exe')
+        else: # POSIX (Linux, macOS, Git Bash)
+            venv_executable_path = os.path.join(sys.prefix, 'bin', 'news-blink-backend')
 
-    # We need to run this attempt in a way that we can catch FileNotFoundError specifically
-    # for the command itself, not for run_command. So, a preliminary check or structure run_command.
-    # For simplicity here, run_command already prints a FileNotFoundError.
-    # We'll check the return value of run_command.
+        print(f"[SYSTEM] Attempting to use venv executable: {venv_executable_path}")
+        if os.path.exists(venv_executable_path):
+            print(f"[SYSTEM] Found venv executable: {venv_executable_path}")
+            backend_command = [venv_executable_path]
+            # backend_cwd remains None (or project root) for console scripts from venv
+        else:
+            print(f"[SYSTEM] Venv executable not found at: {venv_executable_path}")
+    else:
+        print("[SYSTEM] No virtual environment detected by sys.prefix inspection.")
 
-    # To truly distinguish between 'command not found' and 'command failed to start but was found',
-    # Popen is called inside run_command. So run_command will return None on FileNotFoundError.
+    # Fallback logic if venv executable wasn't found or not in a venv
+    if not backend_command:
+        print("[SYSTEM] Venv-specific backend script not found or not in a venv. Trying PATH-based lookup.")
+        try:
+            found_path = shutil.which(command_backend_console[0])
+            if found_path:
+                print(f"[SYSTEM] '{command_backend_console[0]}' command found via shutil.which at: {found_path}")
+                backend_command = command_backend_console # Still use the simple name, let Popen resolve via PATH
+                backend_cwd = None
+            else: # Fallback to original 'where' or 'which' if shutil.which fails
+                print(f"[SYSTEM] shutil.which did not find '{command_backend_console[0]}'. Trying original 'which'/'where'.")
+                # For 'where' on Windows, shell=True is often needed as it's a CMD built-in.
+                # For 'which' on POSIX, shell=False is safer.
+                check_command = ['which', command_backend_console[0]] if os.name != 'nt' else ['where', command_backend_console[0]]
+                use_shell_for_check = (os.name == 'nt' and check_command[0] == 'where')
+                subprocess.check_output(check_command, shell=use_shell_for_check, stderr=subprocess.DEVNULL)
+                print(f"[SYSTEM] '{command_backend_console[0]}' command seems available via PATH (using 'which'/'where').")
+                backend_command = command_backend_console
+                backend_cwd = None
 
-    # backend_thread = threading.Thread(target=run_command, args=(command_backend_console, "BACKEND", backend_cwd, backend_env), daemon=True)
-    # process_threads.append(backend_thread)
-    # backend_thread.start()
-    # backend_thread.join(timeout=0.5) # Give it a moment to start or fail with FileNotFoundError
-
-    # Check if backend started (processes list would be populated by run_command)
-    # This is a bit tricky because run_command itself handles the Popen.
-    # A better way: run_command should raise an exception on FileNotFoundError for the Popen call itself.
-    # For now, let's assume if the processes list is empty after trying to start backend, it failed.
-
-    # Simplified check: if the first process in `processes` (if any) corresponds to the backend and failed early.
-    # This logic is getting complicated due to how `run_command` is structured.
-    # A simpler way for this script:
-    # Try Popen directly here for the first attempt to catch FileNotFoundError.
-
-    try:
-        # Try to see if 'news-blink-backend' is resolvable by the system (quick check)
-        # This doesn't run it, just checks if the system can find it.
-        # Added shell=True for Windows compatibility with 'where' and to handle PATH correctly.
-        subprocess.check_output(['which', 'news-blink-backend'] if os.name != 'nt' else ['where', 'news-blink-backend'], shell=(os.name == 'nt'), stderr=subprocess.DEVNULL)
-        print("[SYSTEM] 'news-blink-backend' command seems available.")
-        backend_command = command_backend_console
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("[SYSTEM] 'news-blink-backend' command not found or 'which'/'where' failed. Falling back to app.py.")
-        backend_command = [sys.executable, 'app.py']
-        backend_cwd = os.path.join('news-blink-backend', 'src')
-        if not os.path.exists(os.path.join(backend_cwd, 'app.py')):
-            print(f"[SYSTEM-ERROR] Fallback app.py not found at {os.path.join(backend_cwd, 'app.py')}. Backend cannot start.")
-            backend_command = None # Prevent starting
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print(f"[SYSTEM] '{command_backend_console[0]}' command not found via PATH. Falling back to app.py.")
+            backend_command = [sys.executable, 'app.py']
+            backend_cwd = os.path.join('news-blink-backend', 'src')
+            if not os.path.exists(os.path.join(backend_cwd, 'app.py')):
+                print(f"[SYSTEM-ERROR] Fallback app.py not found at {os.path.join(backend_cwd, 'app.py')}. Backend cannot start.")
+                backend_command = None # Prevent starting
 
     if backend_command:
         # Using a lambda to assign the result of run_command to the global backend_proc
