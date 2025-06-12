@@ -409,27 +409,10 @@ try {
         $BackendCommandBlock = {
             param($PassedPythonForApp, $PassedBackendScriptToRun)
 
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] This window is for the Backend."
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial VIRTUAL_ENV: $($env:VIRTUAL_ENV)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial CONDA_PREFIX: $($env:CONDA_PREFIX)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial CONDA_DEFAULT_ENV: $($env:CONDA_DEFAULT_ENV)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial CONDA_SHLVL: $($env:CONDA_SHLVL)"
-
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Attempting to nullify Conda env vars for this process..."
-            $env:CONDA_PREFIX = $null
-            $env:CONDA_DEFAULT_ENV = $null
-            $env:CONDA_PROMPT_MODIFIER = $null
-            # $env:CONDA_SHLVL = "" # Decided not to touch shlvl initially
-
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] VIRTUAL_ENV (should be unchanged from parent): $($env:VIRTUAL_ENV)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_PREFIX (after nullify): $($env:CONDA_PREFIX)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_DEFAULT_ENV (after nullify): $($env:CONDA_DEFAULT_ENV)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_PROMPT_MODIFIER (after nullify): $($env:CONDA_PROMPT_MODIFIER)"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_SHLVL (should be unchanged from parent): $($env:CONDA_SHLVL)"
-
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Executing Backend with Python: $PassedPythonForApp"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Backend script: $PassedBackendScriptToRun"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] --- BEGIN BACKEND APP OUTPUT ---"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] This window is for the Backend."
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] Attempting to execute Backend with Python: $PassedPythonForApp"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] Attempting to execute backend script: $PassedBackendScriptToRun"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] --- BEGIN BACKEND APP OUTPUT ---"
 
             # Execute the backend application
             & $PassedPythonForApp $PassedBackendScriptToRun
