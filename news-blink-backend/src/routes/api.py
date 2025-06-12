@@ -8,23 +8,40 @@ import time
 
 from models.scraper import NewsScraper
 from models.blink_generator import BlinkGenerator
-from models.news import News
+# from models.news import News # Original import
 
 # Crear blueprint para las rutas de la API
 api_bp = Blueprint('api', __name__)
+
+NEWS_MODEL_AVAILABLE = False
+News = None # Ensure News is defined in both try and except scopes for linters
+try:
+    from models.news import News
+    NEWS_MODEL_AVAILABLE = True
+    print("[API] News model loaded successfully.")
+except ModuleNotFoundError:
+    # News remains None
+    print("[API] WARNING: 'models.news' not found. News functionality will be disabled.")
+except ImportError as e: # Catch other import errors too
+    print(f"[API] WARNING: Could not import 'models.news' due to an ImportError: {e}. News functionality will be disabled.")
 
 # Directorio para almacenar datos
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # Inicializar modelos
-news_model = News(DATA_DIR)
+if NEWS_MODEL_AVAILABLE:
+    news_model = News(DATA_DIR)
+else:
+    news_model = None
 scraper = NewsScraper()
 blink_generator = BlinkGenerator()
 
 @api_bp.route('/news', methods=['GET'])
 def get_news():
     """API para obtener noticias en formato BLINK"""
+    if news_model is None:
+        return jsonify({'error': 'News service is currently unavailable due to missing components.', 'status': 'error_news_model_missing'}), 503
     category = request.args.get('category', 'all')
     tab = request.args.get('tab', 'ultimas')
     
@@ -66,6 +83,8 @@ def get_news():
 @api_bp.route('/article/<article_id>', methods=['GET'])
 def get_article(article_id):
     """API para obtener un artículo específico"""
+    if news_model is None:
+        return jsonify({'error': 'News service is currently unavailable due to missing components.', 'status': 'error_news_model_missing'}), 503
     article = news_model.get_article(article_id)
     
     if not article:
@@ -76,6 +95,8 @@ def get_article(article_id):
 @api_bp.route('/blink/<blink_id>', methods=['GET'])
 def get_blink(blink_id):
     """API para obtener un blink específico"""
+    if news_model is None:
+        return jsonify({'error': 'News service is currently unavailable due to missing components.', 'status': 'error_news_model_missing'}), 503
     blink = news_model.get_blink(blink_id)
     
     if not blink:
@@ -86,6 +107,8 @@ def get_blink(blink_id):
 @api_bp.route('/vote', methods=['POST'])
 def vote():
     """API para registrar votos"""
+    if news_model is None:
+        return jsonify({'error': 'News service is currently unavailable due to missing components.', 'status': 'error_news_model_missing'}), 503
     data = request.json
     article_id = data.get('articleId')
     vote_type = data.get('type')  # 'like' o 'dislike'
@@ -112,6 +135,9 @@ def health_check():
 def collect_and_process_news():
     """Recopila y procesa noticias de todas las fuentes"""
     try:
+        if news_model is None:
+            print("[API] collect_and_process_news: News model not available. Aborting collection.")
+            return
         print("Iniciando recopilación de noticias...")
         
         # Recopilar noticias de todas las fuentes
