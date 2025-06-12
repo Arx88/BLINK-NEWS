@@ -10,8 +10,17 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import re
-from models.image_generator import ImageGenerator
+# from models.image_generator import ImageGenerator # Original import
 import ollama
+
+try:
+    from models.image_generator import ImageGenerator
+    IMAGE_GENERATOR_AVAILABLE = True
+    print("[BlinkGenerator] ImageGenerator loaded successfully.")
+except ModuleNotFoundError:
+    ImageGenerator = None  # Define ImageGenerator as None if module is not found
+    IMAGE_GENERATOR_AVAILABLE = False
+    print("[BlinkGenerator] WARNING: 'models.image_generator' not found. Image generation feature will be disabled.")
 
 class BlinkGenerator:
     """Clase para generar resúmenes en formato BLINK a partir de noticias"""
@@ -30,7 +39,10 @@ class BlinkGenerator:
             nltk.download('stopwords')
         
         # Inicializar el generador de imágenes
-        self.image_generator = ImageGenerator()
+        if IMAGE_GENERATOR_AVAILABLE:
+            self.image_generator = ImageGenerator()
+        else:
+            self.image_generator = None
         
         # Inicializar el cliente de Ollama
         self.ollama_client = ollama.Client(host='http://localhost:11434') # Asume Ollama corriendo localmente
@@ -75,9 +87,16 @@ class BlinkGenerator:
                 if 'summary' in item and item['summary']:
                     combined_content += " " + item['summary']
         
-        # Si no se encontró ninguna imagen, generar una automáticamente
-        if not image_url:
-            image_url = self.image_generator.generate_image_for_blink(title, combined_content)
+            # Si no se encontró ninguna imagen y el generador de imágenes está disponible, generar una automáticamente
+            if not image_url and self.image_generator:
+                print("[BlinkGenerator] Attempting to generate image with ImageGenerator...")
+                try:
+                    image_url = self.image_generator.generate_image_for_blink(title, combined_content)
+                except Exception as e:
+                    print(f"[BlinkGenerator] ERROR: ImageGenerator failed: {e}")
+                    # image_url remains None or its previous value
+            elif not image_url:
+                print("[BlinkGenerator] ImageGenerator not available. Skipping automatic image generation.")
         
         # Generar puntos clave usando Ollama
         points = self.generate_ollama_summary(combined_content, title)
