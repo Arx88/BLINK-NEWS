@@ -263,21 +263,59 @@ try {
     Write-Host ""
     Write-Host "Step 4: Setting up Python virtual environment ('blink_venv')..."
     $VenvDir = "blink_venv"
-    $PythonFromVenv = Join-Path -Path $PSScriptRoot -ChildPath (Join-Path $VenvDir "Scripts\python.exe") # Absolute path
+    $VenvPath = Join-Path -Path $PSScriptRoot -ChildPath $VenvDir
+    $PyvenvCfgPath = Join-Path -Path $VenvPath -ChildPath "pyvenv.cfg"
+    $PythonFromVenv = Join-Path -Path $VenvPath -ChildPath "Scripts\python.exe" # Absolute path
+
+    # Comprobar si blink_venv existe y si pyvenv.cfg también.
+    if (Test-Path $VenvPath) {
+        if (-not (Test-Path $PyvenvCfgPath)) {
+            Write-Warning "[CONFIG_VENV] Virtual environment '$VenvDir' exists but 'pyvenv.cfg' is missing."
+            Write-Warning "[CONFIG_VENV] This indicates a potentially corrupt venv. Attempting to remove and recreate '$VenvDir'."
+            try {
+                Remove-Item -Recurse -Force $VenvPath -ErrorAction Stop
+                Write-Host "[CONFIG_VENV] Successfully removed existing '$VenvDir'."
+            } catch {
+                Write-Error "[CONFIG_VENV] Failed to remove existing '$VenvDir' at '$VenvPath'. Error: $($_.Exception.Message)"
+                Write-Error "[CONFIG_VENV] Please remove this directory manually and re-run the script."
+                Read-Host -Prompt "Press Enter to exit script"
+                exit 1
+            }
+        } else {
+            Write-Host "[CONFIG_VENV] Virtual environment '$VenvDir' and 'pyvenv.cfg' found. Venv seems OK."
+        }
+    }
+
+    # La lógica existente para crear el venv si no existe (o si fue eliminado arriba)
+    # La condición original if (-not (Test-Path $PythonFromVenv)) es todavía una buena comprobación final,
+    # porque incluso si pyvenv.cfg existe, Scripts\python.exe podría faltar por otras razones.
+    # O podemos simplificarla a if (-not (Test-Path $VenvPath)) si la eliminación fue exitosa.
+    # Mejor ser explícito: si después de todo, PythonFromVenv no es ejecutable, intentar crear.
 
     if (-not (Test-Path $PythonFromVenv)) {
-        Write-Host "Creating Python virtual environment in '$VenvDir' folder..."
+        # Si $VenvPath aún existe aquí pero $PythonFromVenv no, algo está muy mal.
+        # Pero la lógica de creación debería manejarlo si $VenvPath no existe (porque fue eliminado).
+        if (Test-Path $VenvPath) {
+             Write-Warning "[CONFIG_VENV] '$VenvDir' exists, 'pyvenv.cfg' might exist, but '$($PythonFromVenv)' is missing. Attempting venv creation/repair."
+        } # else, $VenvPath no existe (fue eliminado o nunca existió), así que la creación es necesaria.
+
+        Write-Host "[CONFIG_VENV] Creating Python virtual environment in '$VenvDir' folder..."
         try {
             $PythonToUseForVenv = if ($null -ne $PythonExePath -and (Test-Path $PythonExePath.Source)) { $PythonExePath.Source } else { "python" }
-            Invoke-Expression "$PythonToUseForVenv -m venv (Join-Path -Path $PSScriptRoot -ChildPath $VenvDir)"
-            Write-Host "Virtual environment created."
+            Invoke-Expression "$PythonToUseForVenv -m venv $VenvPath" # Usar $VenvPath directamente
+            Write-Host "[CONFIG_VENV] Virtual environment creation command executed for '$VenvPath'."
+            if (-not (Test-Path $PythonFromVenv)) {
+                throw "[CONFIG_VENV] Python executable still not found at '$PythonFromVenv' after venv creation."
+            }
+            Write-Host "[CONFIG_VENV] Virtual environment successfully verified with Python at '$PythonFromVenv'."
         } catch {
-            Write-Error "Failed to create Python virtual environment. Error: $($_.Exception.Message)"
+            Write-Error "[CONFIG_VENV] Failed to create or verify Python virtual environment. Error: $($_.Exception.Message)"
             Read-Host -Prompt "Press Enter to exit script"
             exit 1
         }
     } else {
-        Write-Host "Python virtual environment '$VenvDir' already exists."
+        # Esta condición se daría si $VenvPath y $PyvenvCfgPath existían Y $PythonFromVenv también existía.
+        Write-Host "[CONFIG_VENV] Python virtual environment '$VenvDir' already exists and seems valid."
     }
 
     Write-Host "Installing Python dependencies from requirements.txt into the virtual environment..."
