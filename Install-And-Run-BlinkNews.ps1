@@ -409,7 +409,7 @@ try {
             Write-Error "Failed to run 'pnpm install' for frontend at '$($FrontendPathAbs)'. Error: $($_.Exception.Message)"
             Write-Warning "The frontend might not start correctly without its dependencies."
         }
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", "& $PnpmCmdForAppStart --prefix '$FrontendPathAbs' run dev" -WindowStyle Normal
+        Start-Process powershell -ArgumentList "-NoExit", "-Command", "& $PnpmCmdForAppStart --prefix '$FrontendPathAbs' run dev -- --debug" -WindowStyle Normal
         Write-Host "Frontend process launch command issued."
         Write-Host "Look for a new window. Frontend typically runs on http://localhost:5173"
     } catch {
