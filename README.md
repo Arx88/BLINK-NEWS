@@ -185,3 +185,10 @@ El frontend, desarrollado con React, proporciona una interfaz intuitiva para:
 -   **Despliegue:** Para un despliegue en producción, se recomienda utilizar un servidor web como Gunicorn o uWSGI para el backend de Flask y un servidor como Nginx o Apache para servir los archivos estáticos del frontend.
 
 ```
+
+---
+## Automated Installation on Windows (PowerShell)
+
+For users on Windows, a PowerShell script is provided to automate the installation of dependencies (like Python and Node.js using `winget`) and run the application.
+
+Please see [USAGE_POWERSHELL_INSTALLER.md](./USAGE_POWERSHELL_INSTALLER.md) for detailed instructions.
