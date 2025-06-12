@@ -33,16 +33,30 @@ then
 fi
 echo "--- Virtual environment 'blink_venv' created successfully. ---"
 
+# Determine the path to python executable within the venv
+VENV_PYTHON_EXEC="blink_venv/bin/python" # Default for POSIX-like shims in Git Bash
+if [ -f "blink_venv/Scripts/python.exe" ]; then
+    VENV_PYTHON_EXEC="blink_venv/Scripts/python.exe"
+    echo "--- Found Windows-style venv Python at $VENV_PYTHON_EXEC ---"
+elif [ -f "blink_venv/bin/python" ]; then
+    echo "--- Found POSIX-style venv Python at $VENV_PYTHON_EXEC ---"
+else
+    echo "--- ERROR: Python executable not found in blink_venv/Scripts or blink_venv/bin. ---"
+    exit 1
+fi
+
 echo "--- Upgrading pip, setuptools, and wheel in virtual environment... ---"
-if ! blink_venv/bin/python -m pip install --upgrade pip setuptools wheel; then
+if ! "$VENV_PYTHON_EXEC" -m pip install --upgrade pip setuptools wheel; then
     echo "--- ERROR: Failed to upgrade pip, setuptools, or wheel. ---"
     exit 1
 fi
 echo "--- Build tools upgraded successfully. ---"
 
 # Install dependencies using pip from the virtual environment
+# Note: pip itself is usually directly available in blink_venv/bin/pip or blink_venv/Scripts/pip.
+# Using "$VENV_PYTHON_EXEC -m pip" is a robust way to call the venv's pip.
 echo "--- Installing dependencies from requirements.txt into blink_venv... ---"
-if ! blink_venv/bin/pip install -r requirements.txt; then
+if ! "$VENV_PYTHON_EXEC" -m pip install -r requirements.txt; then
     echo "--- ERROR: Failed to install dependencies from requirements.txt. ---"
     exit 1
 fi
@@ -50,7 +64,7 @@ echo "--- Dependencies installed successfully. ---"
 
 # Install BLINK NEWS application using python from the virtual environment
 echo "--- Installing BLINK NEWS application into blink_venv... ---"
-if ! blink_venv/bin/python setup.py install; then
+if ! "$VENV_PYTHON_EXEC" setup.py install; then
     echo "--- ERROR: Failed to install BLINK NEWS application. ---"
     exit 1
 fi
