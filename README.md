@@ -65,42 +65,26 @@ Es un **prerrequisito indispensable** tener Ollama instalado y ejecutándose en 
     ```
     Este proceso puede tardar un tiempo. Asegúrate de que el modelo `llama3` esté disponible, ya que el código del backend está configurado para usarlo por defecto.
 
-### 2.2. Configuración del Backend (Python)
+### 2.2. Configuración del Backend y Dependencias (Python)
 
-El backend de News Blink requiere Python y sus dependencias gestionadas a través de un entorno virtual.
+La instalación del backend de News Blink y sus dependencias ahora está automatizada mediante un script.
 
-1.  **Crea un entorno virtual:**
-    Navega al directorio raíz del proyecto y ejecuta:
+1.  **Ejecuta el script de instalación:**
+    Navega al directorio raíz del proyecto y ejecuta el siguiente comando:
     ```bash
-    python -m venv venv
+    bash install_blink_news.sh
     ```
-    Esto creará una carpeta `venv` en el raíz del proyecto.
 
-2.  **Activa el entorno virtual:**
-    *   En macOS/Linux:
-        ```bash
-        source venv/bin/activate
-        ```
-    *   En Windows (Git Bash o similar):
-        ```bash
-        source venv/Scripts/activate
-        ```
-    *   En Windows (Command Prompt):
-        ```bash
-        .\venv\Scripts\activate
-        ```
-    Deberías ver `(venv)` al principio de tu prompt de terminal.
+2.  **¿Qué hace el script?**
+    El script `install_blink_news.sh` realizará los siguientes pasos:
+    *   Verifica si Python 3 y pip están instalados en tu sistema.
+    *   Crea un entorno virtual aislado llamado `blink_venv` en el directorio raíz del proyecto.
+    *   Activa el entorno virtual.
+    *   Instala todas las dependencias de Python necesarias, listadas en el archivo `requirements.txt`, dentro de `blink_venv`.
+    *   Instala la aplicación backend de BLINK NEWS (utilizando `setup.py`) dentro de `blink_venv`.
 
-3.  **Instala las dependencias de Python:**
-    Asegúrate de que tu entorno virtual esté activado. Luego, desde el directorio raíz del proyecto, ejecuta:
-    ```bash
-    pip install -r requirements.txt
-    ```
-    Alternativamente, si deseas que el comando `news-blink-backend` esté disponible directamente (por ejemplo, para desarrollo o si `start.py` lo utiliza preferentemente), puedes instalar el paquete en modo editable:
-    ```bash
-    pip install -e .
-    ```
-    Esto también instalará las dependencias listadas en `setup.py` (que son las mismas de `requirements.txt`).
+3.  **Nota:**
+    El script te guiará a través del proceso. Si encuentra algún problema (como la falta de Python 3), mostrará un mensaje de error con instrucciones sobre cómo proceder. Asegúrate de tener conexión a internet para la descarga de las dependencias.
 
 ### 2.3. Configuración del Frontend (Node.js/pnpm)
 
@@ -135,9 +119,24 @@ El frontend de News Blink está construido con React y Vite, y sus dependencias 
 
 ## 3. Ejecución de la Aplicación
 
-**Importante:** Antes de ejecutar la aplicación, asegúrate de que tu entorno virtual de Python (creado en el paso 2.2) esté activado.
+**Importante:** Antes de ejecutar la aplicación, asegúrate de que tu entorno virtual de Python (`blink_venv`), creado por el script de instalación, esté activado.
 
-Una vez completada la configuración e instalación:
+Para activar el entorno virtual `blink_venv`:
+
+*   En macOS/Linux:
+    ```bash
+    source blink_venv/bin/activate
+    ```
+*   En Windows (Git Bash o similar):
+    ```bash
+    source blink_venv/Scripts/activate
+    ```
+*   En Windows (Command Prompt):
+    ```bash
+    .\blink_venv\Scripts\activate
+    ```
+
+Una vez completada la configuración e instalación y activado el entorno virtual:
 
 1.  **Asegúrate de que Ollama esté corriendo y el modelo `llama3` esté descargado y accesible.** (Ver sección 2.1).
 2.  **Navega al directorio raíz del proyecto** (si no estás ya allí).
