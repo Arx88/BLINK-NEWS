@@ -1,52 +1,57 @@
 #!/bin/bash
-exec &> installation_log.txt
 
-# Print a startup message
-echo "Starting BLINK NEWS installation..."
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# Print each command to stderr before executing it.
+set -x
+
+echo "--- Starting BLINK NEWS installation script (install_blink_news.sh) ---"
 
 # Check if Python 3 is installed
 if ! command -v python3 &> /dev/null
 then
-    echo "Error: Python 3 is not installed. Please install Python 3 and try again."
+    echo "--- ERROR: Python 3 is not installed. Please install Python 3 and try again. ---"
     exit 1
 fi
+echo "--- Python 3 found. ---"
 
-# Check if pip is installed
+# Check if pip for Python 3 is installed (often pip3)
 if ! command -v pip3 &> /dev/null
 then
-    echo "Error: pip is not installed. Please install pip and try again."
+    echo "--- ERROR: pip3 is not installed. Please install pip3 for Python 3 and try again. ---"
     exit 1
 fi
+echo "--- pip3 found. ---"
 
 # Create a virtual environment
-echo "Creating virtual environment (blink_venv)..."
+echo "--- Creating virtual environment (blink_venv)... ---"
 if ! python3 -m venv blink_venv
 then
-    echo "Error: Failed to create virtual environment."
+    echo "--- ERROR: Failed to create virtual environment. ---"
     exit 1
 fi
+echo "--- Virtual environment 'blink_venv' created successfully. ---"
 
-echo "Virtual environment created successfully."
-
-# No activation needed, will call executables directly
-
-# Install dependencies
-echo "Installing dependencies from requirements.txt..."
+# Install dependencies using pip from the virtual environment
+echo "--- Installing dependencies from requirements.txt into blink_venv... ---"
 if ! blink_venv/bin/pip install -r requirements.txt; then
-    echo "Error: Failed to install dependencies from requirements.txt."
+    echo "--- ERROR: Failed to install dependencies from requirements.txt. ---"
     exit 1
 fi
-echo "Dependencies installed successfully."
+echo "--- Dependencies installed successfully. ---"
 
-# Install BLINK NEWS application
-echo "Installing BLINK NEWS application..."
+# Install BLINK NEWS application using python from the virtual environment
+echo "--- Installing BLINK NEWS application into blink_venv... ---"
 if ! blink_venv/bin/python setup.py install; then
-    echo "Error: Failed to install BLINK NEWS application."
+    echo "--- ERROR: Failed to install BLINK NEWS application. ---"
     exit 1
 fi
-echo "BLINK NEWS application installed successfully."
+echo "--- BLINK NEWS application installed successfully. ---"
 
-# Print final success message
-echo "Installation complete! To run BLINK NEWS, activate the virtual environment by running: source blink_venv/bin/activate"
-# Note: The final message still suggests sourcing, which is fine for the user,
-# but the script itself will use direct calls.
+echo "--- Installation complete! ---"
+echo "--- To run BLINK NEWS, activate the virtual environment by running: ---"
+echo "--- source blink_venv/bin/activate ---"
+
+# Turn off command printing
+set +x
