@@ -20,21 +20,21 @@ class BlinkGenerator:
         """Inicializa el generador de BLINKS"""
         # Descargar recursos de NLTK necesarios
         try:
-            nltk.data.find(\'tokenizers/punkt\')
+            nltk.data.find('tokenizers/punkt')
         except LookupError:
-            nltk.download(\'punkt\')
+            nltk.download('punkt')
         
         try:
-            nltk.data.find(\'corpora/stopwords\')
+            nltk.data.find('corpora/stopwords')
         except LookupError:
-            nltk.download(\'stopwords\')
+            nltk.download('stopwords')
         
         # Inicializar el generador de imágenes
         self.image_generator = ImageGenerator()
         
         # Inicializar el cliente de Ollama
-        self.ollama_client = ollama.Client(host=\'http://localhost:11434\') # Asume Ollama corriendo localmente
-        self.ollama_model = \'llama3\' # Modelo por defecto, se puede configurar
+        self.ollama_client = ollama.Client(host='http://localhost:11434') # Asume Ollama corriendo localmente
+        self.ollama_model = 'llama3' # Modelo por defecto, se puede configurar
 
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
@@ -47,9 +47,9 @@ class BlinkGenerator:
         urls = []
         
         for item in news_group:
-            if \'url\' in item:
-                urls.append(item[\'url\'])
-                sources.append(item[\'source\'])
+            if 'url' in item:
+                urls.append(item['url'])
+                sources.append(item['source'])
         
         # Obtener contenido completo de los artículos
         article_contents = []
@@ -58,13 +58,13 @@ class BlinkGenerator:
         for url in urls[:3]:  # Limitar a 3 URLs para evitar sobrecarga
             try:
                 content_data = self.get_article_content(url)
-                if content_data[\'content\']:
-                    article_contents.append(content_data[\'content\'])
-                    combined_content += " " + content_data[\'content\']
+                if content_data['content']:
+                    article_contents.append(content_data['content'])
+                    combined_content += " " + content_data['content']
                 
                 # Usar la primera imagen encontrada
-                if not image_url and content_data[\'image_url\']:
-                    image_url = content_data[\'image_url\']
+                if not image_url and content_data['image_url']:
+                    image_url = content_data['image_url']
                     
             except Exception as e:
                 print(f"Error al procesar URL {url}: {e}")
@@ -72,8 +72,8 @@ class BlinkGenerator:
         # Si no se encontró contenido, usar los resúmenes disponibles
         if not combined_content:
             for item in news_group:
-                if \'summary\' in item and item[\'summary\']:
-                    combined_content += " " + item[\'summary\']
+                if 'summary' in item and item['summary']:
+                    combined_content += " " + item['summary']
         
         # Si no se encontró ninguna imagen, generar una automáticamente
         if not image_url:
@@ -87,16 +87,16 @@ class BlinkGenerator:
         
         # Crear el objeto BLINK
         blink = {
-            \'id\': blink_id,
-            \'title\': title,
-            \'points\': points,
-            \'image\': image_url,
-            \'sources\': list(set(sources)),
-            \'urls\': urls,
-            \'timestamp\': datetime.now().isoformat(),
-            \'content\': combined_content[:15000],  # Aumentar límite de contenido
-            \'categories\': [\'tecnologia\'],  # Agregar categorías
-            \'votes\': {\'likes\': 0, \'dislikes\': 0}  # Inicializar votos
+            'id': blink_id,
+            'title': title,
+            'points': points,
+            'image': image_url,
+            'sources': list(set(sources)),
+            'urls': urls,
+            'timestamp': datetime.now().isoformat(),
+            'content': combined_content[:15000],  # Aumentar límite de contenido
+            'categories': ['tecnologia'],  # Agregar categorías
+            'votes': {'likes': 0, 'dislikes': 0}  # Inicializar votos
         }
         
         return blink
@@ -104,18 +104,18 @@ class BlinkGenerator:
     def select_best_title(self, news_group):
         """Selecciona el mejor título del grupo de noticias"""
         if len(news_group) == 1:
-            return news_group[0][\'title\']
+            return news_group[0]['title']
         
         # Criterios para seleccionar el mejor título:
         # 1. Longitud moderada (ni muy corto ni muy largo)
         # 2. Presencia de palabras clave importantes
         # 3. Claridad y estructura
         
-        best_title = news_group[0][\'title\']
+        best_title = news_group[0]['title']
         best_score = 0
         
         for item in news_group:
-            title = item[\'title\']
+            title = item['title']
             score = 0
             
             # Puntuación por longitud (óptimo entre 40-80 caracteres)
@@ -128,13 +128,13 @@ class BlinkGenerator:
                 score += 1
             
             # Puntuación por palabras clave importantes
-            important_words = [\'inteligencia artificial\', \'ia\', \'ai\', \'tecnología\', \'innovación\', \'nuevo\', \'lanza\', \'anuncia\']
+            important_words = ['inteligencia artificial', 'ia', 'ai', 'tecnología', 'innovación', 'nuevo', 'lanza', 'anuncia']
             for word in important_words:
                 if word.lower() in title.lower():
                     score += 2
             
             # Penalizar títulos con demasiados signos de puntuación
-            punct_count = sum(1 for char in title if char in \'!?.:;\')
+            punct_count = sum(1 for char in title if char in '!?.:;')
             if punct_count <= 2:
                 score += 1
             
@@ -148,15 +148,15 @@ class BlinkGenerator:
         """Obtiene el contenido completo de un artículo desde su URL"""
         try:
             headers = {
-                \'User-Agent\': \'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             }
             response = requests.get(url, headers=headers, timeout=15)
             response.raise_for_status()
             
-            soup = BeautifulSoup(response.text, \'html.parser\')
+            soup = BeautifulSoup(response.text, 'html.parser')
             
             # Eliminar elementos no deseados
-            for element in soup.find_all([\'script\', \'style\', \'nav\', \'footer\', \'header\', \'aside\', \'form\']):
+            for element in soup.find_all(['script', 'style', 'nav', 'footer', 'header', 'aside', 'form']):
                 element.decompose()
             
             # Extraer el contenido principal
@@ -164,13 +164,13 @@ class BlinkGenerator:
             
             # Intentar diferentes selectores para el contenido principal
             content_selectors = [
-                \'article\',
-                \'main\',
-                \'div[class*="content"]\',
-                \'div[class*="article"]\',
-                \'div[class*="post"]\',
-                \'div[class*="story"]\',
-                \'div[id*="content"]\'
+                'article',
+                'main',
+                'div[class*="content"]',
+                'div[class*="article"]',
+                'div[class*="post"]',
+                'div[class*="story"]',
+                'div[id*="content"]'
             ]
             
             article_element = None
@@ -180,45 +180,45 @@ class BlinkGenerator:
                     break
             
             if article_element:
-                paragraphs = article_element.find_all(\'p\')
-                content = \' \'.join([p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 30])
+                paragraphs = article_element.find_all('p')
+                content = ' '.join([p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 30])
             
             # Intentar extraer una imagen principal
             image_url = None
             
             # Buscar meta tags de Open Graph o Twitter
             meta_tags = [
-                soup.find(\'meta\', property=\'og:image\'),
-                soup.find(\'meta\', attrs={\'name\': \'twitter:image\'}),
-                soup.find(\'meta\', attrs={\'property\': \'twitter:image\'})
+                soup.find('meta', property='og:image'),
+                soup.find('meta', attrs={'name': 'twitter:image'}),
+                soup.find('meta', attrs={'property': 'twitter:image'})
             ]
             
             for tag in meta_tags:
-                if tag and tag.get(\'content\'):
-                    image_url = tag.get(\'content\')
+                if tag and tag.get('content'):
+                    image_url = tag.get('content')
                     break
             
             # Si no se encontró en meta tags, buscar en el contenido
             if not image_url and article_element:
-                img_tags = article_element.find_all(\'img\')
+                img_tags = article_element.find_all('img')
                 for img in img_tags:
-                    src = img.get(\'src\') or img.get(\'data-src\')
-                    if src and (img.get(\'width\') is None or int(img.get(\'width\', 0)) >= 300):
-                        if not src.startswith((\'http://\', \'https://\')):
-                            base_url = \'/\'.join(url.split(\'/\')[:3])
-                            src = base_url + src.lstrip(\'/\')
+                    src = img.get('src') or img.get('data-src')
+                    if src and (img.get('width') is None or int(img.get('width', 0)) >= 300):
+                        if not src.startswith(('http://', 'https://')):
+                            base_url = '/'.join(url.split('/')[:3])
+                            src = base_url + src.lstrip('/')
                         image_url = src
                         break
             
             return {
-                \'content\': content,
-                \'image_url\': image_url
+                'content': content,
+                'image_url': image_url
             }
         except Exception as e:
             print(f"Error al obtener contenido del artículo {url}: {e}")
             return {
-                \'content\': "",
-                \'image_url\': None
+                'content': "",
+                'image_url': None
             }
     
     def generate_ollama_summary(self, text, title="", num_points=5):
@@ -234,16 +234,16 @@ class BlinkGenerator:
                 model=self.ollama_model,
                 messages=[
                     {
-                        \'role\': \'user\',
-                        \'content\': prompt,
+                        'role': 'user',
+                        'content': prompt,
                     },
                 ],
-                options={\'temperature\': 0.3} # Ajustar la temperatura para resúmenes más concisos
+                options={'temperature': 0.3} # Ajustar la temperatura para resúmenes más concisos
             )
-            summary_content = response[\'message\'][\'content\']
+            summary_content = response['message']['content']
             
             # Dividir el resumen en puntos, asumiendo que Ollama los genera con saltos de línea o guiones
-            points = [point.strip() for point in summary_content.split(\'\n\') if point.strip()]
+            points = [point.strip() for point in summary_content.split('\n') if point.strip()]
             
             # Asegurarse de tener exactamente num_points
             if len(points) > num_points:
@@ -277,5 +277,3 @@ class BlinkGenerator:
         ]
         
         return points[:num_points]
-
-
