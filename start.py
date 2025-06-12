@@ -176,8 +176,19 @@ if __name__ == "__main__":
             process_threads.append(frontend_run_thread)
             frontend_run_thread.start()
         except (subprocess.CalledProcessError, FileNotFoundError):
-            print("[SYSTEM-ERROR] 'pnpm' command not found. Please install pnpm (e.g., 'npm install -g pnpm') and ensure it's in PATH.")
-            print("[SYSTEM-ERROR] Frontend will not be started.")
+            print("-" * 70)
+            print("[SYSTEM-ERROR] Frontend cannot start: 'pnpm' command not found.")
+            print("                 'pnpm' is a package manager for Node.js projects (like the frontend here).")
+            print("                 Please install pnpm to run the frontend.")
+            print("                 Common installation methods (Node.js with npm is required first):")
+            print("                   1. Via npm (Node Package Manager):")
+            print("                      npm install -g pnpm")
+            print("                   2. Or, if you have a recent version of Node.js (v16.13+), you can use corepack:")
+            print("                      corepack enable")
+            print("                      corepack prepare pnpm@latest --activate")
+            print("                 After installing, you might need to restart your Git Bash terminal for the PATH changes to take effect.")
+            print("-" * 70)
+            # Frontend will not be started implicitly because frontend_proc remains None or its prior state.
 
     print("[SYSTEM] Backend and Frontend processes initiated. Press Ctrl+C to shut down.")
     try:
