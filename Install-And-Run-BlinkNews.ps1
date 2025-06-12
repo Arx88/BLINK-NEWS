@@ -406,21 +406,24 @@ try {
     Write-Host "Starting Backend (Flask server)..."
     Write-Host "(A new PowerShell window will open for the backend)"
     try {
-        $BackendCommandBlock = {
-            param($PassedPythonForApp, $PassedBackendScriptToRun)
+        # Escapar comillas en las rutas por si tienen espacios, aunque Join-Path usualmente no los crea sin razón.
+        # PowerShell es generalmente bueno con rutas con espacios si están entre comillas simples en el comando final.
+        $EscapedPythonForApp = "'$PythonForApp'"
+        $EscapedBackendScriptToRun = "'$BackendScriptToRun'"
 
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] This window is for the Backend."
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] Attempting to execute Backend with Python: $PassedPythonForApp"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] Attempting to execute backend script: $PassedBackendScriptToRun"
-            Write-Host "[DIAGNOSTIC_BACKEND_CHILD_SIMPLIFIED] --- BEGIN BACKEND APP OUTPUT ---"
+        # Construir la cadena de comando que se ejecutará en la nueva ventana
+        # Se usan comillas dobles externas para que $EscapedPythonForApp y $EscapedBackendScriptToRun se expandan.
+        # Se usan comillas simples internas para los comandos de PowerShell y para las rutas.
+        $BackendCommandString = "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] This window is for the Backend.'; " +
+                                "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] Python Executable: $EscapedPythonForApp'; " +
+                                "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] Backend Script: $EscapedBackendScriptToRun'; " +
+                                "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] --- BEGIN BACKEND APP OUTPUT ---'; " +
+                                "& $EscapedPythonForApp $EscapedBackendScriptToRun"
 
-            # Execute the backend application
-            & $PassedPythonForApp $PassedBackendScriptToRun
-        }
-
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", $BackendCommandBlock, "-Args", "'$PythonForApp'", "'$BackendScriptToRun'" -WindowStyle Normal
-        Write-Host "Backend process launch command issued."
-        # Removed the specific port message as it's now inside the child window's diagnostic output
+        # Start-Process ahora usa la cadena de comando directamente.
+        Start-Process powershell -ArgumentList "-NoExit", "-Command", $BackendCommandString -WindowStyle Normal
+        Write-Host "Backend process launch command issued using command string."
+        # ... (resto del script, como el inicio del frontend) ...
     } catch {
         Write-Error "Failed to start Backend. Error: $($_.Exception.Message)"
     }
