@@ -357,21 +357,25 @@ try {
 
     $PythonForApp = $PythonFromVenv # Use Python from venv
     $BackendScriptToRun = Join-Path -Path $PSScriptRoot -ChildPath "news-blink-backend\src\app.py"
-    $FrontendDirToRun = Join-Path -Path $PSScriptRoot -ChildPath "news-blink-frontend"
+    # Use $FrontendPathAbs here as defined earlier, or define it if not already:
+    $FrontendPathRel = "news-blink-frontend" # Relative to project root
+    $FrontendPathAbs = Join-Path -Path $PSScriptRoot -ChildPath $FrontendPathRel
 
     if (-not (Test-Path $BackendScriptToRun)) {
         Write-Error "ERROR: Backend script not found at $BackendScriptToRun. Cannot start backend."
         Read-Host -Prompt "Press Enter to exit script"
         exit 1
     }
-    if (-not (Test-Path $FrontendDirToRun)) {
-        Write-Error "ERROR: Frontend directory not found at $FrontendDirToRun. Cannot start frontend."
+    if (-not (Test-Path $FrontendPathAbs)) { # Changed from $FrontendDirToRun to $FrontendPathAbs
+        Write-Error "ERROR: Frontend directory not found at $FrontendPathAbs. Cannot start frontend."
         Read-Host -Prompt "Press Enter to exit script"
         exit 1
     }
 
-    $PnpmForApp = Get-Command pnpm -ErrorAction SilentlyContinue
-    if ($null -eq $PnpmForApp) {
+    # $PnpmExePath should be available from Step 5 (pnpm installation check/attempt)
+    $PnpmCmdForAppStart = if ($null -ne $PnpmExePath -and (Test-Path $PnpmExePath.Source)) { $PnpmExePath.Source } else { "pnpm" }
+
+    if ($null -eq (Get-Command $PnpmCmdForAppStart -ErrorAction SilentlyContinue)) { # Re-check PnpmCmdForAppStart
         Write-Error "----------------------------------------------------------------------------------"
         Write-Error "ERROR: pnpm command not found. Cannot start the frontend."
         Write-Warning "This script attempted to install pnpm. If the installation seemed successful,"
@@ -396,7 +400,16 @@ try {
     Write-Host "Starting Frontend (Vite dev server)..."
     Write-Host "(A new PowerShell window will open for the frontend. This may take a minute to compile.)"
     try {
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", "& $($PnpmForApp.Source) --prefix '$FrontendDirToRun' run dev" -WindowStyle Normal
+        Write-Host "Ensuring frontend dependencies are installed in '$($FrontendPathAbs)'..."
+        Write-Host "(This may take a few moments if this is the first time or dependencies changed)"
+        try {
+            Invoke-Expression "$PnpmCmdForAppStart --prefix '$FrontendPathAbs' install"
+            Write-Host "Frontend dependencies installation command executed successfully for '$($FrontendPathAbs)'."
+        } catch {
+            Write-Error "Failed to run 'pnpm install' for frontend at '$($FrontendPathAbs)'. Error: $($_.Exception.Message)"
+            Write-Warning "The frontend might not start correctly without its dependencies."
+        }
+        Start-Process powershell -ArgumentList "-NoExit", "-Command", "& $PnpmCmdForAppStart --prefix '$FrontendPathAbs' run dev" -WindowStyle Normal
         Write-Host "Frontend process launch command issued."
         Write-Host "Look for a new window. Frontend typically runs on http://localhost:5173"
     } catch {
