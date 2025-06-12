@@ -1,4 +1,5 @@
 #!/bin/bash
+exec &> installation_log.txt
 
 # Print a startup message
 echo "Starting BLINK NEWS installation..."
@@ -27,13 +28,11 @@ fi
 
 echo "Virtual environment created successfully."
 
-# Activate virtual environment
-echo "Activating virtual environment..."
-source blink_venv/bin/activate
+# No activation needed, will call executables directly
 
 # Install dependencies
 echo "Installing dependencies from requirements.txt..."
-if ! pip install -r requirements.txt; then
+if ! blink_venv/bin/pip install -r requirements.txt; then
     echo "Error: Failed to install dependencies from requirements.txt."
     exit 1
 fi
@@ -41,7 +40,7 @@ echo "Dependencies installed successfully."
 
 # Install BLINK NEWS application
 echo "Installing BLINK NEWS application..."
-if ! python setup.py install; then
+if ! blink_venv/bin/python setup.py install; then
     echo "Error: Failed to install BLINK NEWS application."
     exit 1
 fi
@@ -49,3 +48,5 @@ echo "BLINK NEWS application installed successfully."
 
 # Print final success message
 echo "Installation complete! To run BLINK NEWS, activate the virtual environment by running: source blink_venv/bin/activate"
+# Note: The final message still suggests sourcing, which is fine for the user,
+# but the script itself will use direct calls.
