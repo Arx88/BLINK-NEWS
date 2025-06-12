@@ -10,8 +10,21 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import re
-from models.image_generator import ImageGenerator
+# from models.image_generator import ImageGenerator # Original import
 import ollama
+
+try:
+    from models.image_generator import ImageGenerator
+    IMAGE_GENERATOR_AVAILABLE_SNG = True # Use a distinct name for the flag
+    print("[SuperiorNoteGenerator] ImageGenerator loaded successfully.")
+except ModuleNotFoundError:
+    ImageGenerator = None # Define ImageGenerator as None if module is not found
+    IMAGE_GENERATOR_AVAILABLE_SNG = False
+    print("[SuperiorNoteGenerator] WARNING: 'models.image_generator' not found. Image generation feature will be disabled for superior notes.")
+except ImportError as e: # Catch other import errors too
+    ImageGenerator = None
+    IMAGE_GENERATOR_AVAILABLE_SNG = False
+    print(f"[SuperiorNoteGenerator] WARNING: Could not import 'models.image_generator' due to an ImportError: {e}. Image generation feature will be disabled for superior notes.")
 
 class SuperiorNoteGenerator:
     """Clase para generar notas superiores a partir de múltiples fuentes sobre el mismo tema"""
@@ -30,7 +43,10 @@ class SuperiorNoteGenerator:
             nltk.download('stopwords')
         
         # Inicializar el generador de imágenes
-        self.image_generator = ImageGenerator()
+        if IMAGE_GENERATOR_AVAILABLE_SNG:
+            self.image_generator = ImageGenerator()
+        else:
+            self.image_generator = None
         
         # Inicializar el cliente de Ollama
         self.ollama_client = ollama.Client(host='http://localhost:11434')
@@ -94,7 +110,16 @@ class SuperiorNoteGenerator:
         ultra_summary = self._generate_ultra_summary(superior_note_content, topic)
         
         # Generar imagen para la nota
-        image_url = self.image_generator.generate_image_for_blink(main_title, superior_note_content[:500])
+        image_url = None # Default to None
+        if self.image_generator:
+            print("[SuperiorNoteGenerator] Attempting to generate image with ImageGenerator...")
+            try:
+                image_url = self.image_generator.generate_image_for_blink(main_title, superior_note_content[:500])
+            except Exception as e:
+                print(f"[SuperiorNoteGenerator] ERROR: ImageGenerator failed: {e}")
+                # image_url remains None
+        else:
+            print("[SuperiorNoteGenerator] ImageGenerator not available. Skipping image generation for superior note.")
         
         # Crear ID único
         note_id = hashlib.md5(f"{topic}_{datetime.now().isoformat()}".encode()).hexdigest()
