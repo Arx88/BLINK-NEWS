@@ -19,6 +19,6 @@ export default defineConfig({
       }
     }
   },
-  publicDir: false, // Explicitly disable the public directory
-  appType: 'spa',   // Explicitly set app type to SPA
+  publicDir: false,
+  appType: 'spa',
 })
