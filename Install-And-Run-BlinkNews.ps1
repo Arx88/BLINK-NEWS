@@ -63,24 +63,33 @@ Function Test-Admin {
 try {
     Write-Host "Starting BLINK NEWS Setup and Run Script..."
     Write-Host "This script will guide you through installing dependencies and running the application."
-    Write-Host "---------------------------------------------------------------------------"
+    Write-Host "---------------------------------------------------------------------------" # This is the existing line (75 dashes)
 
+    Write-Host "DEBUG: Checkpoint 1 - After initial introductory messages"
     if (-not (Test-Admin)) {
+        Write-Host "DEBUG: Checkpoint 2 - Condition '(-not (Test-Admin))' is TRUE (User is NOT Admin)"
         Write-Warning "This script may need Administrator privileges to install software using winget."
         Write-Warning "If installations fail, please try running this script as an Administrator."
-        # Future: Add logic to self-elevate if desired and possible.
+        # No exit here, script will continue and likely fail at winget if admin is truly needed
+    } else {
+        Write-Host "DEBUG: Checkpoint 3 - Condition '(-not (Test-Admin))' is FALSE (User IS Admin or check not triggered)"
     }
 
+    Write-Host "DEBUG: Checkpoint 4 - About to check for winget"
     # --- Check for winget ---
     Write-Host ""
     Write-Host "Step 1: Checking for winget package manager..."
+    Write-Host "DEBUG: Checkpoint 5 - After 'Checking for winget' message"
     $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
+    Write-Host "DEBUG: Checkpoint 6 - After Get-Command winget. wingetPath object is: '$($wingetPath | Out-String -Width 200)'"
+
     if ($null -eq $wingetPath) {
+        Write-Host "DEBUG: Checkpoint 7 - wingetPath is null (winget not found by Get-Command)"
         Write-Warning "----------------------------------------------------------------------------------"
         Write-Warning "ERROR: winget command not found."
         Write-Warning "winget is required to automatically install Python and Node.js."
         Write-Host ""
-        Write-Host "How to install winget (it's usually included in modern Windows):"
+        Write-Host "How to install winget (it's usually included in modern Windows):" # (Keep existing guidance)
         Write-Host "1. Open the Microsoft Store."
         Write-Host "2. Search for 'App Installer'."
         Write-Host "3. Install or Update it (Publisher should be 'Microsoft Corporation')."
@@ -89,13 +98,20 @@ try {
         Read-Host -Prompt "Press Enter to exit script"
         exit 1
     } else {
-        Write-Host "winget found: $($wingetPath.Source)"
+        Write-Host "DEBUG: Checkpoint 8 - wingetPath is NOT null (winget found by Get-Command)"
+        Write-Host "winget found at: $($wingetPath.Source)"
+        Write-Host "DEBUG: Checkpoint 9 - About to try 'winget --version'"
         try {
-            winget --version
+            $wingetVersionOutput = winget --version
+            Write-Host "DEBUG: Checkpoint 10 - 'winget --version' command successful. Output: $wingetVersionOutput"
         } catch {
-            Write-Warning "Could not retrieve winget version, but it seems to be available."
+            Write-Host "DEBUG: Checkpoint 11 - 'winget --version' command FAILED"
+            Write-Warning "Could not retrieve winget version (command failed), but Get-Command found it. Error: $($_.Exception.Message)"
+            # Allow to continue if Get-Command found it, as it might still work
         }
+        Write-Host "DEBUG: Checkpoint 12 - End of winget check block (winget was found)"
     }
+    Write-Host "DEBUG: Checkpoint 13 - After winget check block"
     Write-Host "---------------------------------------------------------------------------"
 
     # --- Install Python via winget if not found ---
