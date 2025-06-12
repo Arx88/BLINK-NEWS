@@ -26,7 +26,7 @@ echo "--- pip3 found. ---"
 
 # Create a virtual environment
 echo "--- Creating virtual environment (blink_venv)... ---"
-if ! python3 -m venv blink_venv
+if ! python3 -m venv --copies blink_venv
 then
     echo "--- ERROR: Failed to create virtual environment. ---"
     exit 1
