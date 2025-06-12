@@ -1,4 +1,12 @@
 
+import sys
+import os
+# Add the project root to sys.path
+# app.py is in news-blink-backend/src/, so root is two levels up.
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from flask import Flask
 from flask_cors import CORS
 from routes.api import init_api
