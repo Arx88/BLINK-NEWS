@@ -33,6 +33,13 @@ then
 fi
 echo "--- Virtual environment 'blink_venv' created successfully. ---"
 
+echo "--- Upgrading pip, setuptools, and wheel in virtual environment... ---"
+if ! blink_venv/bin/python -m pip install --upgrade pip setuptools wheel; then
+    echo "--- ERROR: Failed to upgrade pip, setuptools, or wheel. ---"
+    exit 1
+fi
+echo "--- Build tools upgraded successfully. ---"
+
 # Install dependencies using pip from the virtual environment
 echo "--- Installing dependencies from requirements.txt into blink_venv... ---"
 if ! blink_venv/bin/pip install -r requirements.txt; then
