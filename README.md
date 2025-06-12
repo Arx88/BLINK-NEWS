@@ -75,6 +75,8 @@ La instalación del backend de News Blink y sus dependencias ahora está automat
     bash install_blink_news.sh
     ```
 
+    **Nota para usuarios de Windows:** El script `install_blink_news.sh` utiliza finales de línea estilo Unix (LF). Si edita este script en Windows, asegúrese de que su editor de texto guarde los cambios con finales de línea LF. De lo contrario, podría encontrar errores al ejecutar el script en entornos como Git Bash. Herramientas como `dos2unix` pueden ayudar a corregir los finales de línea si es necesario.
+
 2.  **¿Qué hace el script?**
     El script `install_blink_news.sh` realizará los siguientes pasos:
     *   Verifica si Python 3 y pip están instalados en tu sistema.
