@@ -20,7 +20,6 @@ news-blink-project/
 │   │   ├── static/           # Archivos estáticos del backend (ej. index.html)
 │   │   ├── utils/            # Utilidades varias
 │   │   └── app.py            # Aplicación principal Flask
-│   │   └── requirements.txt  # Dependencias de Python
 │   └── .git/                 # Repositorio Git
 ├── news-blink-frontend/
 │   ├── public/               # Archivos estáticos públicos
@@ -66,51 +65,77 @@ Es un **prerrequisito indispensable** tener Ollama instalado y ejecutándose en 
     ```
     Este proceso puede tardar un tiempo. Asegúrate de que el modelo `llama3` esté disponible, ya que el código del backend está configurado para usarlo por defecto.
 
-### 2.2. Instalación Unificada (Backend y Frontend)
+### 2.2. Configuración del Backend (Python)
 
-El proceso de instalación se ha simplificado para configurar tanto el backend como el frontend.
+El backend de News Blink requiere Python y sus dependencias gestionadas a través de un entorno virtual.
 
-1.  **Navega al directorio raíz del proyecto:**
-    (Por ejemplo: `/home/ubuntu/news-blink-app/news-blink-project`)
+1.  **Crea un entorno virtual:**
+    Navega al directorio raíz del proyecto y ejecuta:
     ```bash
-    cd ruta/al/directorio/raiz/del/proyecto
+    python -m venv venv
     ```
+    Esto creará una carpeta `venv` en el raíz del proyecto.
 
-2.  **Ejecuta el script de instalación:**
-    Utiliza `pip` para instalar el proyecto. Este comando se encargará de:
-    *   Instalar las dependencias de Python para el backend (Flask, nltk, etc.).
-    *   Intentar instalar `pnpm` globalmente usando `npm install -g pnpm` (si `npm` está disponible y los permisos lo permiten). `pnpm` es necesario para las dependencias del frontend.
-    *   Navegar al directorio `news-blink-frontend` y ejecutar `pnpm install` para instalar las dependencias del frontend (como React, Vite, etc.).
+2.  **Activa el entorno virtual:**
+    *   En macOS/Linux:
+        ```bash
+        source venv/bin/activate
+        ```
+    *   En Windows (Git Bash o similar):
+        ```bash
+        source venv/Scripts/activate
+        ```
+    *   En Windows (Command Prompt):
+        ```bash
+        .\venv\Scripts\activate
+        ```
+    Deberías ver `(venv)` al principio de tu prompt de terminal.
 
+3.  **Instala las dependencias de Python:**
+    Asegúrate de que tu entorno virtual esté activado. Luego, desde el directorio raíz del proyecto, ejecuta:
     ```bash
-    pip install .
+    pip install -r requirements.txt
     ```
+    Alternativamente, si deseas que el comando `news-blink-backend` esté disponible directamente (por ejemplo, para desarrollo o si `start.py` lo utiliza preferentemente), puedes instalar el paquete en modo editable:
+    ```bash
+    pip install -e .
+    ```
+    Esto también instalará las dependencias listadas en `setup.py` (que son las mismas de `requirements.txt`).
 
-3.  **Nota sobre la instalación de dependencias del Frontend:**
-    El proceso de `pip install .` intentará automatizar la instalación de las dependencias del frontend. Sin embargo, debido a posibles limitaciones del entorno de ejecución (como errores de permisos con `sudo` o problemas con `npm`/`pnpm` en entornos específicos), este paso podría fallar.
+### 2.3. Configuración del Frontend (Node.js/pnpm)
 
-    Si después de ejecutar `pip install .`, la aplicación frontend no se inicia correctamente (por ejemplo, con errores como "vite: not found" o relacionados con `node_modules`), es posible que necesites realizar los siguientes pasos manualmente:
+El frontend de News Blink está construido con React y Vite, y sus dependencias se gestionan con pnpm.
 
-    *   **Asegúrate de tener `pnpm` instalado globalmente:**
-        Si el script no pudo instalarlo o si prefieres hacerlo manualmente:
+1.  **Prerrequisitos (Node.js y pnpm):**
+    *   Asegúrate de tener Node.js instalado. Se recomienda usar un gestor de versiones como [nvm](https://github.com/nvm-sh/nvm) para instalar y gestionar Node.js.
+    *   Instala pnpm. Si tienes Node.js v16.13 o posterior, puedes habilitar `corepack` (que viene con Node.js) y luego instalar pnpm:
+        ```bash
+        corepack enable
+        corepack prepare pnpm@latest --activate
+        ```
+        Alternativamente, puedes instalar pnpm globalmente usando npm (que viene con Node.js):
         ```bash
         npm install -g pnpm
         ```
-    *   **Instala las dependencias del frontend manualmente:**
-        Navega al directorio del frontend:
+        Verifica la instalación con `pnpm --version`.
+
+2.  **Instala las dependencias del frontend:**
+    *   Navega al directorio del frontend:
         ```bash
         cd news-blink-frontend
         ```
-        Y luego ejecuta:
+    *   Instala las dependencias:
         ```bash
         pnpm install
         ```
-        Luego, regresa al directorio raíz del proyecto para ejecutar la aplicación.
+    *   Regresa al directorio raíz del proyecto:
         ```bash
         cd ..
         ```
 
 ## 3. Ejecución de la Aplicación
+
+**Importante:** Antes de ejecutar la aplicación, asegúrate de que tu entorno virtual de Python (creado en el paso 2.2) esté activado.
 
 Una vez completada la configuración e instalación:
 
