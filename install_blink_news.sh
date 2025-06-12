@@ -70,6 +70,36 @@ if ! "$VENV_PYTHON_EXEC" setup.py install; then
 fi
 echo "--- BLINK NEWS application installed successfully. ---"
 
+# Check for Node.js and npm (prerequisites for pnpm)
+echo "--- Checking for Node.js and npm... ---"
+if ! command -v node &> /dev/null
+then
+    echo "--- WARNING: Node.js not found. Node.js is required to install and run pnpm for the frontend. Please install Node.js and then re-run this script or install pnpm manually. ---"
+elif ! command -v npm &> /dev/null
+then
+    echo "--- WARNING: npm (Node Package Manager) not found. npm is required to install pnpm. Please install npm (usually included with Node.js) and then re-run this script or install pnpm manually. ---"
+else
+    echo "--- Node.js and npm found. ---"
+    # Check if pnpm is installed
+    echo "--- Checking for pnpm... ---"
+    if command -v pnpm &> /dev/null
+    then
+        echo "--- pnpm is already installed. ---"
+        pnpm --version # Display version
+    else
+        echo "--- pnpm not found. Attempting to install pnpm globally via npm... ---"
+        if npm install -g pnpm
+        then
+            echo "--- pnpm installed successfully. Please ensure the global npm directory is in your PATH. You might need to restart your terminal. ---"
+            echo "--- Installed pnpm version: ---"
+            pnpm --version
+        else
+            echo "--- ERROR: Failed to install pnpm. Please try installing it manually. ---"
+        fi
+    fi
+fi
+echo "--- pnpm check/installation process complete. ---"
+
 echo "--- Installation complete! ---"
 echo "--- To run BLINK NEWS, activate the virtual environment by running: ---"
 echo "--- source blink_venv/bin/activate ---"
