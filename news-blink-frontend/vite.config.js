@@ -17,5 +17,7 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
-  }
+  },
+  publicDir: false, // Explicitly disable the public directory
+  appType: 'spa',   // Explicitly set app type to SPA
 })
