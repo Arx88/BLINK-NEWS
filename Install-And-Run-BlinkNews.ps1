@@ -299,17 +299,55 @@ try {
              Write-Warning "[CONFIG_VENV] '$VenvDir' exists, 'pyvenv.cfg' might exist, but '$($PythonFromVenv)' is missing. Attempting venv creation/repair."
         } # else, $VenvPath no existe (fue eliminado o nunca existió), así que la creación es necesaria.
 
-        Write-Host "[CONFIG_VENV] Creating Python virtual environment in '$VenvDir' folder..."
+        Write-Host "[CONFIG_VENV] Creating Python virtual environment in '$VenvDir' folder using '$PythonToUseForVenv'..."
+        # $PythonToUseForVenv debería estar definido desde la comprobación de Python en Step 2,
+        # o ser 'python' si no se encontró una ruta específica.
+        # Si $PythonToUseForVenv no está definido aquí (ej. si se reestructura el script), asegurar su definición.
+        if (-not $PythonToUseForVenv) { # Asegurar que $PythonToUseForVenv tenga un valor
+             $PythonToUseForVenv = if ($null -ne $PythonExePath -and (Test-Path $PythonExePath.Source)) { $PythonExePath.Source } else { "python" }
+        }
+
         try {
-            $PythonToUseForVenv = if ($null -ne $PythonExePath -and (Test-Path $PythonExePath.Source)) { $PythonExePath.Source } else { "python" }
-            Invoke-Expression "$PythonToUseForVenv -m venv $VenvPath" # Usar $VenvPath directamente
-            Write-Host "[CONFIG_VENV] Virtual environment creation command executed for '$VenvPath'."
+            Write-Host "[CONFIG_VENV] Executing: & '$PythonToUseForVenv' -m venv '$VenvPath'"
+            # Ejecutar el comando y capturar toda la salida (stdout y stderr)
+            $venvOutput = & $PythonToUseForVenv -m venv $VenvPath 2>&1 | Out-String
+
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "[CONFIG_VENV] 'python -m venv' command failed with exit code $LASTEXITCODE."
+                if (-not ([string]::IsNullOrEmpty($venvOutput))) {
+                    Write-Host "[CONFIG_VENV] Output from venv command (stdout/stderr):"
+                    Write-Host $venvOutput
+                }
+                throw "[CONFIG_VENV] Failed to create virtual environment. See output above."
+            } else {
+                 Write-Host "[CONFIG_VENV] 'python -m venv' command executed."
+                 if (-not ([string]::IsNullOrEmpty($venvOutput))) {
+                    Write-Host "[CONFIG_VENV] Output from venv command (stdout, should be empty on success):"
+                    Write-Host $venvOutput
+                }
+            }
+
             if (-not (Test-Path $PythonFromVenv)) {
-                throw "[CONFIG_VENV] Python executable still not found at '$PythonFromVenv' after venv creation."
+                throw "[CONFIG_VENV] Python executable still not found at '$PythonFromVenv' after venv creation command."
             }
             Write-Host "[CONFIG_VENV] Virtual environment successfully verified with Python at '$PythonFromVenv'."
         } catch {
-            Write-Error "[CONFIG_VENV] Failed to create or verify Python virtual environment. Error: $($_.Exception.Message)"
+            # Capturar y mostrar la excepción completa de PowerShell
+            Write-Error "[CONFIG_VENV] An error occurred during venv creation or verification."
+            Write-Error "PowerShell Exception Type: $($_.Exception.GetType().FullName)"
+            Write-Error "PowerShell Exception Message: $($_.Exception.Message)"
+            # Mostrar más detalles si están disponibles
+            if ($_.Exception.ErrorRecord) {
+                Write-Error "PowerShell ErrorRecord: $($_.Exception.ErrorRecord | Out-String)"
+            }
+            if ($_.ScriptStackTrace) {
+                Write-Error "PowerShell ScriptStackTrace: $($_.ScriptStackTrace)"
+            }
+            # Si $venvOutput fue capturado antes de la excepción, mostrarlo también
+            if ($venvOutput) {
+                 Write-Host "[CONFIG_VENV] Captured output from venv command (if any) before exception:"
+                 Write-Host $venvOutput
+            }
             Read-Host -Prompt "Press Enter to exit script"
             exit 1
         }
