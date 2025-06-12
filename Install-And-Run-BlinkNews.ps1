@@ -387,12 +387,57 @@ try {
         exit 1
     }
 
+    # --- Diagnóstico: Verificar pyvenv.cfg ---
+    $PyvenvCfgPath = Join-Path -Path $PSScriptRoot -ChildPath (Join-Path $VenvDir "pyvenv.cfg")
+    if (Test-Path $PyvenvCfgPath) {
+        Write-Host "[DIAGNOSTIC_BACKEND] pyvenv.cfg found at: $PyvenvCfgPath"
+    } else {
+        Write-Warning "[DIAGNOSTIC_BACKEND] pyvenv.cfg NOT found at: $PyvenvCfgPath"
+    }
+
+    # --- Diagnóstico: Mostrar variables de entorno ANTES de modificar para el backend ---
+    Write-Host "[DIAGNOSTIC_BACKEND] Parent VIRTUAL_ENV: $($env:VIRTUAL_ENV)"
+    Write-Host "[DIAGNOSTIC_BACKEND] Parent CONDA_PREFIX: $($env:CONDA_PREFIX)"
+    Write-Host "[DIAGNOSTIC_BACKEND] Parent CONDA_DEFAULT_ENV: $($env:CONDA_DEFAULT_ENV)"
+    Write-Host "[DIAGNOSTIC_BACKEND] Parent CONDA_SHLVL: $($env:CONDA_SHLVL)"
+    Write-Host "[DIAGNOSTIC_BACKEND] Using PythonForApp: $PythonForApp"
+    Write-Host "[DIAGNOSTIC_BACKEND] Using BackendScriptToRun: $BackendScriptToRun"
+
     Write-Host "Starting Backend (Flask server)..."
     Write-Host "(A new PowerShell window will open for the backend)"
     try {
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", "& '$PythonForApp' '$BackendScriptToRun'" -WindowStyle Normal
+        $BackendCommandBlock = {
+            param($PassedPythonForApp, $PassedBackendScriptToRun)
+
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] This window is for the Backend."
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial VIRTUAL_ENV: $($env:VIRTUAL_ENV)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial CONDA_PREFIX: $($env:CONDA_PREFIX)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial CONDA_DEFAULT_ENV: $($env:CONDA_DEFAULT_ENV)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Initial CONDA_SHLVL: $($env:CONDA_SHLVL)"
+
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Attempting to nullify Conda env vars for this process..."
+            $env:CONDA_PREFIX = $null
+            $env:CONDA_DEFAULT_ENV = $null
+            $env:CONDA_PROMPT_MODIFIER = $null
+            # $env:CONDA_SHLVL = "" # Decided not to touch shlvl initially
+
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] VIRTUAL_ENV (should be unchanged from parent): $($env:VIRTUAL_ENV)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_PREFIX (after nullify): $($env:CONDA_PREFIX)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_DEFAULT_ENV (after nullify): $($env:CONDA_DEFAULT_ENV)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_PROMPT_MODIFIER (after nullify): $($env:CONDA_PROMPT_MODIFIER)"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] CONDA_SHLVL (should be unchanged from parent): $($env:CONDA_SHLVL)"
+
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Executing Backend with Python: $PassedPythonForApp"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] Backend script: $PassedBackendScriptToRun"
+            Write-Host "[DIAGNOSTIC_BACKEND_CHILD] --- BEGIN BACKEND APP OUTPUT ---"
+
+            # Execute the backend application
+            & $PassedPythonForApp $PassedBackendScriptToRun
+        }
+
+        Start-Process powershell -ArgumentList "-NoExit", "-Command", $BackendCommandBlock, "-Args", "'$PythonForApp'", "'$BackendScriptToRun'" -WindowStyle Normal
         Write-Host "Backend process launch command issued."
-        Write-Host "Look for a new window. Backend typically runs on http://127.0.0.1:5000"
+        # Removed the specific port message as it's now inside the child window's diagnostic output
     } catch {
         Write-Error "Failed to start Backend. Error: $($_.Exception.Message)"
     }
