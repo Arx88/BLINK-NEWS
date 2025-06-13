@@ -10,7 +10,7 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       # --- AÑADIR TU API KEY AQUÍ ---
-      - TAVILY_API_KEY=tvly-xxxxxxxxxxxxxxxxxxxx # <-- PEGA TU CLAVE AQUÍ
+      - TAVILY_API_KEY=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 # <-- PEGA TU CLAVE AQUÍ
     command: python -u -m flask run --host=0.0.0.0 --port=5000
 
   frontend:
