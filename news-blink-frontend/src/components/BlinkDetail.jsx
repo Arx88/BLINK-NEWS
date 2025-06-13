@@ -19,7 +19,7 @@ import {
   Loader2
 } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '/api';
 
 const BlinkDetail = () => {
   const { id } = useParams();

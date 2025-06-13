@@ -13,7 +13,7 @@ setup(
         'requests==2.31.0',
         'beautifulsoup4==4.12.2',
         'nltk==3.8.1',
-        'ollama==0.1.7',
+        'ollama==0.5.1',
     ],
     entry_points={
         'console_scripts': [
