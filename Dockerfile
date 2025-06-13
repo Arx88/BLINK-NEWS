@@ -1,18 +1,20 @@
 # Dockerfile
 
-# Usar una imagen oficial de Python como base, una versión completa en lugar de 'slim'
-# para tener más librerías base disponibles.
-FROM python:3.11
+# Usamos una imagen base de Debian (Bookworm) completa para máxima compatibilidad
+FROM python:3.11-bookworm
 
-# Establecer el directorio de trabajo
+# Variable de entorno para instalaciones no interactivas
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Directorio de trabajo
 WORKDIR /app
 
-# --- INSTALACIÓN ROBUSTA DE DEPENDENCIAS DEL SISTEMA Y CHROME ---
-# Actualizar, instalar herramientas y luego las librerías requeridas por Chrome
+# Instalar dependencias de sistema robustas
+# Incluye todas las librerías conocidas para Chrome y un 'display' virtual (xvfb)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
-    # Librerías esenciales para que Chrome/Chromedriver funcione
+    xvfb \
     libglib2.0-0 \
     libnss3 \
     libgconf-2-4 \
@@ -21,25 +23,28 @@ RUN apt-get update && apt-get install -y \
     libxtst6 \
     libxss1 \
     libxrandr2 \
-    libasound2 \
-    # Limpiar al final para mantener la imagen ligera
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libgbm-dev \
+    # Limpiar caché para mantener la imagen pequeña
     && rm -rf /var/lib/apt/lists/*
 
-# Descargar e instalar la clave de Google y Google Chrome
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable
+# Instalar Google Chrome
+RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && dpkg -i google-chrome-stable_current_amd64.deb || apt-get install -f -y \
+    && rm google-chrome-stable_current_amd64.deb
 
-# --- INSTALACIÓN DE DEPENDENCIAS DE PYTHON ---
+# Copiar e instalar dependencias de Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el resto de la aplicación
+# Copiar el código de la aplicación
 COPY . .
 
-# Exponer el puerto
+# Exponer el puerto de Flask
 EXPOSE 5000
 
-# Comando de inicio
-CMD ["python", "-u", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+# --- COMANDO DE INICIO A PRUEBA DE BALAS ---
+# Ejecutar la aplicación dentro del display virtual 'xvfb'
+CMD ["xvfb-run", "--auto-servernum", "python", "-u", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
