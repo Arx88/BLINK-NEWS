@@ -1,175 +1,103 @@
-# news-blink-backend/src/routes/topic_search.py
-from flask import Blueprint, jsonify, request
-import os
+import asyncio
 import json
+import logging
+import os
 from datetime import datetime
-import threading
-import hashlib
+from flask import Blueprint, jsonify, request
+from ..models.superior_note_generator import SuperiorNoteGenerator
+from ..models.topic_searcher import TopicSearcher
 
-# Importaciones directas de Langchain en lugar del agente
-from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_ollama.llms import OllamaLLM
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Create a Blueprint for topic search routes
 topic_search_bp = Blueprint('topic_search', __name__)
-active_searches = {}
 
-# --- HELPER FUNCTIONS ---
-def _get_results_filepath(search_key):
-    """Construye la ruta al archivo de resultados para una búsqueda."""
-    results_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'topic_searches')
-    os.makedirs(results_dir, exist_ok=True)
-    return os.path.join(results_dir, f"search_{search_key}.json")
+# Directory to save search results and notes
+RESULTS_DIR = os.path.join(os.getcwd(), "search_results")
+os.makedirs(RESULTS_DIR, exist_ok=True)
 
-def _save_search_results(search_key, results):
-    """Guarda los resultados de una búsqueda en un archivo JSON."""
-    filepath = _get_results_filepath(search_key)
+# In-memory storage for task statuses (replace with a more robust solution for production)
+task_statuses = {}
+
+async def perform_search_and_generate_notes(topic: str, task_id: str):
+    """
+    Asynchronously performs a topic search, generates notes, and saves them.
+    Updates task status in `task_statuses`.
+    """
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
-        print(f"Resultados de búsqueda guardados: {filepath}")
-    except Exception as e:
-        print(f"Error guardando resultados de búsqueda: {e}")
+        task_statuses[task_id] = {"status": "in_progress", "message": "Starting topic search..."}
 
-def _get_search_results(search_key):
-    """Obtiene los resultados de una búsqueda desde un archivo JSON."""
-    filepath = _get_results_filepath(search_key)
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error obteniendo resultados de búsqueda: {e}")
-    return None
+        # Initialize models
+        topic_searcher = TopicSearcher()
+        note_generator = SuperiorNoteGenerator()
 
-def _delete_search_results(search_key):
-    """Elimina un archivo de resultados de búsqueda antiguo si existe."""
-    filepath = _get_results_filepath(search_key)
-    if os.path.exists(filepath):
-        os.remove(filepath)
-        print(f"Archivo de resultados antiguo eliminado: {filepath}")
+        # Perform search
+        task_statuses[task_id]["message"] = f"Searching for topic: {topic}"
+        search_results = await topic_searcher.search(topic)
 
-# --- API ROUTES ---
-@topic_search_bp.route('/search-topic', methods=['POST'])
-def search_topic():
-    data = request.get_json()
-    if not data or 'topic' not in data or not data['topic'].strip():
-        return jsonify({'error': 'Se requiere especificar un tema'}), 400
+        # Save search results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        search_results_filename = f"{topic.replace(' ', '_')}_{timestamp}_search_results.json"
+        search_results_path = os.path.join(RESULTS_DIR, search_results_filename)
+        with open(search_results_path, 'w') as f:
+            json.dump(search_results, f, indent=4)
+        logger.info(f"Search results saved to {search_results_path}")
+        task_statuses[task_id]["search_results_file"] = search_results_path
 
-    topic = data['topic'].strip()
-    hours_back = data.get('hours_back', 24)
-    search_key = f"{topic.lower().replace(' ', '_')}_{hours_back}"
+        # Generate superior notes
+        task_statuses[task_id]["message"] = "Generating superior notes..."
+        notes = await note_generator.generate_superior_notes(search_results, topic)
 
-    if search_key in active_searches:
-        return jsonify({
-            'status': 'processing',
-            'message': f'Búsqueda ya en progreso para "{topic}". Por favor espere...',
-            'topic': topic
-        })
+        # Save notes
+        notes_filename = f"{topic.replace(' ', '_')}_{timestamp}_notes.json"
+        notes_path = os.path.join(RESULTS_DIR, notes_filename)
+        with open(notes_path, 'w') as f:
+            json.dump(notes, f, indent=4)
+        logger.info(f"Notes saved to {notes_path}")
+        task_statuses[task_id]["notes_file"] = notes_path
 
-    _delete_search_results(search_key)
-    active_searches[search_key] = {
-        'topic': topic, 'started_at': datetime.now().isoformat(), 'status': 'starting'
-    }
-
-    threading.Thread(
-        target=process_topic_search_direct,
-        args=(topic, hours_back, data.get('max_sources', 5), search_key),
-        daemon=True
-    ).start()
-
-    return jsonify({
-        'status': 'started',
-        'message': f'Iniciando búsqueda para "{topic}". Esto puede tomar unos minutos...',
-        'topic': topic,
-        'search_key': search_key
-    })
-
-@topic_search_bp.route('/search-status/<search_key>', methods=['GET'])
-def get_search_status(search_key):
-    if search_key in active_searches:
-        return jsonify(active_searches[search_key])
-    else:
-        results = _get_search_results(search_key)
-        if results:
-            return jsonify({'status': 'completed', 'results': results})
-        else:
-            return jsonify({'status': 'not_found', 'message': 'Búsqueda no encontrada o expirada.'}), 404
-
-# --- BACKGROUND PROCESS (LÓGICA MEJORADA Y DIRECTA) ---
-def process_topic_search_direct(topic, hours_back, max_sources, search_key):
-    """Procesa la búsqueda de forma directa (sin agente) y limpia el estado al finalizar."""
-    try:
-        print(f"🤖 Iniciando investigación directa para el tema: {topic}")
-        active_searches[search_key]['status'] = 'searching_news'
-
-        # 1. Inicializar herramientas y LLM directamente
-        tavily_search = TavilySearchResults(max_results=max_sources)
-        ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        llm = OllamaLLM(model="qwen3:32b", base_url=ollama_base_url, temperature=0.3)
-
-        # 2. Realizar la búsqueda de noticias
-        print(f"-> Buscando en Tavily: 'noticias de {topic} en las últimas {hours_back} horas'")
-        search_results = tavily_search.invoke(f"noticias de {topic} en las últimas {hours_back} horas")
-
-        active_searches[search_key]['status'] = 'generating_notes'
-
-        # 3. Crear un prompt específico para el LLM con el contexto de la búsqueda
-        context = "## Contexto de Noticias Recientes:
-
-"
-        for result in search_results:
-            context += f"- Fuente: {result.get('url')}
-  Contenido: {result.get('content')}
-
-"
-
-        prompt_para_llm = f"""
-Eres un periodista experto encargado de redactar un artículo objetivo y bien estructurado.
-Basándote EXCLUSIVAMENTE en el siguiente contexto de noticias sobre "{topic}", redacta una nota periodística completa.
-
-Instrucciones:
-1.  **Encabezado y Estructura:** Crea un título principal para la nota. Estructura el contenido con subtítulos claros si es necesario.
-2.  **Contenido:** Sintetiza la información de las distintas fuentes en un texto fluido y coherente. No inventes datos que no estén en el contexto. Si hay diferentes perspectivas, muéstralas.
-3.  **Tono:** Mantén un tono neutral, profesional y periodístico.
-4.  **No Incluir:** No menciones que eres una IA ni que te basas en un "contexto". Simplemente escribe el artículo como si fueras el autor.
-
-{context}
-
-Ahora, por favor, escribe la nota periodística completa sobre "{topic}":
-        """
-
-        # 4. Invocar el LLM para generar la nota
-        print("-> Generando la nota periodística con el LLM...")
-        nota_generada = llm.invoke(prompt_para_llm)
-
-        # 5. Estructurar el resultado final
-        superior_note = {
-            'id': hashlib.md5(f"{topic}_{datetime.now().isoformat()}".encode()).hexdigest(),
-            'topic': topic,
-            'title': f"Análisis sobre: {topic}",
-            'full_content': nota_generada,
-            'ultra_summary': [],
-            'sources': [res.get('url') for res in search_results],
-            'urls': [res.get('url') for res in search_results],
-            'articles_count': len(search_results),
-            'timestamp': datetime.now().isoformat(),
-            'image': None,
-        }
-
-        results = {
-            'status': 'success', 'topic': topic, 'superior_notes': [superior_note],
-            'total_groups_found': 1, 'notes_generated': 1, 'timestamp': datetime.now().isoformat()
-        }
-        _save_search_results(search_key, results)
-        print(f"✅ Investigación directa completada para el tema: {topic}")
+        task_statuses[task_id].update({"status": "completed", "message": "Search and note generation completed."})
 
     except Exception as e:
-        print(f"❌ Error en el proceso de búsqueda directa: {e}")
-        _save_search_results(search_key, {
-            'status': 'error', 'message': f'Error procesando búsqueda: {str(e)}',
-            'topic': topic, 'timestamp': datetime.now().isoformat()
-        })
-    finally:
-        if search_key in active_searches:
-            del active_searches[search_key]
-            print(f"La búsqueda '{search_key}' ha sido marcada como finalizada.")
+        logger.error(f"Error in task {task_id}: {e}")
+        task_statuses[task_id].update({"status": "error", "message": str(e)})
+
+@topic_search_bp.route('/start_topic_search', methods=['POST'])
+def start_topic_search():
+    """
+    Starts an asynchronous topic search and note generation task.
+    Returns a task ID to track the status.
+    """
+    data = request.json
+    topic = data.get('topic')
+
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+
+    task_id = f"task_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+    asyncio.create_task(perform_search_and_generate_notes(topic, task_id))
+
+    return jsonify({"message": "Topic search started.", "task_id": task_id}), 202
+
+@topic_search_bp.route('/topic_search_status/<task_id>', methods=['GET'])
+def topic_search_status(task_id: str):
+    """
+    Returns the status of a topic search task.
+    """
+    status = task_statuses.get(task_id)
+    if not status:
+        return jsonify({"error": "Task not found"}), 404
+
+    return jsonify(status)
+
+# Example of how to integrate this blueprint in your main Flask app:
+# from flask import Flask
+# app = Flask(__name__)
+# app.register_blueprint(topic_search_bp, url_prefix='/search')
+
+# if __name__ == '__main__':
+#     # This is for demonstration if you run this file directly.
+#     # In a real app, use a proper WSGI server like Gunicorn.
+#     app.run(debug=True, port=5001)

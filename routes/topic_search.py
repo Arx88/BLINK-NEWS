@@ -7,7 +7,8 @@ from datetime import datetime
 import threading
 import time
 import hashlib
-from models.news_agent import crear_agente_de_noticias
+from models.topic_searcher import TopicSearcher # ADD THIS
+from models.superior_note_generator import SuperiorNoteGenerator # ADD THIS
 
 topic_search_bp = Blueprint('topic_search', __name__)
 active_searches = {}
@@ -105,43 +106,79 @@ def get_search_status(search_key):
 
 # --- BACKGROUND PROCESS ---
 def process_topic_search(topic, hours_back, max_sources, search_key):
-    """Procesa la búsqueda en segundo plano y limpia el estado al finalizar."""
+    """
+    Procesa la búsqueda en segundo plano utilizando TopicSearcher y SuperiorNoteGenerator,
+    y limpia el estado al finalizar.
+    """
     try:
-        print(f"🤖 Agente de IA iniciando investigación para el tema: {topic}")
+        # 1. Instanciar los modelos correctos
+        searcher = TopicSearcher()
+        note_generator = SuperiorNoteGenerator()
+
+        # 2. Actualizar estado e iniciar la búsqueda de noticias agrupadas
+        print(f"🔎 Iniciando búsqueda y agrupación de noticias para: '{topic}'")
+        active_searches[search_key]['status'] = 'searching_news'
+
+        # El método search_topic_news ya busca y agrupa las noticias por evento
+        grouped_news = searcher.search_topic_news(
+            topic=topic,
+            hours_back=hours_back,
+            max_sources=max_sources
+        )
+
+        if not grouped_news:
+            print(f"🟡 No se encontraron grupos de noticias para '{topic}'.")
+            results = {
+                'status': 'no_results',
+                'message': 'No se encontraron suficientes noticias de múltiples fuentes sobre este tema en el período de tiempo seleccionado.',
+                'topic': topic,
+                'superior_notes': [],
+                'total_groups_found': 0,
+                'notes_generated': 0,
+                'timestamp': datetime.now().isoformat()
+            }
+            _save_search_results(search_key, results)
+            return # Termina la ejecución del hilo
+
+        # 3. Actualizar estado y comenzar la generación de notas
+        print(f"🧠 Encontrados {len(grouped_news)} grupos de noticias. Iniciando generación de Notas Superiores.")
         active_searches[search_key]['status'] = 'generating_notes'
 
-        agent_executor = crear_agente_de_noticias()
-        prompt_para_agente = f"Investiga a fondo y redacta una nota periodística completa y objetiva sobre '{topic}', basándote en noticias de las últimas {hours_back} horas."
-        resultado_agente = agent_executor.invoke({"input": prompt_para_agente})
+        all_superior_notes = []
+        for i, group in enumerate(grouped_news):
+            print(f"--- Procesando grupo {i+1}/{len(grouped_news)} ---")
+            try:
+                # 4. Generar una Nota Superior para cada grupo de artículos
+                # Este método ya incluye la creación de la nota y el ultra resumen
+                superior_note = note_generator.generate_superior_note(group, topic)
+                all_superior_notes.append(superior_note)
+            except Exception as e:
+                print(f"Error generando nota para el grupo {i+1}: {e}")
+                continue # Si un grupo falla, continúa con el siguiente
 
-        nota_generada = resultado_agente.get('output', 'El agente no pudo generar una nota.')
-
-        superior_note = {
-            'id': hashlib.md5(f"{topic}_{datetime.now().isoformat()}".encode()).hexdigest(),
+        # 5. Ensamblar y guardar los resultados finales
+        print(f"✅ Proceso completado. Se generaron {len(all_superior_notes)} Notas Superiores.")
+        final_results = {
+            'status': 'success',
             'topic': topic,
-            'title': f"Análisis Autónomo sobre: {topic}",
-            'full_content': nota_generada,
-            'ultra_summary': [], # Se puede mejorar para que el agente los genere
-            'sources': ["Agente de IA con Tavily Search"], 'urls': [], 'articles_count': "Varias",
-            'timestamp': datetime.now().isoformat(), 'image': None,
+            'superior_notes': all_superior_notes,
+            'total_groups_found': len(grouped_news),
+            'notes_generated': len(all_superior_notes),
+            'timestamp': datetime.now().isoformat()
         }
-
-        results = {
-            'status': 'success', 'topic': topic, 'superior_notes': [superior_note],
-            'total_groups_found': 1, 'notes_generated': 1, 'timestamp': datetime.now().isoformat()
-        }
-        _save_search_results(search_key, results)
-        print(f"✅ Investigación del agente completada para el tema: {topic}")
+        _save_search_results(search_key, final_results)
 
     except Exception as e:
-        print(f"❌ Error en el proceso del agente de IA: {e}")
-        _save_search_results(search_key, {
-            'status': 'error', 'message': f'Error procesando búsqueda: {str(e)}',
-            'topic': topic, 'timestamp': datetime.now().isoformat()
-        })
+        print(f"❌ Error crítico en el proceso de búsqueda: {e}")
+        error_results = {
+            'status': 'error',
+            'message': f'Error procesando la búsqueda: {str(e)}',
+            'topic': topic,
+            'timestamp': datetime.now().isoformat()
+        }
+        _save_search_results(search_key, error_results)
     finally:
-        # --- LA SOLUCIÓN CLAVE ---
-        # Al finalizar (con éxito o error), se elimina la tarea de la lista de activas.
+        # Limpiar la tarea de la lista de búsquedas activas para permitir nuevas búsquedas
         if search_key in active_searches:
             del active_searches[search_key]
             print(f"La búsqueda '{search_key}' ha sido marcada como finalizada.")
