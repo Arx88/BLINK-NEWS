@@ -16,11 +16,14 @@ def crear_agente_de_noticias():
     tools = [buscar_en_la_web, leer_contenido_web]
 
     # 3. Crear el prompt (las instrucciones para el cerebro del agente)
-    # Este prompt le dice al agente cómo debe comportarse y usar sus herramientas.
+    # Esta es la sección que corregimos
     prompt_template = """
     Eres un periodista de IA experto. Tu objetivo es investigar un tema a fondo y escribir una nota periodística completa y objetiva.
 
-    Tienes acceso a las siguientes herramientas:
+    Tienes acceso a las siguientes herramientas para cumplir tu objetivo.
+    Nombres de las herramientas disponibles: {tool_names}
+
+    Descripción de cada herramienta:
     {tools}
 
     Para cumplir tu objetivo, sigue estos pasos:
