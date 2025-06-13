@@ -7,7 +7,6 @@ nltk==3.8.1
 ollama==0.5.1 # <-- VERSIÓN FINAL-FINAL ACTUALIZADA
 # --- Dependencias para el Agente Autónomo ---
 selenium==4.21.0
-duckduckgo-search==6.1.5
 langchain==0.2.1
 langchain-community==0.2.1
 langchain-ollama==0.1.3
