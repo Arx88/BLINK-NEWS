@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: blink-news-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount the backend application code
+      - ./news-blink-backend:/app/news-blink-backend
+      # Mount models and routes from the project root
+      - ./models:/app/models
+      - ./routes:/app/routes
+      # Mount persistent data
+      - ./news-blink-backend/src/data:/app/news-blink-backend/src/data
+    restart: unless-stopped
