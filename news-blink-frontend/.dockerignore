@@ -1,0 +1,2 @@
+# Ignorar las dependencias locales para que Docker no intente copiarlas
+node_modules
