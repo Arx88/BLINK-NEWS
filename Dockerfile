@@ -1,17 +1,16 @@
 # Dockerfile
 
-# Usamos una imagen base de Debian (Bookworm) completa para máxima compatibilidad
+# Usar una imagen base de Debian completa para máxima compatibilidad
 FROM python:3.11-bookworm
 
-# Variable de entorno para instalaciones no interactivas
+# Variable para instalaciones no interactivas
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Directorio de trabajo
 WORKDIR /app
 
-# Instalar dependencias de sistema robustas
-# Incluye todas las librerías conocidas para Chrome y un 'display' virtual (xvfb)
-RUN apt-get update && apt-get install -y \
+# Instalar todas las dependencias de sistema para Chrome y xvfb (display virtual)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
     xvfb \
@@ -27,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     libatk-bridge2.0-0 \
     libgtk-3-0 \
     libgbm-dev \
-    # Limpiar caché para mantener la imagen pequeña
+    # Limpiar caché para mantener la imagen ligera
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar Google Chrome
@@ -46,5 +45,5 @@ COPY . .
 EXPOSE 5000
 
 # --- COMANDO DE INICIO A PRUEBA DE BALAS ---
-# Ejecutar la aplicación dentro del display virtual 'xvfb'
+# Ejecutar la aplicación Flask dentro del display virtual 'xvfb'
 CMD ["xvfb-run", "--auto-servernum", "python", "-u", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
