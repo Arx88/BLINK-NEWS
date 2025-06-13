@@ -28,6 +28,11 @@ services:
     volumes:
       # Montar el código fuente para que el Hot-Reloading funcione
       - ./news-blink-frontend:/app
-      # Excluir node_modules para usar los del contenedor, que son más rápidos
+      # --- LÍNEA CLAVE ---
+      # Esto crea un volumen "anónimo" DENTRO del contenedor.
+      # Le dice a Docker: "Aunque la carpeta /app está sincronizada con el PC,
+      # quiero que la subcarpeta /app/node_modules sea independiente y use
+      # únicamente los archivos que se instalaron DENTRO del contenedor".
+      # Esto aisla los node_modules y soluciona el problema.
       - /app/node_modules
     restart: unless-stopped
