@@ -34,7 +34,7 @@ class SuperiorNoteGenerator:
 
         # Inicializar el cliente de Ollama
         self.ollama_client = ollama.Client(host='http://localhost:11434')
-        self.ollama_model = 'llama3'  # Modelo por defecto
+        self.ollama_model = 'qwen3:32b'  # Modelo por defecto
 
     def generate_superior_note(self, articles_group, topic):
         """

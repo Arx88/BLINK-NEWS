@@ -34,7 +34,7 @@ class BlinkGenerator:
 
         # Inicializar el cliente de Ollama
         self.ollama_client = ollama.Client(host='http://localhost:11434') # Asume Ollama corriendo localmente
-        self.ollama_model = 'llama3' # Modelo por defecto, se puede configurar
+        self.ollama_model = 'qwen3:32b' # Modelo por defecto, se puede configurar
 
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
@@ -211,8 +211,16 @@ class BlinkGenerator:
         if not text:
             return self.generate_fallback_points(title, num_points)
 
-        prompt = f"""Basado en el siguiente texto, genera un resumen conciso de {num_points} puntos clave. Cada punto debe ser una oración clara y directa. El título de la noticia es: {title}\n\nTexto: {text}
-\nResumen en {num_points} puntos:"""
+        prompt = f"""A partir del siguiente texto de una noticia con el título "{title}", extrae exactamente {num_points} puntos clave.
+
+  Reglas:
+  - Cada punto debe ser una oración concisa y clara.
+  - No incluyas frases introductorias, explicaciones o numeración.
+  - Responde únicamente con los {num_points} puntos, cada uno en una nueva línea.
+
+  Texto:
+  {text}
+  """
 
         try:
             response = self.ollama_client.chat(
@@ -226,14 +234,21 @@ class BlinkGenerator:
                 options={'temperature': 0.3}
             )
             summary_content = response['message']['content']
-            
-            points = [point.strip() for point in summary_content.split('\n') if point.strip()]
-            
+
+            raw_points = summary_content.strip().split('\n')
+            points = []
+            for point in raw_points:
+                cleaned_point = re.sub(r'^\s*[\*\-•\d\.]+\s*', '', point).strip()
+                if cleaned_point:
+                    points.append(cleaned_point)
+
             if len(points) > num_points:
                 points = points[:num_points]
             elif len(points) < num_points:
-                while len(points) < num_points:
-                    points.append("Punto adicional generado por IA para completar el resumen.")
+                missing_points = num_points - len(points)
+                # Ensure generate_fallback_points is defined or handled if not present
+                fallback_points = self.generate_fallback_points(title, missing_points)
+                points.extend(fallback_points)
 
             return points
 
