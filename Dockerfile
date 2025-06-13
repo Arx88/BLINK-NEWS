@@ -1,34 +1,45 @@
-# Usar una imagen oficial de Python como base
-FROM python:3.11-slim
+# Dockerfile
 
-# Establecer el directorio de trabajo dentro del contenedor
+# Usar una imagen oficial de Python como base, una versión completa en lugar de 'slim'
+# para tener más librerías base disponibles.
+FROM python:3.11
+
+# Establecer el directorio de trabajo
 WORKDIR /app
 
-# Instalar las dependencias del sistema necesarias en una sola capa para optimizar
-# Se añade 'gnupg' que es requerido por 'apt-key'
+# --- INSTALACIÓN ROBUSTA DE DEPENDENCIAS DEL SISTEMA Y CHROME ---
+# Actualizar, instalar herramientas y luego las librerías requeridas por Chrome
 RUN apt-get update && apt-get install -y \
     wget \
-    unzip \
-    curl \
     gnupg \
+    # Librerías esenciales para que Chrome/Chromedriver funcione
+    libglib2.0-0 \
+    libnss3 \
+    libgconf-2-4 \
+    libfontconfig1 \
+    libdbus-1-3 \
+    libxtst6 \
+    libxss1 \
+    libxrandr2 \
+    libasound2 \
+    # Limpiar al final para mantener la imagen ligera
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Google Chrome y Chromedriver
-RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-    && apt-get install -y ./google-chrome-stable_current_amd64.deb || apt-get install -f -y \
-    && rm google-chrome-stable_current_amd64.deb
+# Descargar e instalar la clave de Google y Google Chrome
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable
 
-# Copiar el archivo de dependencias primero para aprovechar el cache de Docker
+# --- INSTALACIÓN DE DEPENDENCIAS DE PYTHON ---
 COPY requirements.txt .
-
-# Instalar las dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar todo el código del proyecto al contenedor
+# Copiar el resto de la aplicación
 COPY . .
 
-# Exponer el puerto en el que corre Flask
+# Exponer el puerto
 EXPOSE 5000
 
-# Comando para ejecutar la aplicación cuando se inicie el contenedor
-CMD ["python", "start.py"]
+# Comando de inicio
+CMD ["python", "-u", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
