@@ -216,7 +216,7 @@ class BlinkGenerator:
   Reglas:
   - Cada punto debe ser una oración concisa y clara.
   - No incluyas frases introductorias, explicaciones o numeración.
-  - Responde únicamente con los {num_points} puntos, cada uno en una nueva línea.
+  - Responde únicamente con los {num_points} puntos, cada uno en una nueva línea. NO INCLUYAS NINGÚN OTRO TEXTO, RAZONAMIENTO O CONVERSACIÓN. SOLO EMITE LA LISTA DE PUNTOS.
 
   Texto:
   {text}
@@ -235,18 +235,19 @@ class BlinkGenerator:
             )
             summary_content = response['message']['content']
 
-            raw_points = summary_content.strip().split('\n')
-            points = []
-            for point in raw_points:
-                cleaned_point = re.sub(r'^\s*[\*\-•\d\.]+\s*', '', point).strip()
-                if cleaned_point:
-                    points.append(cleaned_point)
+            all_lines = summary_content.strip().split('\n')
+            extracted_points = []
+            for line in reversed(all_lines):
+                cleaned_line = re.sub(r'^\s*[\*\-•\d\.]+\s*', '', line).strip()
+                if cleaned_line:
+                    extracted_points.insert(0, cleaned_line)
+                if len(extracted_points) == num_points:
+                    break
 
-            if len(points) > num_points:
-                points = points[:num_points]
-            elif len(points) < num_points:
+            points = extracted_points
+
+            if len(points) < num_points:
                 missing_points = num_points - len(points)
-                # Ensure generate_fallback_points is defined or handled if not present
                 fallback_points = self.generate_fallback_points(title, missing_points)
                 points.extend(fallback_points)
 
