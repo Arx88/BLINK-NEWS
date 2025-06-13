@@ -149,19 +149,17 @@ def get_superior_note(note_id):
         }), 500
 
 def process_topic_search(topic, hours_back, max_sources, search_key):
-    """Procesa la búsqueda por tema en segundo plano USANDO EL AGENTE DE IA."""
+    """Procesa la búsqueda por tema en segundo plano USANDO EL AGENTE DE IA"""
     try:
         print(f"🤖 Agente de IA iniciando investigación para el tema: {topic}")
 
         # Ensure the search_key entry exists before trying to update its status
         if search_key not in active_searches:
-            active_searches[search_key] = {}
+            active_searches[search_key] = {} # Initialize if not present
         active_searches[search_key]['status'] = 'generating_notes'
 
         agent_executor = crear_agente_de_noticias()
 
-        # --- LLAMADA CORREGIDA ---
-        # El prompt 'react' espera un diccionario simple con la clave "input"
         prompt_para_agente = f"Investiga a fondo y redacta una nota periodística completa y objetiva sobre '{topic}', basándote en noticias de las últimas {hours_back} horas. La nota debe ser detallada y estar bien escrita."
         resultado_agente = agent_executor.invoke({"input": prompt_para_agente})
 
@@ -172,7 +170,7 @@ def process_topic_search(topic, hours_back, max_sources, search_key):
             'topic': topic,
             'title': f"Análisis Autónomo sobre: {topic}",
             'full_content': nota_generada,
-            'ultra_summary': [ # Puedes pedirle al agente que genere esto también en un paso futuro
+            'ultra_summary': [
                 "Análisis generado por un agente de IA autónomo.",
                 "Múltiples fuentes web fueron consultadas en tiempo real.",
                 "La información fue extraída y sintetizada automáticamente."
@@ -193,23 +191,25 @@ def process_topic_search(topic, hours_back, max_sources, search_key):
             'timestamp': datetime.now().isoformat(),
         }
 
-        _save_search_results(search_key, results)
+        _save_search_results(search_key, results) # Save success results
         print(f"✅ Investigación del agente completada para el tema: {topic}")
 
     except Exception as e:
         print(f"❌ Error en el proceso del agente de IA: {e}")
-        # Assuming the rest of the error block is as the user wants it,
-        # based on "resto del bloque de error sin cambios".
-        # If active_searches and _save_search_results are used in the error block,
-        # they need to be correctly defined/handled.
-        if search_key in active_searches:
-            active_searches[search_key]['status'] = 'error'
-            active_searches[search_key]['error_message'] = str(e)
-        # else: # This part might be needed if search_key might not be in active_searches
-            # _save_search_results(search_key, {'status': 'error', 'error_message': str(e)})
+        # Save error results
+        _save_search_results(search_key, {
+            'status': 'error',
+            'message': f'Error procesando búsqueda: {str(e)}',
+            'topic': topic,
+            'timestamp': datetime.now().isoformat()
+        })
     finally:
-        # La limpieza de active_searches se maneja como antes
-        pass
+        # --- LA SOLUCIÓN ESTÁ AQUÍ ---
+        # Nos aseguramos de que la búsqueda se elimine de la lista de activas
+        # SIEMPRE que el proceso termine (con éxito o error).
+        if search_key in active_searches:
+            del active_searches[search_key]
+            print(f"La búsqueda '{search_key}' ha sido marcada como finalizada y eliminada de activas.")
 
 def _save_search_results(search_key, results):
     """Guarda los resultados de una búsqueda"""
