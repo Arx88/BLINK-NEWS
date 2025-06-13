@@ -7,11 +7,16 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount the backend application code
       - ./news-blink-backend:/app/news-blink-backend
-      # Mount models and routes from the project root
       - ./models:/app/models
       - ./routes:/app/routes
-      # Mount persistent data
+      - ./start.py:/app/start.py
+      # No montar app.py si vamos a ejecutar el que está en el src directamente
+      - ./news-blink-backend/src/app.py:/app/news-blink-backend/src/app.py
       - ./news-blink-backend/src/data:/app/news-blink-backend/src/data
     restart: unless-stopped
+    # --- LÍNEA AÑADIDA ---
+    # Esta línea sobreescribe el CMD del Dockerfile y ejecuta directamente
+    # la aplicación Flask, evitando el script start.py.
+    # El flag -u es para que los logs de Python aparezcan inmediatamente.
+    command: python -u -m flask run --host=0.0.0.0 --port=5000
