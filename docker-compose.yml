@@ -1,44 +1,29 @@
-version: '3.8'
-
+# docker-compose.yml
 services:
-  # Servicio del Backend (sin cambios)
   backend:
     build: .
     container_name: blink-news-backend
     ports:
       - "5000:5000"
     volumes:
-      - ./news-blink-backend:/app/news-blink-backend
-      - ./models:/app/models
-      - ./routes:/app/routes
-      - ./start.py:/app/start.py
-      - ./news-blink-backend/src/app.py:/app/news-blink-backend/src/app.py
-      - ./news-blink-backend/src/data:/app/news-blink-backend/src/data
+      - .:/app # Simplified volume mount
     restart: unless-stopped
     environment:
-      # Le decimos al contenedor que la URL de Ollama es la dirección especial del host
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # --- AÑADIR TU API KEY AQUÍ ---
+      - TAVILY_API_KEY=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 # <-- USER'S API KEY
     command: python -u -m flask run --host=0.0.0.0 --port=5000
 
-  # --- NUEVO SERVICIO DEL FRONTEND ---
   frontend:
     build:
-      context: ./news-blink-frontend # El contexto es la carpeta del frontend
-      dockerfile: Dockerfile.frontend # El Dockerfile que acabamos de crear
+      context: ./news-blink-frontend
+      dockerfile: Dockerfile.frontend
     container_name: blink-news-frontend
     ports:
-      - "5173:5173" # Mapear el puerto de Vite
+      - "5173:5173"
     volumes:
-      # Montar el código fuente para que el Hot-Reloading funcione
       - ./news-blink-frontend:/app
-      # --- LÍNEA CLAVE ---
-      # Esto crea un volumen "anónimo" DENTRO del contenedor.
-      # Le dice a Docker: "Aunque la carpeta /app está sincronizada con el PC,
-      # quiero que la subcarpeta /app/node_modules sea independiente y use
-      # únicamente los archivos que se instalaron DENTRO del contenedor".
-      # Esto aisla los node_modules y soluciona el problema.
       - /app/node_modules
     restart: unless-stopped
     environment:
-      # Le decimos a Vite que el proxy para /api debe apuntar al servicio 'backend'
       - VITE_API_PROXY_TARGET=http://backend:5000
