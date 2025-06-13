@@ -26,7 +26,7 @@ import './App.css';
 // }
 
 // API functions
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '/api';
 
 const fetchNews = async (tab = 'ultimas') => { // Removido tipo : Promise<NewsItem[]>
   try {
