@@ -32,8 +32,9 @@ class SuperiorNoteGenerator:
         # Inicializar el generador de imágenes
         # self.image_generator = ImageGenerator() # <-- LÍNEA COMENTADA
 
-        # Inicializar el cliente de Ollama
-        self.ollama_client = ollama.Client(host='http://localhost:11434')
+        # Leer la URL de Ollama desde la variable de entorno
+        ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.ollama_client = ollama.Client(host=ollama_base_url)
         self.ollama_model = 'qwen3:32b'  # Modelo por defecto
 
     def generate_superior_note(self, articles_group, topic):
