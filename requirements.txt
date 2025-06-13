@@ -4,11 +4,11 @@ Flask-CORS==4.0.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 nltk==3.8.1
-ollama==0.1.7
+ollama==0.5.1 # <-- VERSIÓN FINAL-FINAL ACTUALIZADA
 # --- Dependencias para el Agente Autónomo ---
 selenium==4.21.0
-duckduckgo-search==5.3.1b1
+duckduckgo-search==6.1.5
 langchain==0.2.1
 langchain-community==0.2.1
-langchain-ollama==0.1.4
-langchainhub==0.1.18 # <-- AÑADIR ESTA LÍNEA
+langchain-ollama==0.1.3
+langchainhub==0.1.18
