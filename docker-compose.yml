@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Servicio del Backend (sin cambios)
   backend:
     build: .
     container_name: blink-news-backend
@@ -11,12 +12,22 @@ services:
       - ./models:/app/models
       - ./routes:/app/routes
       - ./start.py:/app/start.py
-      # No montar app.py si vamos a ejecutar el que está en el src directamente
       - ./news-blink-backend/src/app.py:/app/news-blink-backend/src/app.py
       - ./news-blink-backend/src/data:/app/news-blink-backend/src/data
     restart: unless-stopped
-    # --- LÍNEA AÑADIDA ---
-    # Esta línea sobreescribe el CMD del Dockerfile y ejecuta directamente
-    # la aplicación Flask, evitando el script start.py.
-    # El flag -u es para que los logs de Python aparezcan inmediatamente.
     command: python -u -m flask run --host=0.0.0.0 --port=5000
+
+  # --- NUEVO SERVICIO DEL FRONTEND ---
+  frontend:
+    build:
+      context: ./news-blink-frontend # El contexto es la carpeta del frontend
+      dockerfile: Dockerfile.frontend # El Dockerfile que acabamos de crear
+    container_name: blink-news-frontend
+    ports:
+      - "5173:5173" # Mapear el puerto de Vite
+    volumes:
+      # Montar el código fuente para que el Hot-Reloading funcione
+      - ./news-blink-frontend:/app
+      # Excluir node_modules para usar los del contenedor, que son más rápidos
+      - /app/node_modules
+    restart: unless-stopped
