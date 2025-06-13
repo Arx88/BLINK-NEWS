@@ -48,7 +48,7 @@ def _delete_search_results(search_key):
         os.remove(filepath)
         print(f"Archivo de resultados antiguo eliminado: {filepath}")
 
-# --- API ROUTES (Sin cambios) ---
+# --- API ROUTES ---
 @topic_search_bp.route('/search-topic', methods=['POST'])
 def search_topic():
     data = request.get_json()
@@ -95,7 +95,7 @@ def get_search_status(search_key):
         else:
             return jsonify({'status': 'not_found', 'message': 'Búsqueda no encontrada o expirada.'}), 404
 
-# --- BACKGROUND PROCESS (LÓGICA MEJORADA) ---
+# --- BACKGROUND PROCESS (LÓGICA MEJORADA Y DIRECTA) ---
 def process_topic_search_direct(topic, hours_back, max_sources, search_key):
     """Procesa la búsqueda de forma directa (sin agente) y limpia el estado al finalizar."""
     try:
@@ -110,9 +110,9 @@ def process_topic_search_direct(topic, hours_back, max_sources, search_key):
         # 2. Realizar la búsqueda de noticias
         print(f"-> Buscando en Tavily: 'noticias de {topic} en las últimas {hours_back} horas'")
         search_results = tavily_search.invoke(f"noticias de {topic} en las últimas {hours_back} horas")
-        
+
         active_searches[search_key]['status'] = 'generating_notes'
-        
+
         # 3. Crear un prompt específico para el LLM con el contexto de la búsqueda
         context = "## Contexto de Noticias Recientes:
 
@@ -146,9 +146,9 @@ Ahora, por favor, escribe la nota periodística completa sobre "{topic}":
         superior_note = {
             'id': hashlib.md5(f"{topic}_{datetime.now().isoformat()}".encode()).hexdigest(),
             'topic': topic,
-            'title': f"Análisis sobre: {topic}", # Se puede mejorar extrayendo el título de la nota generada
+            'title': f"Análisis sobre: {topic}",
             'full_content': nota_generada,
-            'ultra_summary': [], # Generar esto sería un segundo llamado al LLM
+            'ultra_summary': [],
             'sources': [res.get('url') for res in search_results],
             'urls': [res.get('url') for res in search_results],
             'articles_count': len(search_results),
@@ -170,7 +170,6 @@ Ahora, por favor, escribe la nota periodística completa sobre "{topic}":
             'topic': topic, 'timestamp': datetime.now().isoformat()
         })
     finally:
-        # Al finalizar, se elimina la tarea de la lista de activas.
         if search_key in active_searches:
             del active_searches[search_key]
             print(f"La búsqueda '{search_key}' ha sido marcada como finalizada.")
