@@ -9,8 +9,10 @@ WORKDIR /app
 # Instalar pnpm
 RUN npm install -g pnpm
 
-# Copiar los archivos de manifiesto del proyecto
-COPY package.json pnpm-lock.yaml ./
+# --- LÍNEA CORREGIDA ---
+# Copiar solo el package.json, que es el único que seguro existe.
+# pnpm usará este archivo para instalar las dependencias.
+COPY package.json ./
 
 # Instalar las dependencias
 RUN pnpm install
