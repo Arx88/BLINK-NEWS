@@ -96,4 +96,3 @@ def leer_contenido_web(url: str) -> str:
     finally:
         if driver:
             driver.quit()
-```
