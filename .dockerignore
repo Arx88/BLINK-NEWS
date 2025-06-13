@@ -8,6 +8,7 @@ news-blink-frontend/node_modules/
 .git/
 .gitignore
 Dockerfile
+Dockerfile.frontend
 .dockerignore
 docker-compose.yml
 
