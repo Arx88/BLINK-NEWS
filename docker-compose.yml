@@ -39,3 +39,6 @@ services:
       # Esto aisla los node_modules y soluciona el problema.
       - /app/node_modules
     restart: unless-stopped
+    environment:
+      # Le decimos a Vite que el proxy para /api debe apuntar al servicio 'backend'
+      - VITE_API_PROXY_TARGET=http://backend:5000
