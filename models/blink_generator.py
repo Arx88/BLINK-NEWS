@@ -32,8 +32,9 @@ class BlinkGenerator:
         # Inicializar el generador de imágenes
         # self.image_generator = ImageGenerator() # <-- LÍNEA COMENTADA
 
-        # Inicializar el cliente de Ollama
-        self.ollama_client = ollama.Client(host='http://localhost:11434') # Asume Ollama corriendo localmente
+        # Leer la URL de Ollama desde la variable de entorno
+        ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.ollama_client = ollama.Client(host=ollama_base_url)
         self.ollama_model = 'qwen3:32b' # Modelo por defecto, se puede configurar
 
     def generate_blink_from_news_group(self, news_group):
