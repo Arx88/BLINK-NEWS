@@ -1,565 +1,328 @@
 <#
 .SYNOPSIS
-    Installs and runs the BLINK NEWS application.
-    This script attempts to install necessary dependencies including Python, Node.js (with npm), and pnpm using winget,
-    then sets up the Python virtual environment, installs dependencies, and launches the backend and frontend.
+    Instala las dependencias locales para el desarrollo de BLINK NEWS.
 .DESCRIPTION
-    Detailed steps:
-    1. Checks for winget.
-    2. Installs Python via winget if not found.
-    3. Installs Node.js LTS (with npm) via winget if not found.
-    4. Creates a Python virtual environment (blink_venv).
-    5. Installs Python requirements from requirements.txt.
-    6. Installs pnpm globally via npm.
-    7. Starts the backend Flask server.
-    8. Starts the frontend Vite development server.
-    Requires PowerShell 5.1 or later.
-    May require Administrator privileges for winget installations or to set Execution Policy.
-.NOTES
-    Author: Jules (AI Assistant)
-    Version: 0.1.1
+    Este script es una herramienta de CONFIGURACIÓN DE UN SOLO USO.
+    1. Instala Python y Node.js usando winget si no existen.
+    2. Crea el entorno virtual de Python 'blink_venv'.
+    3. Instala las dependencias de 'requirements.txt' en el venv.
+    NO EJECUTA LA APLICACIÓN. Para eso, sigue las instrucciones al final.
 #>
 
-# --- Initial Configuration ---
-# Stop on errors
+# --- Configuración Inicial ---
 $ErrorActionPreference = 'Stop'
+Write-Host "--- BLINK NEWS - Asistente de Instalación de Entorno Local ---" -ForegroundColor Green
 
 # Attempt to set Execution Policy for the current process to allow script execution
 try {
-    # Get current execution policy for the process scope
     $currentProcessPolicy = Get-ExecutionPolicy -Scope Process -ErrorAction SilentlyContinue
     if ($currentProcessPolicy -ne "RemoteSigned" -and $currentProcessPolicy -ne "Unrestricted" -and $currentProcessPolicy -ne "Bypass") {
         Write-Host "Attempting to set Execution Policy to 'RemoteSigned' for the current PowerShell process..."
-        Write-Host "(This is to ensure the script has permissions to run)"
         Set-ExecutionPolicy RemoteSigned -Scope Process -Force -ErrorAction Stop
-        Write-Host "Execution policy for current process set to 'RemoteSigned'."
-        Write-Host "This change only affects this current PowerShell session."
-    } elseif ($currentProcessPolicy -in ("RemoteSigned", "Unrestricted", "Bypass")) {
-        Write-Host "Current process execution policy is already sufficient ($currentProcessPolicy)."
+        Write-Host "Execution policy for current process set to 'RemoteSigned'. This change only affects this session."
     }
 } catch {
     Write-Warning "----------------------------------------------------------------------------------"
-    Write-Warning "IMPORTANT: Failed to automatically set the PowerShell Execution Policy for this session."
-    Write-Warning "This script might not run correctly if the policy is too restrictive (e.g., 'Restricted')."
-    Write-Warning "Current Execution Policy for Process: $(Get-ExecutionPolicy -Scope Process -ErrorAction SilentlyContinue)"
-    Write-Warning "Current Execution Policy for User: $(Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue)"
-    Write-Warning "To allow this script to run, you may need to set the policy manually."
-    Write-Warning "Open a new PowerShell window AS ADMINISTRATOR and run ONE of the following commands:"
-    Write-Warning "  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser  (Recommended for user-specific setting)"
-    Write-Warning "  OR"
-    Write-Warning "  Set-ExecutionPolicy RemoteSigned -Scope LocalMachine (System-wide, affects all users)"
-    Write-Warning "Then, close this window and re-run this script."
+    Write-Warning "IMPORTANT: Failed to automatically set PowerShell Execution Policy for this session."
+    Write-Warning "If script execution is blocked, open PowerShell AS ADMINISTRATOR and run:"
+    Write-Warning "  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser  (Recommended)"
+    Write-Warning "Then, re-run this script."
     Write-Warning "----------------------------------------------------------------------------------"
-    Read-Host -Prompt "Press Enter to exit and then try the steps above"
-    exit 1
+    # Continue if this fails, user might have it set correctly already or will do it manually.
 }
 
 Function Test-Admin {
     try {
-        # Get current Windows user identity
         $windowsIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
         $windowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($windowsIdentity)
-
-        # Check if the user is an Administrator
-        $isAdmin = $windowsPrincipal.IsInRole([System.Security.Principal.WindowsBuiltinRole]::Administrator)
-        return $isAdmin
+        return $windowsPrincipal.IsInRole([System.Security.Principal.WindowsBuiltinRole]::Administrator)
     } catch {
-        Write-Warning "----------------------------------------------------------------------------------"
-        Write-Warning "WARNING: The automatic check for Administrator privileges failed."
-        Write-Warning "Error during check: $($_.Exception.Message)"
-        Write-Warning "The script will attempt to continue. However, operations like installing software"
-        Write-Warning "with winget may require Administrator rights."
-        Write-Warning "If subsequent steps fail, please ensure you are running this script"
-        Write-Warning "from a PowerShell window that was 'Run as administrator'."
-        Write-Warning "----------------------------------------------------------------------------------"
-        # Default to assuming not admin if the check itself fails, to be cautious.
-        # This will trigger the script's main logic to warn about needing admin for winget.
-        return $false
+        Write-Warning "Could not determine if running as Administrator. Winget installs might require it."
+        return $false # Assume not admin if check fails
     }
 }
 
-# --- Main Script Logic ---
+if (-not (Test-Admin)) {
+    Write-Warning "This script may need Administrator privileges to install software using winget."
+    Write-Warning "If installations fail, please try running this script as an Administrator."
+}
+
+# --- Comprobaciones de Dependencias (Python, Node.js) ---
+
+Write-Host ""
+Write-Host "Paso 1: Comprobando Winget..." -ForegroundColor Cyan
+$wingetPath = Get-Command winget -ErrorAction SilentlyContinue
+if ($null -eq $wingetPath) {
+    Write-Warning "----------------------------------------------------------------------------------"
+    Write-Warning "ERROR: winget command not found."
+    Write-Warning "winget is required to automatically install Python and Node.js."
+    Write-Host "How to install winget (usually included in modern Windows):"
+    Write-Host "1. Open the Microsoft Store."
+    Write-Host "2. Search for 'App Installer'."
+    Write-Host "3. Install or Update it (Publisher: Microsoft Corporation)."
+    Write-Host "After installing/updating App Installer, please re-run this script."
+    Write-Warning "----------------------------------------------------------------------------------"
+    Read-Host -Prompt "Press Enter to exit script"
+    exit 1
+} else {
+    Write-Host "Winget encontrado: $($wingetPath.Source)"
+}
+
+Write-Host ""
+Write-Host "Paso 2: Comprobando Python..." -ForegroundColor Cyan
+$pythonInstalled = $false
+$pythonExeToUse = $null
 try {
-    Write-Host "Starting BLINK NEWS Setup and Run Script..."
-    Write-Host "This script will guide you through installing dependencies and running the application."
-    Write-Host "---------------------------------------------------------------------------" # This is the existing line (75 dashes)
-
-    if (-not (Test-Admin)) {
-        Write-Warning "This script may need Administrator privileges to install software using winget."
-        Write-Warning "If installations fail, please try running this script as an Administrator."
-        # No exit here, script will continue and likely fail at winget if admin is truly needed
+    # Check for python3 first, then python
+    $pythonExePath = Get-Command python3 -ErrorAction SilentlyContinue
+    if ($null -eq $pythonExePath) {
+        $pythonExePath = Get-Command python -ErrorAction SilentlyContinue
     }
 
-    # --- Check for winget ---
-    Write-Host ""
-    Write-Host "Step 1: Checking for winget package manager..."
-    $wingetPath = Get-Command winget -ErrorAction SilentlyContinue
-
-    if ($null -eq $wingetPath) {
-        Write-Warning "----------------------------------------------------------------------------------"
-        Write-Warning "ERROR: winget command not found."
-        Write-Warning "winget is required to automatically install Python and Node.js."
-        Write-Host ""
-        Write-Host "How to install winget (it's usually included in modern Windows):" # (Keep existing guidance)
-        Write-Host "1. Open the Microsoft Store."
-        Write-Host "2. Search for 'App Installer'."
-        Write-Host "3. Install or Update it (Publisher should be 'Microsoft Corporation')."
-        Write-Host "After installing/updating App Installer (which includes winget), please re-run this script."
-        Write-Warning "----------------------------------------------------------------------------------"
-        Read-Host -Prompt "Press Enter to exit script"
-        exit 1
-    } else {
-        Write-Host "winget found at: $($wingetPath.Source)"
-        try {
-            $wingetVersionOutput = winget --version
-        } catch {
-            Write-Warning "Could not retrieve winget version (command failed), but Get-Command found it. Error: $($_.Exception.Message)"
-            # Allow to continue if Get-Command found it, as it might still work
-        }
-    }
-    Write-Host "---------------------------------------------------------------------------"
-
-    # --- Install Python via winget if not found ---
-    Write-Host ""
-    Write-Host "Step 2: Checking for Python (version 3.9+)..."
-    $MinPythonVersion = [version]"3.9"
-    $PythonInstalled = $false
-    $PythonExePath = Get-Command python -ErrorAction SilentlyContinue
-
-    if ($null -ne $PythonExePath) {
-        Write-Host "Python found: $($PythonExePath.Source)"
-        try {
-            $versionOutput = python --version 2>&1
-            Write-Host "Detected Python version: $versionOutput"
-            $match = [regex]::Match($versionOutput, "(\d+\.\d+\.\d+)")
-            if ($match.Success) {
-                $currentPythonVersion = [version]$match.Groups[1].Value
-                if ($currentPythonVersion -ge $MinPythonVersion) {
-                    Write-Host "Current Python version ($currentPythonVersion) meets the minimum requirement (version $MinPythonVersion or newer)."
-                    $PythonInstalled = $true
-                } else {
-                    Write-Warning "Current Python version ($currentPythonVersion) is older than the required version $MinPythonVersion."
-                }
-            } else {
-                Write-Warning "Could not accurately parse Python version from: $versionOutput"
-            }
-        } catch {
-            Write-Warning "Could not determine Python version. Error: $($_.Exception.Message)"
-        }
-    } else {
-        Write-Host "Python not found in your system's PATH."
-    }
-
-    if (-not $PythonInstalled) {
-        Write-Host "Attempting to install the latest Python 3 via winget..."
-        Write-Host "(This may require Administrator privileges and can take a few minutes)"
-        if (-not (Test-Admin)) {
-            Write-Warning "Administrator privileges are likely required to install Python using winget."
-            Write-Host "If the script fails here, please re-run it as an Administrator."
-            # No exit here, let winget try and fail if not admin, error handling below will catch it.
-        }
-        try {
-            Write-Host "Executing: winget install --id Python.Python.3 --exact --accept-source-agreements --accept-package-agreements --scope machine --silent"
-            winget install --id Python.Python.3 --exact --accept-source-agreements --accept-package-agreements --scope machine --silent
-            Write-Host "Python installation via winget completed."
-            Write-Host "Refreshing environment variables to detect new Python installation..."
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-            $PythonExePath = Get-Command python -ErrorAction SilentlyContinue
-            if ($null -ne $PythonExePath) {
-                Write-Host "Python successfully installed and found: $($PythonExePath.Source)"
-                python --version
-                $PythonInstalled = $true
-            } else {
-                Write-Warning "----------------------------------------------------------------------------------"
-                Write-Warning "ERROR: Python was installed by winget, but is still not found in PATH."
-                Write-Warning "ACTION REQUIRED: Please RESTART your terminal/PowerShell session and RE-RUN this script."
-                Write-Warning "If the issue persists, ensure Python's installation directory is in your system PATH."
-                Write-Warning "(e.g., C:\Program Files\Python3x or %LocalAppData%\Programs\Python\Python3x\Scripts\)"
-                Write-Warning "----------------------------------------------------------------------------------"
-                Read-Host -Prompt "Press Enter to exit script"
-                exit 1
-            }
-        } catch {
-            Write-Error "----------------------------------------------------------------------------------"
-            Write-Error "ERROR: Failed to install Python via winget."
-            Write-Error "Details: $($_.Exception.Message)"
-            Write-Host "Please try installing Python (version 3.9 or newer) manually and ensure it's added to your PATH."
-            Write-Error "----------------------------------------------------------------------------------"
-            Read-Host -Prompt "Press Enter to exit script"
-            exit 1
-        }
-    }
-    Write-Host "---------------------------------------------------------------------------"
-
-    # --- Install Node.js (LTS) via winget if not found ---
-    Write-Host ""
-    Write-Host "Step 3: Checking for Node.js (LTS version) and npm..."
-    $NodeInstalled = $false
-    $NodeExePath = Get-Command node -ErrorAction SilentlyContinue
-    $NpmExePath = Get-Command npm -ErrorAction SilentlyContinue
-
-    if (($null -ne $NodeExePath) -and ($null -ne $NpmExePath)) {
-        Write-Host "Node.js found: $($NodeExePath.Source)"
-        Write-Host "npm found: $($NpmExePath.Source)"
-        try {
-            $nodeVersion = node --version
-            $npmVersion = npm --version
-            Write-Host "Detected Node.js version: $nodeVersion"
-            Write-Host "Detected npm version: $npmVersion"
-            $NodeInstalled = $true # Assuming any found version is okay for now
-        } catch {
-             Write-Warning "Could not determine Node.js or npm version. Error: $($_.Exception.Message)"
-        }
-    } else {
-        if ($null -eq $NodeExePath) { Write-Host "Node.js not found in your system's PATH." }
-        if ($null -eq $NpmExePath) { Write-Host "npm not found in your system's PATH." }
-    }
-
-    if (-not $NodeInstalled) {
-        Write-Host "Attempting to install Node.js LTS (includes npm) via winget..."
-        Write-Host "(This may require Administrator privileges and can take a few minutes)"
-        if (-not (Test-Admin)) {
-            Write-Warning "Administrator privileges are likely required to install Node.js using winget."
-            Write-Host "If the script fails here, please re-run it as an Administrator."
-        }
-        try {
-            Write-Host "Executing: winget install --id OpenJS.NodeJS.LTS --exact --accept-source-agreements --accept-package-agreements --scope machine --silent"
-            winget install --id OpenJS.NodeJS.LTS --exact --accept-source-agreements --accept-package-agreements --scope machine --silent
-            Write-Host "Node.js LTS installation via winget completed."
-            Write-Host "Refreshing environment variables to detect new Node.js installation..."
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-            $NodeExePath = Get-Command node -ErrorAction SilentlyContinue
-            $NpmExePath = Get-Command npm -ErrorAction SilentlyContinue
-
-            if (($null -ne $NodeExePath) -and ($null -ne $NpmExePath)) {
-                Write-Host "Node.js successfully installed and found: $($NodeExePath.Source)"
-                Write-Host "npm successfully installed and found: $($NpmExePath.Source)"
-                node --version
-                npm --version
-                $NodeInstalled = $true
-            } else {
-                Write-Warning "----------------------------------------------------------------------------------"
-                Write-Warning "ERROR: Node.js/npm was installed by winget, but is still not found in PATH."
-                Write-Warning "ACTION REQUIRED: Please RESTART your terminal/PowerShell session and RE-RUN this script."
-                Write-Warning "If the issue persists, ensure Node.js's installation directory is in your system PATH."
-                Write-Warning "(e.g., C:\Program Files\nodejs\)"
-                Write-Warning "----------------------------------------------------------------------------------"
-                Read-Host -Prompt "Press Enter to exit script"
-                exit 1
-            }
-        } catch {
-            Write-Error "----------------------------------------------------------------------------------"
-            Write-Error "ERROR: Failed to install Node.js LTS via winget."
-            Write-Error "Details: $($_.Exception.Message)"
-            Write-Host "Please try installing Node.js LTS manually and ensure it and npm are added to your PATH."
-            Write-Error "----------------------------------------------------------------------------------"
-            Read-Host -Prompt "Press Enter to exit script"
-            exit 1
-        }
-    }
-    Write-Host "---------------------------------------------------------------------------"
-
-    # --- Create Python virtual environment and install dependencies ---
-    Write-Host ""
-    Write-Host "Step 4: Setting up Python virtual environment ('blink_venv')..."
-    $VenvDir = "blink_venv"
-    $VenvPath = Join-Path -Path $PSScriptRoot -ChildPath $VenvDir
-    $PyvenvCfgPath = Join-Path -Path $VenvPath -ChildPath "pyvenv.cfg"
-    $PythonFromVenv = Join-Path -Path $VenvPath -ChildPath "Scripts\python.exe" # Absolute path
-
-    # Comprobar si blink_venv existe y si pyvenv.cfg también.
-    if (Test-Path $VenvPath) {
-        if (-not (Test-Path $PyvenvCfgPath)) {
-            Write-Warning "[CONFIG_VENV] Virtual environment '$VenvDir' exists but 'pyvenv.cfg' is missing."
-            Write-Warning "[CONFIG_VENV] This indicates a potentially corrupt venv. Attempting to remove and recreate '$VenvDir'."
-            try {
-                Remove-Item -Recurse -Force $VenvPath -ErrorAction Stop
-                Write-Host "[CONFIG_VENV] Successfully removed existing '$VenvDir'."
-            } catch {
-                Write-Error "[CONFIG_VENV] Failed to remove existing '$VenvDir' at '$VenvPath'. Error: $($_.Exception.Message)"
-                Write-Error "[CONFIG_VENV] Please remove this directory manually and re-run the script."
-                Read-Host -Prompt "Press Enter to exit script"
-                exit 1
-            }
+    if ($null -ne $pythonExePath) {
+        $pythonVersionOutput = Invoke-Expression "$($pythonExePath.Source) --version" 2>&1
+        Write-Host "Python encontrado: $($pythonExePath.Source) - Versión: $pythonVersionOutput"
+        # Simple check if output contains "Python 3.11" - adjust if more specific parsing needed
+        if ($pythonVersionOutput -match "Python 3\.11") {
+            Write-Host "Python 3.11 ya está instalado."
+            $pythonInstalled = $true
+            $pythonExeToUse = $pythonExePath.Source
         } else {
-            Write-Host "[CONFIG_VENV] Virtual environment '$VenvDir' and 'pyvenv.cfg' found. Venv seems OK."
+            Write-Warning "Python encontrado, pero no es la versión 3.11. Se intentará instalar la versión correcta."
         }
+    } else {
+         Write-Host "Python no encontrado en el PATH."
     }
+} catch {
+    Write-Warning "No se pudo verificar la versión de Python existente. Error: $($_.Exception.Message)"
+}
 
-    # La lógica existente para crear el venv si no existe (o si fue eliminado arriba)
-    # La condición original if (-not (Test-Path $PythonFromVenv)) es todavía una buena comprobación final,
-    # porque incluso si pyvenv.cfg existe, Scripts\python.exe podría faltar por otras razones.
-    # O podemos simplificarla a if (-not (Test-Path $VenvPath)) si la eliminación fue exitosa.
-    # Mejor ser explícito: si después de todo, PythonFromVenv no es ejecutable, intentar crear.
+if (-not $pythonInstalled) {
+    Write-Host "Intentando instalar Python 3.11 con winget..."
+    Write-Host "(Esto puede requerir privilegios de Administrador y tomar unos minutos)"
+    try {
+        # Using the specific ID for Python 3.11
+        winget install --id Python.Python.3.11 -e --accept-source-agreements --accept-package-agreements --scope machine --silent
+        Write-Host "Instalación de Python 3.11 vía winget completada."
+        Write-Host "Refrescando variables de entorno para detectar la nueva instalación de Python..."
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-    if (-not (Test-Path $PythonFromVenv)) {
-        # Si $VenvPath aún existe aquí pero $PythonFromVenv no, algo está muy mal.
-        # Pero la lógica de creación debería manejarlo si $VenvPath no existe (porque fue eliminado).
-        if (Test-Path $VenvPath) {
-             Write-Warning "[CONFIG_VENV] '$VenvDir' exists, 'pyvenv.cfg' might exist, but '$($PythonFromVenv)' is missing. Attempting venv creation/repair."
-        } # else, $VenvPath no existe (fue eliminado o nunca existió), así que la creación es necesaria.
-
-        Write-Host "[CONFIG_VENV] Creating Python virtual environment in '$VenvDir' folder using '$PythonToUseForVenv'..."
-        # $PythonToUseForVenv debería estar definido desde la comprobación de Python en Step 2,
-        # o ser 'python' si no se encontró una ruta específica.
-        # Si $PythonToUseForVenv no está definido aquí (ej. si se reestructura el script), asegurar su definición.
-        if (-not $PythonToUseForVenv) { # Asegurar que $PythonToUseForVenv tenga un valor
-             $PythonToUseForVenv = if ($null -ne $PythonExePath -and (Test-Path $PythonExePath.Source)) { $PythonExePath.Source } else { "python" }
+        $pythonExePath = Get-Command python3 -ErrorAction SilentlyContinue
+        if ($null -eq $pythonExePath) {
+            $pythonExePath = Get-Command python -ErrorAction SilentlyContinue
         }
 
-        try {
-            Write-Host "[CONFIG_VENV] Executing: & '$PythonToUseForVenv' -m venv '$VenvPath'"
-            # Ejecutar el comando y capturar toda la salida (stdout y stderr)
-            $venvOutput = & $PythonToUseForVenv -m venv $VenvPath 2>&1 | Out-String
-
-            if ($LASTEXITCODE -ne 0) {
-                Write-Error "[CONFIG_VENV] 'python -m venv' command failed with exit code $LASTEXITCODE."
-                if (-not ([string]::IsNullOrEmpty($venvOutput))) {
-                    Write-Host "[CONFIG_VENV] Output from venv command (stdout/stderr):"
-                    Write-Host $venvOutput
-                }
-                throw "[CONFIG_VENV] Failed to create virtual environment. See output above."
-            } else {
-                 Write-Host "[CONFIG_VENV] 'python -m venv' command executed."
-                 if (-not ([string]::IsNullOrEmpty($venvOutput))) {
-                    Write-Host "[CONFIG_VENV] Output from venv command (stdout, should be empty on success):"
-                    Write-Host $venvOutput
-                }
-            }
-
-            if (-not (Test-Path $PythonFromVenv)) {
-                throw "[CONFIG_VENV] Python executable still not found at '$PythonFromVenv' after venv creation command."
-            }
-            Write-Host "[CONFIG_VENV] Virtual environment successfully verified with Python at '$PythonFromVenv'."
-        } catch {
-            # Capturar y mostrar la excepción completa de PowerShell
-            Write-Error "[CONFIG_VENV] An error occurred during venv creation or verification."
-            Write-Error "PowerShell Exception Type: $($_.Exception.GetType().FullName)"
-            Write-Error "PowerShell Exception Message: $($_.Exception.Message)"
-            # Mostrar más detalles si están disponibles
-            if ($_.Exception.ErrorRecord) {
-                Write-Error "PowerShell ErrorRecord: $($_.Exception.ErrorRecord | Out-String)"
-            }
-            if ($_.ScriptStackTrace) {
-                Write-Error "PowerShell ScriptStackTrace: $($_.ScriptStackTrace)"
-            }
-            # Si $venvOutput fue capturado antes de la excepción, mostrarlo también
-            if ($venvOutput) {
-                 Write-Host "[CONFIG_VENV] Captured output from venv command (if any) before exception:"
-                 Write-Host $venvOutput
-            }
-            Read-Host -Prompt "Press Enter to exit script"
+        if ($null -ne $pythonExePath) {
+            Write-Host "Python 3.11 instalado y encontrado: $($pythonExePath.Source)"
+            Invoke-Expression "$($pythonExePath.Source) --version"
+            $pythonInstalled = $true
+            $pythonExeToUse = $pythonExePath.Source
+        } else {
+            Write-Warning "----------------------------------------------------------------------------------"
+            Write-Warning "ERROR: Python 3.11 fue instalado por winget, pero aún no se encuentra en el PATH."
+            Write-Warning "ACCIÓN REQUERIDA: Por favor, CIERRA y REABRE esta terminal/PowerShell y VUELVE A EJECUTAR este script."
+            Write-Warning "Si el problema persiste, asegúrate que el directorio de instalación de Python esté en tu PATH."
+            Write-Warning "----------------------------------------------------------------------------------"
+            Read-Host -Prompt "Presiona Enter para salir del script"
             exit 1
         }
-    } else {
-        # Esta condición se daría si $VenvPath y $PyvenvCfgPath existían Y $PythonFromVenv también existía.
-        Write-Host "[CONFIG_VENV] Python virtual environment '$VenvDir' already exists and seems valid."
-    }
-
-    Write-Host "Installing Python dependencies from requirements.txt into the virtual environment..."
-    Write-Host "(This may take a few moments)"
-    $RequirementsFile = Join-Path -Path $PSScriptRoot -ChildPath "requirements.txt"
-    if (-not (Test-Path $RequirementsFile)) {
-        Write-Error "ERROR: requirements.txt not found at $RequirementsFile!"
-        Read-Host -Prompt "Press Enter to exit script"
-        exit 1
-    }
-    try {
-        Invoke-Expression "$PythonFromVenv -m pip install --upgrade pip"
-        Invoke-Expression "$PythonFromVenv -m pip install -r '$RequirementsFile'"
-        Write-Host "Python dependencies installed successfully."
     } catch {
-        Write-Error "Failed to install Python dependencies. Error: $($_.Exception.Message)"
-        Read-Host -Prompt "Press Enter to exit script"
+        Write-Error "----------------------------------------------------------------------------------"
+        Write-Error "ERROR: Falló la instalación de Python 3.11 con winget."
+        Write-Error "Detalles: $($_.Exception.Message)"
+        Write-Host "Por favor, intenta instalar Python 3.11 manualmente y asegúrate que esté en tu PATH."
+        Write-Error "----------------------------------------------------------------------------------"
+        Read-Host -Prompt "Presiona Enter para salir del script"
         exit 1
     }
-    Write-Host "---------------------------------------------------------------------------"
-
-    # --- Install pnpm globally via npm ---
-    Write-Host ""
-    Write-Host "Step 5: Checking for pnpm (Node.js package manager)..."
-    $PnpmInstalled = $false
-    $PnpmExePath = Get-Command pnpm -ErrorAction SilentlyContinue
-
-    if ($null -ne $PnpmExePath) {
-        Write-Host "pnpm found: $($PnpmExePath.Source)"
-        try {
-            $pnpmVersion = pnpm --version
-            Write-Host "Detected pnpm version: $pnpmVersion"
-            $PnpmInstalled = $true
-        } catch {
-            Write-Warning "Could not determine pnpm version. Error: $($_.Exception.Message)"
-            $PnpmInstalled = $true # pnpm command exists, so assume it's usable
-        }
-    } else {
-        Write-Host "pnpm not found in your system's PATH."
+}
+# Ensure $pythonExeToUse is set for venv creation
+if ($null -eq $pythonExeToUse) {
+    $pythonExeToUse = Get-Command python3 -ErrorAction SilentlyContinue
+    if ($null -eq $pythonExeToUse) {
+        $pythonExeToUse = Get-Command python -ErrorAction SilentlyContinue
     }
+    if ($null -eq $pythonExeToUse) {
+         Write-Error "No se pudo determinar el ejecutable de Python a usar. Saliendo."
+         exit 1
+    }
+    $pythonExeToUse = $pythonExeToUse.Source
+}
 
-    if (-not $PnpmInstalled) {
-        Write-Host "Attempting to install pnpm globally via npm..."
-        Write-Host "(This may take a few moments)"
+
+Write-Host ""
+Write-Host "Paso 3: Comprobando Node.js y pnpm..." -ForegroundColor Cyan
+$nodeInstalled = $false
+$npmInstalled = $false
+$pnpmInstalled = $false
+
+try {
+    $nodeExePath = Get-Command node -ErrorAction SilentlyContinue
+    $npmExePath = Get-Command npm -ErrorAction SilentlyContinue
+
+    if ($null -ne $nodeExePath) {
+        Write-Host "Node.js encontrado: $($nodeExePath.Source)"
+        node --version
+        $nodeInstalled = $true
+    } else {
+        Write-Host "Node.js no encontrado."
+    }
+    if ($null -ne $npmExePath) {
+        Write-Host "npm encontrado: $($npmExePath.Source)"
+        npm --version
+        $npmInstalled = $true
+    } else {
+        Write-Host "npm no encontrado (usualmente viene con Node.js)."
+    }
+} catch {
+    Write-Warning "No se pudo verificar la versión de Node.js o npm. Error: $($_.Exception.Message)"
+}
+
+if (-not $nodeInstalled -or -not $npmInstalled) {
+    Write-Host "Intentando instalar la última versión LTS de Node.js (incluye npm) con winget..."
+    Write-Host "(Esto puede requerir privilegios de Administrador y tomar unos minutos)"
+    try {
+        winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements --scope machine --silent
+        Write-Host "Instalación de Node.js LTS vía winget completada."
+        Write-Host "Refrescando variables de entorno para detectar la nueva instalación de Node.js/npm..."
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+        $nodeExePath = Get-Command node -ErrorAction SilentlyContinue
+        $npmExePath = Get-Command npm -ErrorAction SilentlyContinue
+
+        if (($null -ne $nodeExePath) -and ($null -ne $npmExePath)) {
+            Write-Host "Node.js instalado y encontrado: $($nodeExePath.Source)"
+            node --version
+            Write-Host "npm instalado y encontrado: $($npmExePath.Source)"
+            npm --version
+            $nodeInstalled = $true
+            $npmInstalled = $true
+        } else {
+            Write-Warning "----------------------------------------------------------------------------------"
+            Write-Warning "ERROR: Node.js/npm fue instalado por winget, pero aún no se encuentra en el PATH."
+            Write-Warning "ACCIÓN REQUERIDA: Por favor, CIERRA y REABRE esta terminal/PowerShell y VUELVE A EJECUTAR este script."
+            Write-Warning "Si el problema persiste, asegúrate que el directorio de instalación de Node.js esté en tu PATH (ej. C:\Program Files\nodejs\)."
+            Write-Warning "----------------------------------------------------------------------------------"
+            Read-Host -Prompt "Presiona Enter para salir del script"
+            exit 1
+        }
+    } catch {
+        Write-Error "----------------------------------------------------------------------------------"
+        Write-Error "ERROR: Falló la instalación de Node.js LTS con winget."
+        Write-Error "Detalles: $($_.Exception.Message)"
+        Write-Host "Por favor, intenta instalar Node.js LTS manualmente y asegúrate que él y npm estén en tu PATH."
+        Write-Error "----------------------------------------------------------------------------------"
+        Read-Host -Prompt "Presiona Enter para salir del script"
+        exit 1
+    }
+}
+
+# Check for pnpm
+if ($nodeInstalled -and $npmInstalled) { # Only try to install pnpm if Node/npm are present
+    $pnpmExePath = Get-Command pnpm -ErrorAction SilentlyContinue
+    if ($null -ne $pnpmExePath) {
+        Write-Host "pnpm encontrado: $($pnpmExePath.Source)"
+        pnpm --version
+        $pnpmInstalled = $true
+    } else {
+        Write-Host "pnpm no encontrado. Intentando instalar pnpm globalmente con npm..."
         try {
-            Invoke-Expression "npm install -g pnpm"
-            Write-Host "pnpm global installation command executed."
-            Write-Host "Refreshing environment variables to detect new pnpm installation..."
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + [System.Environment]::GetEnvironmentVariable("Path","Process")
-            $PnpmExePath = Get-Command pnpm -ErrorAction SilentlyContinue
-            if ($null -ne $PnpmExePath) {
-                Write-Host "pnpm successfully installed and found: $($PnpmExePath.Source)"
+            npm install -g pnpm
+            Write-Host "Comando de instalación global de pnpm ejecutado."
+            Write-Host "Refrescando variables de entorno para detectar la nueva instalación de pnpm..."
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") + ";" + ([System.Environment]::GetEnvironmentVariable("APPDATA", "User") + "\npm") # Common global path
+
+            $pnpmExePath = Get-Command pnpm -ErrorAction SilentlyContinue
+            if ($null -ne $pnpmExePath) {
+                Write-Host "pnpm instalado y encontrado: $($pnpmExePath.Source)"
                 pnpm --version
-                $PnpmInstalled = $true
+                $pnpmInstalled = $true
             } else {
                 Write-Warning "----------------------------------------------------------------------------------"
-                Write-Warning "WARNING: pnpm was installed by npm, but is still not found in PATH."
-                Write-Warning "ACTION REQUIRED: Please RESTART your terminal/PowerShell session and RE-RUN this script."
-                Write-Warning "If the issue persists, ensure npm's global bin directory is in your system PATH."
-                Write-Warning "(You can find this directory by running 'npm config get prefix' in a new terminal)"
+                Write-Warning "ADVERTENCIA: pnpm fue instalado por npm, pero aún no se encuentra en el PATH."
+                Write-Warning "Puede que necesites CIERRA y REABRE esta terminal/PowerShell."
+                Write-Warning "Si el problema persiste, encuentra la ruta global de npm (npm config get prefix) y añádela al PATH."
                 Write-Warning "----------------------------------------------------------------------------------"
-                # Not exiting, as the application startup part has its own pnpm check.
             }
         } catch {
-            Write-Error "----------------------------------------------------------------------------------"
-            Write-Error "ERROR: Failed to install pnpm globally via npm."
-            Write-Error "Details: $($_.Exception.Message)"
-            Write-Host "Please try installing pnpm manually by running: npm install -g pnpm"
-            Write-Error "----------------------------------------------------------------------------------"
+            Write-Error "ERROR: Falló la instalación global de pnpm con npm. Detalles: $($_.Exception.Message)"
+            Write-Warning "Por favor, intenta instalar pnpm manualmente con: npm install -g pnpm"
         }
     }
-    Write-Host "---------------------------------------------------------------------------"
+}
 
-    # --- Start Backend and Frontend Applications ---
-    Write-Host ""
-    Write-Host "Step 6: Starting Blink News application (Backend and Frontend)..."
 
-    $PythonForApp = $PythonFromVenv # Use Python from venv
-    $BackendScriptToRun = Join-Path -Path $PSScriptRoot -ChildPath "news-blink-backend\src\app.py"
-    # Use $FrontendPathAbs here as defined earlier, or define it if not already:
-    $FrontendPathRel = "news-blink-frontend" # Relative to project root
-    $FrontendPathAbs = Join-Path -Path $PSScriptRoot -ChildPath $FrontendPathRel
+# --- Creación del Entorno Virtual y Dependencias de Python ---
+Write-Host ""
+Write-Host "Paso 4: Configurando el entorno virtual de Python ('blink_venv')..." -ForegroundColor Cyan
+$VenvDir = "blink_venv"
+$VenvPath = Join-Path -Path $PSScriptRoot -ChildPath $VenvDir
+$PythonFromVenv = Join-Path -Path $VenvPath -ChildPath "Scripts\python.exe"
 
-    if (-not (Test-Path $BackendScriptToRun)) {
-        Write-Error "ERROR: Backend script not found at $BackendScriptToRun. Cannot start backend."
-        Read-Host -Prompt "Press Enter to exit script"
-        exit 1
-    }
-    if (-not (Test-Path $FrontendPathAbs)) { # Changed from $FrontendDirToRun to $FrontendPathAbs
-        Write-Error "ERROR: Frontend directory not found at $FrontendPathAbs. Cannot start frontend."
-        Read-Host -Prompt "Press Enter to exit script"
-        exit 1
-    }
-
-    # $PnpmExePath should be available from Step 5 (pnpm installation check/attempt)
-    $PnpmCmdForAppStart = if ($null -ne $PnpmExePath -and (Test-Path $PnpmExePath.Source)) { $PnpmExePath.Source } else { "pnpm" }
-
-    if ($null -eq (Get-Command $PnpmCmdForAppStart -ErrorAction SilentlyContinue)) { # Re-check PnpmCmdForAppStart
-        Write-Error "----------------------------------------------------------------------------------"
-        Write-Error "ERROR: pnpm command not found. Cannot start the frontend."
-        Write-Warning "This script attempted to install pnpm. If the installation seemed successful,"
-        Write-Warning "you might need to RESTART PowerShell or your computer for pnpm to be recognized in PATH."
-        Write-Warning "Alternatively, try running 'npm install -g pnpm' manually in a new Administrator terminal,"
-        Write-Warning "then RE-RUN this script."
-        Write-Error "----------------------------------------------------------------------------------"
-        Read-Host -Prompt "Press Enter to exit script"
-        exit 1
-    }
-
-    # --- Diagnóstico: Verificar pyvenv.cfg ---
-    $PyvenvCfgPath = Join-Path -Path $PSScriptRoot -ChildPath (Join-Path $VenvDir "pyvenv.cfg")
-    if (Test-Path $PyvenvCfgPath) {
-        Write-Host "[DIAGNOSTIC_BACKEND] pyvenv.cfg found at: $PyvenvCfgPath"
-    } else {
-        Write-Warning "[DIAGNOSTIC_BACKEND] pyvenv.cfg NOT found at: $PyvenvCfgPath"
-    }
-
-    # --- Diagnóstico: Mostrar variables de entorno ANTES de modificar para el backend ---
-    Write-Host "[DIAGNOSTIC_BACKEND] Parent VIRTUAL_ENV: $($env:VIRTUAL_ENV)"
-    Write-Host "[DIAGNOSTIC_BACKEND] Parent CONDA_PREFIX: $($env:CONDA_PREFIX)"
-    Write-Host "[DIAGNOSTIC_BACKEND] Parent CONDA_DEFAULT_ENV: $($env:CONDA_DEFAULT_ENV)"
-    Write-Host "[DIAGNOSTIC_BACKEND] Parent CONDA_SHLVL: $($env:CONDA_SHLVL)"
-    Write-Host "[DIAGNOSTIC_BACKEND] Using PythonForApp: $PythonForApp"
-    Write-Host "[DIAGNOSTIC_BACKEND] Using BackendScriptToRun: $BackendScriptToRun"
-
-    Write-Host "Starting Backend (Flask server)..."
-    Write-Host "(A new PowerShell window will open for the backend)"
+if (-not (Test-Path $PythonFromVenv)) {
+    Write-Host "Creando entorno virtual en '$VenvDir' usando '$pythonExeToUse'..."
     try {
-        # Escapar comillas en las rutas por si tienen espacios, aunque Join-Path usualmente no los crea sin razón.
-        # PowerShell es generalmente bueno con rutas con espacios si están entre comillas simples en el comando final.
-        $EscapedPythonForApp = "'$PythonForApp'"
-        $EscapedBackendScriptToRun = "'$BackendScriptToRun'"
-
-        # Construir la cadena de comando que se ejecutará en la nueva ventana
-        # Se usan comillas dobles externas para que $EscapedPythonForApp y $EscapedBackendScriptToRun se expandan.
-        # Se usan comillas simples internas para los comandos de PowerShell y para las rutas.
-        $BackendCommandString = "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] This window is for the Backend.'; " +
-                                "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] Python Executable: $EscapedPythonForApp'; " +
-                                "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] Backend Script: $EscapedBackendScriptToRun'; " +
-                                "Write-Host '[DIAGNOSTIC_BACKEND_CHILD_CORRECTED] --- BEGIN BACKEND APP OUTPUT ---'; " +
-                                "& $EscapedPythonForApp $EscapedBackendScriptToRun"
-
-        # Start-Process ahora usa la cadena de comando directamente.
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", $BackendCommandString -WindowStyle Normal
-        Write-Host "Backend process launch command issued using command string."
-        # ... (resto del script, como el inicio del frontend) ...
+        & $pythonExeToUse -m venv $VenvPath
+        Write-Host "Entorno virtual creado."
     } catch {
-        Write-Error "Failed to start Backend. Error: $($_.Exception.Message)"
+        Write-Error "ERROR: No se pudo crear el entorno virtual. Asegúrate de que Python ($pythonExeToUse) esté instalado y sea accesible. Error: $($_.Exception.Message)"
+        exit 1
     }
+} else {
+    Write-Host "El entorno virtual 'blink_venv' ya existe en '$VenvPath'."
+}
 
-    Write-Host "Starting Frontend (Vite dev server)..."
-    Write-Host "(A new PowerShell window will open for the frontend. This may take a minute to compile.)"
-    try {
-        Write-Host "Ensuring frontend dependencies are installed in '$($FrontendPathAbs)'..."
-        Write-Host "(This may take a few moments if this is the first time or dependencies changed)"
-        try {
-            Invoke-Expression "$PnpmCmdForAppStart --prefix '$FrontendPathAbs' install"
-            Write-Host "Frontend dependencies installation command executed successfully for '$($FrontendPathAbs)'."
-        } catch {
-            Write-Error "Failed to run 'pnpm install' for frontend at '$($FrontendPathAbs)'. Error: $($_.Exception.Message)"
-            Write-Warning "The frontend might not start correctly without its dependencies."
-        }
-        Start-Process powershell -ArgumentList "-NoExit", "-Command", "& $PnpmCmdForAppStart --prefix '$FrontendPathAbs' run dev -- --debug" -WindowStyle Normal
-        Write-Host "Frontend process launch command issued."
-        Write-Host "Look for a new window. Frontend typically runs on http://localhost:5173"
-    } catch {
-        Write-Error "Failed to start Frontend. Error: $($_.Exception.Message)"
-    }
-
-    Write-Host "BLINK NEWS Setup and Run Script finished its tasks."
-
+Write-Host "Instalando dependencias de Python desde requirements.txt en 'blink_venv'..."
+try {
+    & $PythonFromVenv -m pip install --upgrade pip
+    & $PythonFromVenv -m pip install -r (Join-Path -Path $PSScriptRoot -ChildPath "requirements.txt")
+    Write-Host "Dependencias de Python instaladas correctamente en 'blink_venv'." -ForegroundColor Green
 } catch {
-    Write-Error "----------------------------------------------------------------------------------"
-    Write-Error "AN UNEXPECTED ERROR OCCURRED:"
-    Write-Error "$($_.Exception.Message)"
-    Write-Error "Script execution halted."
-    Write-Error "----------------------------------------------------------------------------------"
-    if ($Host.Name -eq "ConsoleHost") {
-        Read-Host -Prompt "Press Enter to exit"
-    }
+    Write-Error "ERROR: Falló la instalación de dependencias de Python. Revisa el error: $($_.Exception.Message)"
     exit 1
 }
 
+# --- Dependencias del Frontend ---
 Write-Host ""
-Write-Host "---------------------------------------------------------------------------"
-Write-Host "SCRIPT COMPLETE - WHAT TO DO NEXT:"
-Write-Host "---------------------------------------------------------------------------"
-Write-Host "1. TWO NEW PowerShell windows should have opened:"
-Write-Host "   - One for the BACKEND (Flask server)."
-Write-Host "   - One for the FRONTEND (Vite development server)."
-Write-Host ""
-Write-Host "2. Check the FRONTEND window:"
-Write-Host "   - Wait for it to compile. When ready, it will show a 'Local:' URL."
-Write-Host "   - It typically looks like: http://localhost:5173"
-Write-Host "   - Open this URL in your web browser to see BLINK NEWS."
-Write-Host ""
-Write-Host "3. Check the BACKEND window:"
-Write-Host "   - It should show messages indicating it's running, typically on port 5000."
-Write-Host "   - You usually don't interact with this window directly, but keep it open."
-Write-Host ""
-Write-Host "4. TO STOP THE APPLICATION:"
-Write-Host "   - Go to EACH of the two new PowerShell windows."
-Write-Host "   - Press CTRL+C in each window."
-Write-Host "   - You may need to confirm by typing 'Y' or 'N' and then Enter."
-Write-Host "---------------------------------------------------------------------------"
+Write-Host "Paso 5: Configurando dependencias del frontend..." -ForegroundColor Cyan
+$FrontendDir = Join-Path -Path $PSScriptRoot -ChildPath "news-blink-frontend"
 
-if ($Host.Name -eq "ConsoleHost") {
-    Read-Host -Prompt "All automated tasks are done. Press Enter to close this main script window."
+if ($pnpmInstalled -and ($null -ne (Get-Command pnpm -ErrorAction SilentlyContinue))) {
+    Write-Host "pnpm encontrado. Instalando dependencias del frontend en '$FrontendDir'..."
+    try {
+        Push-Location $FrontendDir
+        pnpm install
+        Pop-Location
+        Write-Host "Dependencias del frontend instaladas correctamente." -ForegroundColor Green
+    } catch {
+        Write-Error "ERROR: 'pnpm install' falló en '$FrontendDir'. Revisa el error: $($_.Exception.Message)"
+        # No salir, solo advertir.
+    }
+} else {
+    Write-Warning "ADVERTENCIA: pnpm no está disponible o no se pudo verificar."
+    Write-Warning "Por favor, asegúrate de que pnpm esté instalado ('npm install -g pnpm') y luego ejecuta 'pnpm install' manualmente en la carpeta '$FrontendDir'."
 }
+
+# --- INSTRUCCIONES FINALES ---
+Write-Host ""
+Write-Host "-----------------------------------------------------------------" -ForegroundColor Yellow
+Write-Host "  ✅ ¡LA CONFIGURACIÓN DEL ENTORNO LOCAL HA TERMINADO! ✅" -ForegroundColor Yellow
+Write-Host "-----------------------------------------------------------------" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Este script NO inicia la aplicación para evitar conflictos."
+Write-Host ""
+Write-Host "--- MÉTODO RECOMENDADO PARA EJECUTAR LA APLICACIÓN ---" -ForegroundColor Green
+Write-Host "1. Asegúrate de que Docker Desktop esté corriendo."
+Write-Host "2. En una terminal, en la raíz del proyecto, ejecuta: docker-compose up --build"
+Write-Host "3. En una SEGUNDA terminal, ve a 'news-blink-frontend' y ejecuta: pnpm run dev"
+Write-Host ""
+Write-Host "--- MÉTODO ALTERNATIVO (LOCAL) ---" -ForegroundColor Cyan
+Write-Host "1. Abre una terminal y activa el entorno: .link_venv\Scriptsctivate.ps1"
+Write-Host "   (Si usas cmd, es: blink_venv\Scriptsctivate.bat)"
+Write-Host "2. En esa terminal (verás '(blink_venv)' al inicio), ejecuta: python news-blink-backend/src/app.py"
+Write-Host "3. En una SEGUNDA terminal, ve a 'news-blink-frontend' y ejecuta: pnpm run dev"
+Write-Host ""
+
+Read-Host -Prompt "Presiona Enter para finalizar este script de instalación"
+
+```
