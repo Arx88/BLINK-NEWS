@@ -52,11 +52,8 @@ def buscar_en_la_web(query: str) -> str:
         if not results:
             return "No se encontraron resultados."
 
-        return "
-".join([
-            f"Título: {res['title']}
-URL: {res['href']}
----"
+        return "\n".join([
+            f"Título: {res['title']}\nURL: {res['href']}\n---"
             for res in results
         ])
 
