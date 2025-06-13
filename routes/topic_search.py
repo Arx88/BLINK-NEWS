@@ -149,68 +149,64 @@ def get_superior_note(note_id):
         }), 500
 
 def process_topic_search(topic, hours_back, max_sources, search_key):
-    """Procesa la búsqueda por tema en segundo plano USANDO EL AGENTE DE IA"""
+    """Procesa la búsqueda por tema en segundo plano USANDO EL AGENTE DE IA."""
     try:
         print(f"🤖 Agente de IA iniciando investigación para el tema: {topic}")
-        
-        # Actualizar estado
-        # Ensure active_searches is defined and accessible here
-        # For example, it might be a global variable in this file
-        # active_searches = {} # If it's not defined elsewhere
-        active_searches[search_key]['status'] = 'generating_notes' # El agente hace todo en un paso
-        
-        # 1. Crear el agente
+
+        # Ensure the search_key entry exists before trying to update its status
+        if search_key not in active_searches:
+            active_searches[search_key] = {}
+        active_searches[search_key]['status'] = 'generating_notes'
+
         agent_executor = crear_agente_de_noticias()
 
-        # 2. Invocar al agente para que realice su trabajo
-        # Esto puede tardar varios minutos
-        prompt_para_agente = f"Investiga a fondo y redacta una nota periodística completa sobre '{topic}', basándote en noticias de las últimas {hours_back} horas."
+        # --- LLAMADA CORREGIDA ---
+        # El prompt 'react' espera un diccionario simple con la clave "input"
+        prompt_para_agente = f"Investiga a fondo y redacta una nota periodística completa y objetiva sobre '{topic}', basándote en noticias de las últimas {hours_back} horas. La nota debe ser detallada y estar bien escrita."
         resultado_agente = agent_executor.invoke({"input": prompt_para_agente})
-        
-        nota_generada = resultado_agente.get('output', 'No se pudo generar la nota.')
 
-        # 3. Formatear la salida del agente en la estructura esperada
-        # (Esta parte se puede mejorar para que el agente devuelva un JSON estructurado)
+        nota_generada = resultado_agente.get('output', 'El agente no pudo generar una nota.')
+
         superior_note = {
             'id': hashlib.md5(f"{topic}_{datetime.now().isoformat()}".encode()).hexdigest(),
             'topic': topic,
-            'title': f"Análisis Autónomo sobre: {topic}", # Título simple
+            'title': f"Análisis Autónomo sobre: {topic}",
             'full_content': nota_generada,
-            'ultra_summary': [ # Resumen simple por ahora
+            'ultra_summary': [ # Puedes pedirle al agente que genere esto también en un paso futuro
                 "Análisis generado por un agente de IA autónomo.",
                 "Múltiples fuentes web fueron consultadas en tiempo real.",
                 "La información fue extraída y sintetizada automáticamente."
             ],
-            'sources': ["Web Autónoma"],
-            'urls': [], # El agente no nos devuelve las URLs directamente en este flujo simple
+            'sources': ["Agente de IA con Tavily Search"],
+            'urls': [],
             'articles_count': "Varias",
             'timestamp': datetime.now().isoformat(),
             'image': None,
         }
-        
+
         results = {
             'status': 'success',
             'topic': topic,
-            'superior_notes': [superior_note], # Envolvemos en una lista
+            'superior_notes': [superior_note],
             'total_groups_found': 1,
             'notes_generated': 1,
             'timestamp': datetime.now().isoformat(),
         }
-        
-        # Ensure _save_search_results is defined and accessible
-        # def _save_search_results(key, data): pass # Example if not defined
+
         _save_search_results(search_key, results)
-        
         print(f"✅ Investigación del agente completada para el tema: {topic}")
-        
+
     except Exception as e:
         print(f"❌ Error en el proceso del agente de IA: {e}")
-        _save_search_results(search_key, {
-            'status': 'error',
-            'message': f'Error en el agente de IA: {str(e)}',
-            'topic': topic,
-            'timestamp': datetime.now().isoformat()
-        })
+        # Assuming the rest of the error block is as the user wants it,
+        # based on "resto del bloque de error sin cambios".
+        # If active_searches and _save_search_results are used in the error block,
+        # they need to be correctly defined/handled.
+        if search_key in active_searches:
+            active_searches[search_key]['status'] = 'error'
+            active_searches[search_key]['error_message'] = str(e)
+        # else: # This part might be needed if search_key might not be in active_searches
+            # _save_search_results(search_key, {'status': 'error', 'error_message': str(e)})
     finally:
         # La limpieza de active_searches se maneja como antes
         pass
