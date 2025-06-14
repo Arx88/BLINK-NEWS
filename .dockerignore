@@ -1,22 +1,23 @@
-# Ignorar el entorno virtual local, ya que el contenedor tendrá el suyo
+# Entorno virtual de Python
 blink_venv/
 
-# Ignorar dependencias del frontend
+# Dependencias de Node.js
+node_modules/
 news-blink-frontend/node_modules/
 
-# Ignorar archivos de Git y de configuración de Docker
-.git/
-.gitignore
-Dockerfile
-Dockerfile.frontend
-.dockerignore
-docker-compose.yml
-
-# Ignorar archivos de cache de Python
+# Archivos de caché y compilados
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+dist/
+build/
 
-# Ignorar datos generados para que no se sobreescriban al reconstruir
-# Los montaremos con un volumen en docker-compose
-news-blink-backend/src/data/
+# Archivos de IDE y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+installation_log.txt
