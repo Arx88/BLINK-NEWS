@@ -21,7 +21,47 @@ class NewsScraper:
         self.default_articles_per_source = config.get('default_articles_per_source', 8)
         self.recency_filter_hours = config.get('recency_filter_hours', 24)
         self.similarity_threshold = config.get('similarity_threshold', 0.6)
-    
+
+    @staticmethod
+    def _similarity(a, b):
+        """Calcula la similitud entre dos títulos"""
+        return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+    @staticmethod
+    def _extract_keywords(title):
+        """Extrae palabras clave de un título"""
+        # Palabras comunes a ignorar
+        stop_words = {
+            'el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'por', 'para', 'que', 'se', 'es', 'y', 'o',
+            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are'
+        }
+
+        words = re.findall(r'\b\w+\b', title.lower())
+        return [word for word in words if len(word) > 2 and word not in stop_words]
+
+    @staticmethod
+    def _keyword_similarity(title1, title2):
+        """Calcula similitud basada en palabras clave comunes"""
+        keywords1 = set(NewsScraper._extract_keywords(title1))
+        keywords2 = set(NewsScraper._extract_keywords(title2))
+
+        if not keywords1 or not keywords2:
+            return 0
+
+        intersection = keywords1.intersection(keywords2)
+        union = keywords1.union(keywords2)
+
+        return len(intersection) / len(union) if union else 0
+
+    def calculate_combined_similarity(self, title1, title2):
+        """Calcula la similitud combinada (textual y por palabras clave) entre dos títulos."""
+        text_sim = NewsScraper._similarity(title1, title2)
+        keyword_sim = NewsScraper._keyword_similarity(title1, title2)
+
+        # Combinar ambas métricas (mismos pesos que antes)
+        combined_sim = (text_sim * 0.6) + (keyword_sim * 0.4)
+        return combined_sim
+
     def scrape_all_sources(self):
         """Extrae noticias de todas las fuentes configuradas"""
         all_news = []
@@ -197,34 +237,6 @@ class NewsScraper:
         """Agrupa noticias similares basadas en títulos similares con algoritmo mejorado"""
         
         current_threshold = threshold if threshold is not None else self.similarity_threshold
-
-        def similarity(a, b):
-            """Calcula la similitud entre dos títulos"""
-            return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-        
-        def extract_keywords(title):
-            """Extrae palabras clave de un título"""
-            # Palabras comunes a ignorar
-            stop_words = {
-                'el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'por', 'para', 'que', 'se', 'es', 'y', 'o',
-                'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are'
-            }
-            
-            words = re.findall(r'\b\w+\b', title.lower())
-            return [word for word in words if len(word) > 2 and word not in stop_words]
-        
-        def keyword_similarity(title1, title2):
-            """Calcula similitud basada en palabras clave comunes"""
-            keywords1 = set(extract_keywords(title1))
-            keywords2 = set(extract_keywords(title2))
-            
-            if not keywords1 or not keywords2:
-                return 0
-            
-            intersection = keywords1.intersection(keywords2)
-            union = keywords1.union(keywords2)
-            
-            return len(intersection) / len(union) if union else 0
         
         grouped_news = []
         processed = set()
@@ -238,12 +250,8 @@ class NewsScraper:
             
             for j, other_item in enumerate(news_items):
                 if j != i and j not in processed:
-                    # Calcular similitud textual y por palabras clave
-                    text_sim = similarity(item['title'], other_item['title'])
-                    keyword_sim = keyword_similarity(item['title'], other_item['title'])
-                    
-                    # Combinar ambas métricas
-                    combined_sim = (text_sim * 0.6) + (keyword_sim * 0.4)
+                    # Usar el nuevo método de clase para calcular la similitud combinada
+                    combined_sim = self.calculate_combined_similarity(item['title'], other_item['title'])
                     
                     if combined_sim > current_threshold:
                         similar_items.append(other_item)

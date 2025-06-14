@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import threading
 import time
+# SequenceMatcher import removed as it's no longer directly used here
 
 from models.scraper import NewsScraper
 from models.blink_generator import BlinkGenerator
@@ -22,6 +23,8 @@ news_model = News(DATA_DIR)
 # Scraper será inicializado en init_api para acceder a la configuración de la app
 scraper = None
 blink_generator = BlinkGenerator()
+
+# Removed duplicated similarity function
 
 @api_bp.route('/news', methods=['GET'])
 def get_news():
@@ -134,11 +137,34 @@ def collect_and_process_news():
             # Agrupar noticias similares
             grouped_news = scraper.find_similar_news(news_items)
             
-            # Generar BLINKs para cada grupo
+            # Obtener blinks existentes para la comprobación de duplicados
+            existing_blinks = news_model.get_all_blinks()
+            newly_processed_groups = []
+
+            for group in grouped_news:
+                if not group:  # Skip empty groups
+                    continue
+
+                representative_item = group[0] # Use the first item as representative
+                is_duplicate = False
+                for existing_blink in existing_blinks:
+                    if 'title' in existing_blink and 'title' in representative_item:
+                        # Use the new method from the scraper instance
+                        sim_score = scraper.calculate_combined_similarity(representative_item['title'], existing_blink['title'])
+
+                        if sim_score > scraper.similarity_threshold: # Accessing scraper instance's threshold
+                            is_duplicate = True
+                            print(f"Duplicate detected: New item '{representative_item['title']}' is too similar to existing blink '{existing_blink['title']}' (Score: {sim_score}). Skipping.")
+                            break
+
+                if not is_duplicate:
+                    newly_processed_groups.append(group)
+
+            # Generar BLINKs para cada grupo no duplicado
             successful_blinks = 0
-            for i, group in enumerate(grouped_news):
+            for i, group in enumerate(newly_processed_groups): # Iterate over non-duplicate groups
                 try:
-                    print(f"Procesando grupo {i+1}/{len(grouped_news)} con {len(group)} noticias...")
+                    print(f"Procesando grupo {i+1}/{len(newly_processed_groups)} con {len(group)} noticias...")
                     blink = blink_generator.generate_blink_from_news_group(group)
                     
                     # Guardar el BLINK generado
@@ -202,4 +228,3 @@ def init_api(app):
     schedule_news_collection()
     
     return app
-
