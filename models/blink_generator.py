@@ -74,25 +74,76 @@ Categoría:"""
                 options={'temperature': 0.2} # Low temperature for more deterministic category output
             )
 
-            raw_category = response['message']['content'].strip().lower()
+            # Ensure 're' is imported at the top of the file: import re
+            raw_response_content = response['message']['content'].strip()
+            lines = raw_response_content.split('\n')
 
-            # Clean the response: sometimes the model might add extra text or quotes
-            # We want to find the best match from ALLOWED_CATEGORIES
-            best_match_category = "general" # Default
+            best_match_category = "general" # Default category
 
-            # Iterate through allowed categories and check if the raw_category contains any of them.
-            # This handles cases where the model might output "Categoría: deportes" instead of just "deportes".
-            for cat in ALLOWED_CATEGORIES:
-                if cat in raw_category:
-                    best_match_category = cat
-                    break # Found a direct match
+            # 1. Try to find an explicit "categoría: <category>" or "category: <category>" pattern
+            explicit_category_pattern = r"(?:categor[ií]a|category):\s*([\w\-]+)"
+            for line in reversed(lines): # Check last lines first
+                match = re.search(explicit_category_pattern, line, re.IGNORECASE)
+                if match:
+                    extracted_cat = match.group(1).strip().lower()
+                    # Further clean common non-alphanumeric if model includes them
+                    extracted_cat = re.sub(r"[^a-záéíóúñü\s-]", "", extracted_cat)
+                    extracted_cat = extracted_cat.strip()
+                    if extracted_cat in ALLOWED_CATEGORIES:
+                        best_match_category = extracted_cat
+                        print(f"DEBUG: Determined category by explicit pattern: {best_match_category} from line: '{line}'")
+                        # Return immediately as this is the highest confidence match
+                        print(f"DEBUG: Determined category (final by explicit pattern): {best_match_category} (raw response: {raw_response_content[:200]})")
+                        return best_match_category
 
-            # If no substring match, check if the raw_category itself is a valid one.
-            # This handles cases where the model perfectly outputs just the category name.
-            if best_match_category == "general" and raw_category in ALLOWED_CATEGORIES:
-                best_match_category = raw_category
+            # 2. If no explicit pattern, check the last non-empty line for an exact match from ALLOWED_CATEGORIES
+            last_line_text = ""
+            for line in reversed(lines):
+                cleaned_line = line.strip().lower()
+                # Further clean common non-alphanumeric if model includes them
+                cleaned_line = re.sub(r"[^a-záéíóúñü\s-]", "", cleaned_line)
+                cleaned_line = cleaned_line.strip()
+                if cleaned_line: # Found the last non-empty line
+                    last_line_text = cleaned_line
+                    break
 
-            print(f"DEBUG: Determined category: {best_match_category} (raw: {raw_category}) for title: {title}")
+            if last_line_text in ALLOWED_CATEGORIES:
+                best_match_category = last_line_text
+                print(f"DEBUG: Determined category by exact match on last line: {best_match_category}")
+                # Return immediately
+                print(f"DEBUG: Determined category (final by last line exact match): {best_match_category} (raw response: {raw_response_content[:200]})")
+                return best_match_category
+
+            # 3. Fallback: Check if any ALLOWED_CATEGORIES is a whole word match in the cleaned last line
+            if last_line_text:
+                found_cats_in_last_line = []
+                for cat_option in ALLOWED_CATEGORIES:
+                    # Regex for whole word matching: (?:^|\s)cat_option(?:$|\s)
+                    if re.search(r"(?:^|\s)" + re.escape(cat_option) + r"(?:$|\s)", last_line_text):
+                        found_cats_in_last_line.append(cat_option)
+
+                if found_cats_in_last_line:
+                    found_cats_in_last_line.sort(key=len, reverse=True)
+                    best_match_category = found_cats_in_last_line[0]
+                    print(f"DEBUG: Determined category by whole word match in last line: {best_match_category}")
+                    # Return immediately
+                    print(f"DEBUG: Determined category (final by last line whole word): {best_match_category} (raw response: {raw_response_content[:200]})")
+                    return best_match_category
+
+            # 4. Final Fallback (Original broader substring search across the entire raw response - use with caution)
+            if best_match_category == "general": # Only if other methods failed
+                potential_matches = []
+                # Clean the whole response content for this broader search too
+                cleaned_raw_response = re.sub(r"[^a-záéíóúñü\s-]", "", raw_response_content.lower()).strip()
+                for cat_option in ALLOWED_CATEGORIES:
+                    if cat_option in cleaned_raw_response: # Substring check
+                        potential_matches.append(cat_option)
+                if potential_matches:
+                    potential_matches.sort(key=len, reverse=True)
+                    best_match_category = potential_matches[0]
+                    print(f"DEBUG: Determined category by broad substring search (fallback): {best_match_category}")
+
+            print(f"DEBUG: Determined category (final): {best_match_category} (raw response snippet: {raw_response_content[:200]})")
             return best_match_category
 
         except ollama.ResponseError as e:

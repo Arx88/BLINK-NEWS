@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import threading
 import time
+import hashlib
 # SequenceMatcher import removed as it's no longer directly used here
 
 from models.scraper import NewsScraper
@@ -171,22 +172,53 @@ def collect_and_process_news(app):
 
                 # Generar BLINKs para cada grupo no duplicado
                 successful_blinks = 0
+                processed_in_this_run_ids = set() # Initialize set for this run
+
                 for i, group in enumerate(newly_processed_groups): # Iterate over non-duplicate groups
-                    try:
+                    # --- Start: In-run duplicate check based on group data (early check) ---
+                    if not group: # Should have been caught earlier, but good to double check
+                        continue
+
+                    # Use first item of the group for tentative ID
+                    first_item_in_group = group[0]
+                    tentative_id_source_str = first_item_in_group.get('url', '') # Prioritize URL
+                    if not tentative_id_source_str: # Fallback to title if URL is empty
+                        tentative_id_source_str = first_item_in_group.get('title', '')
+
+                    if not tentative_id_source_str: # If no URL and no title, cannot make reliable ID
+                        print(f"SKIPPING group {i+1} due to missing URL and title for tentative ID generation.")
+                        continue
+
+                    tentative_group_id = hashlib.md5(tentative_id_source_str.encode()).hexdigest()
+
+                    if tentative_group_id in processed_in_this_run_ids:
+                        print(f"SKIPPING group {i+1} (tentative_id: {tentative_group_id}) as similar content was already processed in this run.")
+                        continue
+                    # --- End: In-run duplicate check based on group data ---
+
+                    try: # This is the inner try for individual group processing
                         print(f"Procesando grupo {i+1}/{len(newly_processed_groups)} con {len(group)} noticias...")
-                        blink = blink_generator.generate_blink_from_news_group(group)
+                        blink = blink_generator.generate_blink_from_news_group(group) # AI calls are here
 
-                        # Get the determined category for the blink (it's stored as a list)
-                        determined_category = blink.get('categories', ["general"])[0] # Defaults to "general" if missing
+                        determined_category = blink.get('categories', ["general"])[0]
 
-                        # Check if the determined category is in the allowed list from config
                         if determined_category not in allowed_publish_categories:
                             print(f"SKIPPING: Blink '{blink.get('title', 'N/A')}' with category '{determined_category}' not in allowed_publish_categories {allowed_publish_categories}.")
-                            continue # Skip this group/blink
+                            continue
 
-                        # If category is allowed, proceed to save blink and article
+                        # --- Start: In-run duplicate check based on generated blink ID (final check) ---
+                        if blink['id'] in processed_in_this_run_ids:
+                            print(f"SKIPPING blink '{blink.get('title', 'N/A')}' (ID: {blink['id']}) as its specific ID was already processed and saved in this run.")
+                            continue
+                        # --- End: In-run duplicate check based on generated blink ID ---
+
                         news_model.save_blink(blink['id'], blink)
+                        processed_in_this_run_ids.add(blink['id']) # Add ID after successful save of blink
+                        # Also add the tentative_group_id to prevent re-processing of similar groups that might lead to different blink['id']s but were essentially the same source
+                        processed_in_this_run_ids.add(tentative_group_id)
 
+
+                        # ... (article creation and saving) ...
                         article = {
                             'id': blink['id'],
                             'title': blink['title'],
