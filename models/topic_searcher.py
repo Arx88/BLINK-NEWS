@@ -137,12 +137,19 @@ class TopicSearcher:
         try:
             search_query = f"últimas noticias sobre {topic}"
             initial_results = self.search_tool.invoke({"query": search_query, "search_depth": "advanced"})
-            
+
             if not initial_results:
                 return []
 
-            headlines = "\n".join([f"- {res['title']}" for res in initial_results])
-            
+            # --- LÍNEA CORREGIDA ---
+            # Verificamos que la clave 'title' exista en cada resultado antes de usarla.
+            # Esto evita el KeyError si un resultado viene sin título.
+            headlines = "\n".join([f"- {res.get('title')}" for res in initial_results if 'title' in res and res.get('title')])
+
+            if not headlines:
+                print("🟡 No se encontraron titulares válidos en los resultados de búsqueda inicial.")
+                return []
+
             prompt = f"""
             A partir de la siguiente lista de titulares de noticias recientes sobre "{topic}", tu tarea es actuar como un editor jefe.
             Identifica los 3 a 5 eventos o historias noticiosas más importantes y distintas.
@@ -156,13 +163,13 @@ class TopicSearcher:
             Titulares:
             {headlines}
             """
-            
+
             response = self.llm.invoke(prompt)
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if not json_match:
                 print(f"Error: La IA no devolvió un JSON válido para los eventos clave. Respuesta: {response}")
                 return []
-                
+
             parsed_json = json.loads(json_match.group(0))
             return parsed_json.get("eventos", [])
         except Exception as e:
