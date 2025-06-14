@@ -1,5 +1,5 @@
 from flask import Flask
-# from .routes.api import api_bp  # Commented out for now
+from .routes.api import api_bp  # Commented out for now
 from .routes.topic_search import topic_search_bp # Import the new blueprint
 from .config import Config
 
@@ -11,7 +11,7 @@ def create_app():
     app.config.from_object(Config)
 
     # Register blueprints
-    # app.register_blueprint(api_bp, url_prefix='/api') # Commented out
+    app.register_blueprint(api_bp, url_prefix='/api') # Commented out
     app.register_blueprint(topic_search_bp, url_prefix='/search') # Register the topic search blueprint
 
     return app
