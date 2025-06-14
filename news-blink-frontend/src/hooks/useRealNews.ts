@@ -16,7 +16,7 @@ export const useRealNews = () => {
       // Transform data to match our component structure
       const transformedNews = newsData.map(item => ({
         ...item,
-        category: item.category || 'TECNOLOGÍA',
+        category: (item.categories && item.categories.length > 0 ? item.categories[0] : 'TECNOLOGÍA'),
         isHot: item.isHot || (item.sources && item.sources.length > 2),
         readTime: item.readTime || '5 min',
         publishedAt: item.publishedAt || new Date().toISOString(),

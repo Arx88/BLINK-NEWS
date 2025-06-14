@@ -33,7 +33,7 @@ export const useNewsFilter = (news: any[]) => {
       case 'rumores':
         filtered = filtered.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
         break;
-      case 'ultima':
+      case 'ultimas':
         // Sort by date for recent news
         filtered = filtered.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
         break;
@@ -42,7 +42,7 @@ export const useNewsFilter = (news: any[]) => {
     }
 
     // Final sort by votes (except for "ultima" tab)
-    if (activeTab !== 'ultima') {
+    if (activeTab !== 'ultimas') {
       filtered = filtered.sort((a, b) => {
         const aVotes = (a.votes?.likes || 0) - (a.votes?.dislikes || 0);
         const bVotes = (b.votes?.likes || 0) - (b.votes?.dislikes || 0);
