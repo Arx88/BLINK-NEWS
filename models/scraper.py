@@ -10,80 +10,17 @@ from difflib import SequenceMatcher
 class NewsScraper:
     """Clase para extraer noticias de diferentes fuentes web"""
     
-    def __init__(self):
+    def __init__(self, config):
         """Inicializa el scraper con configuraciones básicas"""
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
-        # Fuentes de noticias configuradas (incluye fuentes en español)
-        self.sources = [
-            # Fuentes en español
-            {
-                'name': 'El País',
-                'url': 'https://elpais.com/tecnologia/',
-                'article_selector': 'article',
-                'title_selector': 'h2 a, h1 a',
-                'link_selector': 'h2 a, h1 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            },
-            {
-                'name': 'ABC Tecnología',
-                'url': 'https://www.abc.es/tecnologia/',
-                'article_selector': 'article',
-                'title_selector': 'h2 a, h3 a',
-                'link_selector': 'h2 a, h3 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            },
-            {
-                'name': 'Xataka',
-                'url': 'https://www.xataka.com/',
-                'article_selector': 'article',
-                'title_selector': 'h2 a, h1 a',
-                'link_selector': 'h2 a, h1 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            },
-            {
-                'name': 'Hipertextual',
-                'url': 'https://hipertextual.com/',
-                'article_selector': 'article',
-                'title_selector': 'h2 a, h1 a',
-                'link_selector': 'h2 a, h1 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            },
-            # Fuentes internacionales
-            {
-                'name': 'TechCrunch',
-                'url': 'https://techcrunch.com/',
-                'article_selector': 'article',
-                'title_selector': 'h2 a, h1 a',
-                'link_selector': 'h2 a, h1 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            },
-            {
-                'name': 'The Verge',
-                'url': 'https://www.theverge.com/',
-                'article_selector': 'div[data-testid="post-preview"]',
-                'title_selector': 'h2 a, h1 a',
-                'link_selector': 'h2 a, h1 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            },
-            {
-                'name': 'Wired',
-                'url': 'https://www.wired.com/',
-                'article_selector': 'div.SummaryItemContent-gYA-Dbp',
-                'title_selector': 'h3 a, h2 a',
-                'link_selector': 'h3 a, h2 a',
-                'summary_selector': 'p',
-                'category': 'tecnologia'
-            }
-        ]
+        # Cargar configuración
+        self.sources = config.get('news_sources', [])
+        self.default_articles_per_source = config.get('default_articles_per_source', 8)
+        self.recency_filter_hours = config.get('recency_filter_hours', 24)
+        self.similarity_threshold = config.get('similarity_threshold', 0.6)
     
     def scrape_all_sources(self):
         """Extrae noticias de todas las fuentes configuradas"""
@@ -105,8 +42,8 @@ class NewsScraper:
         return filtered_news
     
     def filter_recent_news(self, news_items):
-        """Filtra noticias para mostrar solo las de las últimas 24 horas"""
-        cutoff_time = datetime.now() - timedelta(hours=24)
+        """Filtra noticias para mostrar solo las de las últimas N horas según configuración"""
+        cutoff_time = datetime.now() - timedelta(hours=self.recency_filter_hours)
         recent_news = []
         
         for item in news_items:
@@ -136,7 +73,7 @@ class NewsScraper:
             articles = soup.select(source['article_selector'])
             
             news_items = []
-            for article in articles[:8]:  # Aumentar a 8 artículos por fuente
+            for article in articles[:self.default_articles_per_source]:
                 try:
                     title_element = article.select_one(source['title_selector'])
                     link_element = article.select_one(source['link_selector'])
@@ -256,9 +193,11 @@ class NewsScraper:
                 'image_url': None
             }
     
-    def find_similar_news(self, news_items, threshold=0.6):
+    def find_similar_news(self, news_items, threshold=None):
         """Agrupa noticias similares basadas en títulos similares con algoritmo mejorado"""
         
+        current_threshold = threshold if threshold is not None else self.similarity_threshold
+
         def similarity(a, b):
             """Calcula la similitud entre dos títulos"""
             return SequenceMatcher(None, a.lower(), b.lower()).ratio()
@@ -306,7 +245,7 @@ class NewsScraper:
                     # Combinar ambas métricas
                     combined_sim = (text_sim * 0.6) + (keyword_sim * 0.4)
                     
-                    if combined_sim > threshold:
+                    if combined_sim > current_threshold:
                         similar_items.append(other_item)
                         processed.add(j)
             
