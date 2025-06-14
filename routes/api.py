@@ -41,7 +41,8 @@ def get_news():
     # Si no hay blinks o se solicita una actualización, recopilar nuevas noticias
     if not blinks or request.args.get('refresh') == 'true':
         # Iniciar recopilación en segundo plano
-        threading.Thread(target=collect_and_process_news, daemon=True).start()
+        app_instance = current_app._get_current_object()
+        threading.Thread(target=collect_and_process_news, args=(app_instance,), daemon=True).start()
         
         # Si no hay blinks existentes, devolver mensaje de espera
         if not blinks:
@@ -120,19 +121,20 @@ def health_check():
         'version': '1.0.0'
     })
 
-def collect_and_process_news():
+def collect_and_process_news(app):
     """Recopila y procesa noticias de todas las fuentes"""
-    app_config = current_app.config.get('APP_CONFIG', {})
-    allowed_publish_categories = app_config.get('allowed_publish_categories', ['tecnologia']) # Default to ['tecnologia'] if not set
-    # Ensure it's a list, even if config had a single string by mistake (though json should handle list)
-    if not isinstance(allowed_publish_categories, list):
-        allowed_publish_categories = ['tecnologia']
+    with app.app_context():
+        app_config = current_app.config.get('APP_CONFIG', {})
+        allowed_publish_categories = app_config.get('allowed_publish_categories', ['tecnologia']) # Default to ['tecnologia'] if not set
+        # Ensure it's a list, even if config had a single string by mistake (though json should handle list)
+        if not isinstance(allowed_publish_categories, list):
+            allowed_publish_categories = ['tecnologia']
 
-    print(f"DEBUG: Allowed publish categories from config: {allowed_publish_categories}")
-    try:
-        print("Iniciando recopilación de noticias...")
-        
-        # Recopilar noticias de todas las fuentes
+        print(f"DEBUG: Allowed publish categories from config: {allowed_publish_categories}")
+        try:
+            print("Iniciando recopilación de noticias...")
+
+            # Recopilar noticias de todas las fuentes
         news_items = scraper.scrape_all_sources()
         
         if news_items:
@@ -207,23 +209,33 @@ def collect_and_process_news():
         else:
             print("No se encontraron noticias nuevas.")
     
-    except Exception as e:
-        print(f"Error en la recopilación de noticias: {e}")
+        except Exception as e:
+            if app and hasattr(app, 'logger'):
+                app.logger.error(f"Error en la recopilación de noticias (hilo): {e}", exc_info=True)
+            else:
+                print(f"Error en la recopilación de noticias (hilo): {e}")
 
-def schedule_news_collection():
+def schedule_news_collection(app):
     """Programa la recopilación periódica de noticias"""
-    def collect_periodically():
+    def collect_periodically(app_context):
         while True:
             try:
-                collect_and_process_news()
+                # The app_context is already established by the caller of collect_periodically in the previous version.
+                # However, to be consistent with collect_and_process_news now taking app, we pass it.
+                # The with app_context.app_context() here becomes redundant if collect_and_process_news handles it.
+                # For clarity and to ensure collect_and_process_news ALWAYS has context,
+                # the primary context wrapping should be in collect_and_process_news.
+                collect_and_process_news(app_context)
             except Exception as e:
-                print(f"Error en la recopilación programada: {e}")
+                # Logging with app context here might be tricky if the error is context-related
+                # Keeping simple print for the scheduler loop's own error reporting
+                print(f"Error en el bucle de recopilación programada: {e}")
             
             # Esperar 2 horas antes de la próxima recopilación
             time.sleep(7200)
     
     # Iniciar en un hilo separado
-    thread = threading.Thread(target=collect_periodically)
+    thread = threading.Thread(target=collect_periodically, args=(app,))
     thread.daemon = True
     thread.start()
 
@@ -237,6 +249,6 @@ def init_api(app):
     app.register_blueprint(api_bp, url_prefix='/api')
     
     # Iniciar la recopilación periódica de noticias
-    schedule_news_collection()
+    schedule_news_collection(app)
     
     return app
