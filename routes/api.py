@@ -133,82 +133,82 @@ def collect_and_process_news(app):
         print(f"DEBUG: Allowed publish categories from config: {allowed_publish_categories}")
         try:
             print("Iniciando recopilación de noticias...")
-
+            
             # Recopilar noticias de todas las fuentes
-        news_items = scraper.scrape_all_sources()
-        
-        if news_items:
-            print(f"Recopiladas {len(news_items)} noticias de todas las fuentes")
+            news_items = scraper.scrape_all_sources()
             
-            # Guardar noticias crudas
-            news_model.save_raw_news(news_items)
-            
-            # Agrupar noticias similares
-            grouped_news = scraper.find_similar_news(news_items)
-            
-            # Obtener blinks existentes para la comprobación de duplicados
-            existing_blinks = news_model.get_all_blinks()
-            newly_processed_groups = []
+            if news_items:
+                print(f"Recopiladas {len(news_items)} noticias de todas las fuentes")
 
-            for group in grouped_news:
-                if not group:  # Skip empty groups
-                    continue
+                # Guardar noticias crudas
+                news_model.save_raw_news(news_items)
 
-                representative_item = group[0] # Use the first item as representative
-                is_duplicate = False
-                for existing_blink in existing_blinks:
-                    if 'title' in existing_blink and 'title' in representative_item:
-                        # Use the new method from the scraper instance
-                        sim_score = scraper.calculate_combined_similarity(representative_item['title'], existing_blink['title'])
+                # Agrupar noticias similares
+                grouped_news = scraper.find_similar_news(news_items)
 
-                        if sim_score > scraper.similarity_threshold: # Accessing scraper instance's threshold
-                            is_duplicate = True
-                            print(f"Duplicate detected: New item '{representative_item['title']}' is too similar to existing blink '{existing_blink['title']}' (Score: {sim_score}). Skipping.")
-                            break
+                # Obtener blinks existentes para la comprobación de duplicados
+                existing_blinks = news_model.get_all_blinks()
+                newly_processed_groups = []
 
-                if not is_duplicate:
-                    newly_processed_groups.append(group)
+                for group in grouped_news:
+                    if not group:  # Skip empty groups
+                        continue
 
-            # Generar BLINKs para cada grupo no duplicado
-            successful_blinks = 0
-            for i, group in enumerate(newly_processed_groups): # Iterate over non-duplicate groups
-                try:
-                    print(f"Procesando grupo {i+1}/{len(newly_processed_groups)} con {len(group)} noticias...")
-                    blink = blink_generator.generate_blink_from_news_group(group)
-                    
-                    # Get the determined category for the blink (it's stored as a list)
-                    determined_category = blink.get('categories', ["general"])[0] # Defaults to "general" if missing
+                    representative_item = group[0] # Use the first item as representative
+                    is_duplicate = False
+                    for existing_blink in existing_blinks:
+                        if 'title' in existing_blink and 'title' in representative_item:
+                            # Use the new method from the scraper instance
+                            sim_score = scraper.calculate_combined_similarity(representative_item['title'], existing_blink['title'])
 
-                    # Check if the determined category is in the allowed list from config
-                    if determined_category not in allowed_publish_categories:
-                        print(f"SKIPPING: Blink '{blink.get('title', 'N/A')}' with category '{determined_category}' not in allowed_publish_categories {allowed_publish_categories}.")
-                        continue # Skip this group/blink
+                            if sim_score > scraper.similarity_threshold: # Accessing scraper instance's threshold
+                                is_duplicate = True
+                                print(f"Duplicate detected: New item '{representative_item['title']}' is too similar to existing blink '{existing_blink['title']}' (Score: {sim_score}). Skipping.")
+                                break
 
-                    # If category is allowed, proceed to save blink and article
-                    news_model.save_blink(blink['id'], blink)
-                    
-                    article = {
-                        'id': blink['id'],
-                        'title': blink['title'],
-                        'content': blink['content'],
-                        'points': blink['points'],
-                        'image': blink['image'],
-                        'sources': blink['sources'],
-                        'urls': blink['urls'],
-                        'date': datetime.now().strftime('%d de %B %Y'),
-                        'votes': blink.get('votes', {'likes': 0, 'dislikes': 0}),
-                        'categories': blink.get('categories', ['general'])
-                    }
-                    news_model.save_article(blink['id'], article)
-                    successful_blinks += 1
-                    
-                except Exception as e:
-                    print(f"Error al procesar grupo de noticias {i+1}: {e}")
-            
-            print(f"Recopilación completada. Se generaron {successful_blinks} BLINKs exitosamente.")
-        else:
-            print("No se encontraron noticias nuevas.")
-    
+                    if not is_duplicate:
+                        newly_processed_groups.append(group)
+
+                # Generar BLINKs para cada grupo no duplicado
+                successful_blinks = 0
+                for i, group in enumerate(newly_processed_groups): # Iterate over non-duplicate groups
+                    try:
+                        print(f"Procesando grupo {i+1}/{len(newly_processed_groups)} con {len(group)} noticias...")
+                        blink = blink_generator.generate_blink_from_news_group(group)
+
+                        # Get the determined category for the blink (it's stored as a list)
+                        determined_category = blink.get('categories', ["general"])[0] # Defaults to "general" if missing
+
+                        # Check if the determined category is in the allowed list from config
+                        if determined_category not in allowed_publish_categories:
+                            print(f"SKIPPING: Blink '{blink.get('title', 'N/A')}' with category '{determined_category}' not in allowed_publish_categories {allowed_publish_categories}.")
+                            continue # Skip this group/blink
+
+                        # If category is allowed, proceed to save blink and article
+                        news_model.save_blink(blink['id'], blink)
+
+                        article = {
+                            'id': blink['id'],
+                            'title': blink['title'],
+                            'content': blink['content'],
+                            'points': blink['points'],
+                            'image': blink['image'],
+                            'sources': blink['sources'],
+                            'urls': blink['urls'],
+                            'date': datetime.now().strftime('%d de %B %Y'),
+                            'votes': blink.get('votes', {'likes': 0, 'dislikes': 0}),
+                            'categories': blink.get('categories', ['general'])
+                        }
+                        news_model.save_article(blink['id'], article)
+                        successful_blinks += 1
+
+                    except Exception as e:
+                        print(f"Error al procesar grupo de noticias {i+1}: {e}")
+
+                print(f"Recopilación completada. Se generaron {successful_blinks} BLINKs exitosamente.")
+            else:
+                print("No se encontraron noticias nuevas.")
+
         except Exception as e:
             if app and hasattr(app, 'logger'):
                 app.logger.error(f"Error en la recopilación de noticias (hilo): {e}", exc_info=True)
