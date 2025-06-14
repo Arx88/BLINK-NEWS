@@ -21,15 +21,19 @@ export interface NewsItem {
 }
 
 export const fetchNews = async (tab = 'ultimas'): Promise<NewsItem[]> => {
+  console.log('Fetching news with tab:', tab);
   try {
-    const response = await fetch(`${API_BASE_URL}/news?tab=${tab}`);
+    const url = `${API_BASE_URL}/news?tab=${tab}`;
+    console.log('Attempting to fetch from URL:', url);
+    const response = await fetch(url);
     if (!response.ok) {
+      console.error('Fetch failed with status:', response.status, response.statusText);
       throw new Error('Error al obtener noticias');
     }
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching news:', error);
+    console.error('Full error object while fetching news:', error);
     throw error;
   }
 };
