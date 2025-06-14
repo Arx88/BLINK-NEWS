@@ -130,59 +130,58 @@ class TopicSearcher:
 
         return all_event_groups
 
-def _get_key_events(self, topic, hours_back):
-    """
-    Usa la IA para buscar noticias generales y luego identificar los eventos más importantes.
-    """
-    try:
-        search_query = f"últimas noticias sobre {topic}"
-        initial_results = self.search_tool.invoke({"query": search_query, "search_depth": "advanced"})
-
-        # --- PASO DE DEPURACIÓN ---
-        # Imprimimos la respuesta cruda de Tavily para ver qué estamos recibiendo.
-        print("\n--- DEBUG: RESPUESTA CRUDA DE TAVILY ---")
-        print(initial_results)
-        print("--- FIN DEL DEBUG ---\n")
-        # --- FIN DEL PASO DE DEPURACIÓN ---
-
-        if not initial_results:
-            return []
-
-        # Verificamos que la clave 'title' exista en cada resultado antes de usarla.
-        headlines = "\n".join([f"- {res.get('title')}" for res in initial_results if 'title' in res and res.get('title')])
-
-        if not headlines:
-            print("🟡 No se encontraron titulares válidos en los resultados de búsqueda inicial.")
-            return []
-
-        prompt = f"""
-        A partir de la siguiente lista de titulares de noticias recientes sobre "{topic}", tu tarea es actuar como un editor jefe.
-        Identifica los 3 a 5 eventos o historias noticiosas más importantes y distintas.
-        Para cada evento, genera un término de búsqueda en español, muy específico y neutral que usarías para encontrar más artículos sobre esa historia exacta.
-
-        Reglas:
-        - No inventes eventos que no estén en la lista.
-        - Devuelve el resultado únicamente en formato JSON, como una lista de strings.
-        - Ejemplo de respuesta: {{"eventos": ["anuncio del nuevo chip de Intel", "debate sobre la ley de IA en el parlamento europeo", "compra de una startup de IA por parte de Apple"]}}
-
-        Titulares:
-        {headlines}
+    def _get_key_events(self, topic, hours_back):
         """
+        Usa la IA para buscar noticias generales y luego identificar los eventos más importantes.
+        """
+        try:
+            search_query = f"últimas noticias sobre {topic}"
+            initial_results = self.search_tool.invoke({"query": search_query, "search_depth": "advanced"})
+            
+            # --- PASO DE DEPURACIÓN ---
+            print("\n--- DEBUG: RESPUESTA CRUDA DE TAVILY ---")
+            print(initial_results)
+            print("--- FIN DEL DEBUG ---\n")
+            # --- FIN DEL PASO DE DEPURACIÓN ---
 
-        response = self.llm.invoke(prompt)
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if not json_match:
-            print(f"Error: La IA no devolvió un JSON válido para los eventos clave. Respuesta: {response}")
+            if not initial_results:
+                return []
+
+            # Verificamos que la clave 'title' exista en cada resultado antes de usarla.
+            headlines = "\n".join([f"- {res.get('title')}" for res in initial_results if 'title' in res and res.get('title')])
+
+            if not headlines:
+                print("🟡 No se encontraron titulares válidos en los resultados de búsqueda inicial.")
+                return []
+            
+            prompt = f"""
+            A partir de la siguiente lista de titulares de noticias recientes sobre "{topic}", tu tarea es actuar como un editor jefe.
+            Identifica los 3 a 5 eventos o historias noticiosas más importantes y distintas.
+            Para cada evento, genera un término de búsqueda en español, muy específico y neutral que usarías para encontrar más artículos sobre esa historia exacta.
+
+            Reglas:
+            - No inventes eventos que no estén en la lista.
+            - Devuelve el resultado únicamente en formato JSON, como una lista de strings.
+            - Ejemplo de respuesta: {{"eventos": ["anuncio del nuevo chip de Intel", "debate sobre la ley de IA en el parlamento europeo", "compra de una startup de IA por parte de Apple"]}}
+
+            Titulares:
+            {headlines}
+            """
+            
+            response = self.llm.invoke(prompt)
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if not json_match:
+                print(f"Error: La IA no devolvió un JSON válido para los eventos clave. Respuesta: {response}")
+                return []
+                
+            parsed_json = json.loads(json_match.group(0))
+            return parsed_json.get("eventos", [])
+        except Exception as e:
+            # Imprimimos el error completo para tener más detalles
+            import traceback
+            print(f"❌ Error en _get_key_events: {e}")
+            traceback.print_exc()
             return []
-
-        parsed_json = json.loads(json_match.group(0))
-        return parsed_json.get("eventos", [])
-    except Exception as e:
-        # Imprimimos el error completo para tener más detalles
-        import traceback
-        print(f"❌ Error en _get_key_events: {e}")
-        traceback.print_exc()
-        return []
 
     def _get_sources_for_event(self, event_query, max_sources):
         """
