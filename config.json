@@ -1,0 +1,71 @@
+{
+  "news_sources": [
+    {
+      "name": "El País",
+      "url": "https://elpais.com/tecnologia/",
+      "article_selector": "article",
+      "title_selector": "h2 a, h1 a",
+      "link_selector": "h2 a, h1 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    },
+    {
+      "name": "ABC Tecnología",
+      "url": "https://www.abc.es/tecnologia/",
+      "article_selector": "article",
+      "title_selector": "h2 a, h3 a",
+      "link_selector": "h2 a, h3 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    },
+    {
+      "name": "Xataka",
+      "url": "https://www.xataka.com/",
+      "article_selector": "article",
+      "title_selector": "h2 a, h1 a",
+      "link_selector": "h2 a, h1 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    },
+    {
+      "name": "Hipertextual",
+      "url": "https://hipertextual.com/",
+      "article_selector": "article",
+      "title_selector": "h2 a, h1 a",
+      "link_selector": "h2 a, h1 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    },
+    {
+      "name": "TechCrunch",
+      "url": "https://techcrunch.com/",
+      "article_selector": "article",
+      "title_selector": "h2 a, h1 a",
+      "link_selector": "h2 a, h1 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/",
+      "article_selector": "div[data-testid=\"post-preview\"]",
+      "title_selector": "h2 a, h1 a",
+      "link_selector": "h2 a, h1 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    },
+    {
+      "name": "Wired",
+      "url": "https://www.wired.com/",
+      "article_selector": "div.SummaryItemContent-gYA-Dbp",
+      "title_selector": "h3 a, h2 a",
+      "link_selector": "h3 a, h2 a",
+      "summary_selector": "p",
+      "category": "tecnologia"
+    }
+  ],
+  "default_articles_per_source": 8,
+  "max_articles_homepage": 0,
+  "recency_filter_hours": 24,
+  "similarity_threshold": 0.6
+}

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, Blueprint
+from flask import Flask, jsonify, request, Blueprint, current_app
 from flask_cors import CORS
 import os
 import json
@@ -19,12 +19,16 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 # Inicializar modelos
 news_model = News(DATA_DIR)
-scraper = NewsScraper()
+# Scraper será inicializado en init_api para acceder a la configuración de la app
+scraper = None
 blink_generator = BlinkGenerator()
 
 @api_bp.route('/news', methods=['GET'])
 def get_news():
     """API para obtener noticias en formato BLINK"""
+    app_config = current_app.config.get('APP_CONFIG', {})
+    max_articles_homepage = app_config.get('max_articles_homepage', 0)
+
     category = request.args.get('category', 'all')
     tab = request.args.get('tab', 'ultimas')
     
@@ -61,6 +65,10 @@ def get_news():
         # Ordenar por timestamp (más reciente primero)
         blinks.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
     
+    # Aplicar límite de artículos para la página principal
+    if max_articles_homepage > 0 and len(blinks) > max_articles_homepage:
+        blinks = blinks[:max_articles_homepage]
+
     return jsonify(blinks)
 
 @api_bp.route('/article/<article_id>', methods=['GET'])
@@ -183,6 +191,11 @@ def schedule_news_collection():
 
 # Función para inicializar las rutas de la API
 def init_api(app):
+    global scraper # Para modificar la instancia global del scraper
+
+    app_config = app.config.get('APP_CONFIG', {})
+    scraper = NewsScraper(app_config) # Inicializar con la configuración de la app
+
     app.register_blueprint(api_bp, url_prefix='/api')
     
     # Iniciar la recopilación periódica de noticias
