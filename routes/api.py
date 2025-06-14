@@ -122,6 +122,13 @@ def health_check():
 
 def collect_and_process_news():
     """Recopila y procesa noticias de todas las fuentes"""
+    app_config = current_app.config.get('APP_CONFIG', {})
+    allowed_publish_categories = app_config.get('allowed_publish_categories', ['tecnologia']) # Default to ['tecnologia'] if not set
+    # Ensure it's a list, even if config had a single string by mistake (though json should handle list)
+    if not isinstance(allowed_publish_categories, list):
+        allowed_publish_categories = ['tecnologia']
+
+    print(f"DEBUG: Allowed publish categories from config: {allowed_publish_categories}")
     try:
         print("Iniciando recopilación de noticias...")
         
@@ -167,10 +174,17 @@ def collect_and_process_news():
                     print(f"Procesando grupo {i+1}/{len(newly_processed_groups)} con {len(group)} noticias...")
                     blink = blink_generator.generate_blink_from_news_group(group)
                     
-                    # Guardar el BLINK generado
+                    # Get the determined category for the blink (it's stored as a list)
+                    determined_category = blink.get('categories', ["general"])[0] # Defaults to "general" if missing
+
+                    # Check if the determined category is in the allowed list from config
+                    if determined_category not in allowed_publish_categories:
+                        print(f"SKIPPING: Blink '{blink.get('title', 'N/A')}' with category '{determined_category}' not in allowed_publish_categories {allowed_publish_categories}.")
+                        continue # Skip this group/blink
+
+                    # If category is allowed, proceed to save blink and article
                     news_model.save_blink(blink['id'], blink)
                     
-                    # Crear un artículo completo para cada BLINK
                     article = {
                         'id': blink['id'],
                         'title': blink['title'],
@@ -181,15 +195,13 @@ def collect_and_process_news():
                         'urls': blink['urls'],
                         'date': datetime.now().strftime('%d de %B %Y'),
                         'votes': blink.get('votes', {'likes': 0, 'dislikes': 0}),
-                        'categories': blink.get('categories', ['tecnologia'])
+                        'categories': blink.get('categories', ['general'])
                     }
-                    
-                    # Guardar el artículo
                     news_model.save_article(blink['id'], article)
                     successful_blinks += 1
                     
                 except Exception as e:
-                    print(f"Error al procesar grupo de noticias {i}: {e}")
+                    print(f"Error al procesar grupo de noticias {i+1}: {e}")
             
             print(f"Recopilación completada. Se generaron {successful_blinks} BLINKs exitosamente.")
         else:
