@@ -12,10 +12,12 @@ import TopicSearch from "./pages/TopicSearch";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
+const App = () => {
+  console.log('App.tsx component is rendering');
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <TooltipProvider>
         <div className="min-h-screen bg-background">
           <Toaster />
           <Sonner />
@@ -32,6 +34,7 @@ const App = () => (
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
