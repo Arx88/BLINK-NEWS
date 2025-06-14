@@ -13,6 +13,8 @@ import re
 # from models.image_generator import ImageGenerator # <-- LÍNEA COMENTADA
 import ollama
 
+ALLOWED_CATEGORIES = ["tecnología", "deportes", "entretenimiento", "política", "economía", "salud", "ciencia", "mundo", "cultura", "general"]
+
 class BlinkGenerator:
     """Clase para generar resúmenes en formato BLINK a partir de noticias"""
 
@@ -36,6 +38,124 @@ class BlinkGenerator:
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self.ollama_client = ollama.Client(host=ollama_base_url)
         self.ollama_model = 'qwen3:32b' # Modelo por defecto, se puede configurar
+
+    def determine_category_with_ai(self, text_content, title):
+        if not text_content and not title:
+            return "general" # Not enough info to determine category
+
+        # Combine title and content for better context, prioritizing content
+        input_text = text_content if text_content else ""
+        if title:
+            input_text = title + "\n\n" + input_text
+
+        # Limit input text length to avoid overly long prompts (e.g., first 1000 chars)
+        input_text = input_text[:1000]
+
+        categories_str = ", ".join(ALLOWED_CATEGORIES)
+        prompt = f"""
+Analiza el siguiente texto de una noticia y clasifícalo en UNA de las siguientes categorías: {categories_str}.
+
+Título: {title}
+Texto:
+{input_text}
+
+Responde ÚNICAMENTE con el nombre de la categoría que mejor se ajuste al texto. No añadas ninguna explicación, puntuación o frase adicional.
+Categoría:"""
+
+        try:
+            response = self.ollama_client.chat(
+                model=self.ollama_model,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': prompt,
+                    },
+                ],
+                options={'temperature': 0.2} # Low temperature for more deterministic category output
+            )
+
+            raw_category = response['message']['content'].strip().lower()
+
+            # Clean the response: sometimes the model might add extra text or quotes
+            # We want to find the best match from ALLOWED_CATEGORIES
+            best_match_category = "general" # Default
+
+            # Iterate through allowed categories and check if the raw_category contains any of them.
+            # This handles cases where the model might output "Categoría: deportes" instead of just "deportes".
+            for cat in ALLOWED_CATEGORIES:
+                if cat in raw_category:
+                    best_match_category = cat
+                    break # Found a direct match
+
+            # If no substring match, check if the raw_category itself is a valid one.
+            # This handles cases where the model perfectly outputs just the category name.
+            if best_match_category == "general" and raw_category in ALLOWED_CATEGORIES:
+                best_match_category = raw_category
+
+            print(f"DEBUG: Determined category: {best_match_category} (raw: {raw_category}) for title: {title}")
+            return best_match_category
+
+        except ollama.ResponseError as e:
+            print(f"Error communicating with Ollama for category determination: {e.error}")
+            return "general" # Fallback category
+        except Exception as e:
+            print(f"Unexpected error in determine_category_with_ai: {e}")
+            return "general" # Fallback category
+
+    def verify_category_with_ai(self, text_content, title, proposed_category):
+        if not text_content and not title:
+            # Not enough info to verify, assume previous category determination was weak
+            return False, proposed_category
+
+        # Combine title and content for better context, prioritizing content
+        input_text = text_content if text_content else ""
+        if title:
+            input_text = title + "\n\n" + input_text
+
+        # Limit input text length (e.g., first 1000 chars)
+        input_text = input_text[:1000]
+
+        prompt = f"""
+Se ha clasificado una noticia con el título "{title}" y el siguiente texto como perteneciente a la categoría "{proposed_category}".
+
+Texto de la noticia:
+{input_text}
+
+¿Consideras que esta clasificación en la categoría "{proposed_category}" es correcta? Responde únicamente con "sí" o "no".
+Respuesta:"""
+
+        try:
+            response = self.ollama_client.chat(
+                model=self.ollama_model,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': prompt,
+                    },
+                ],
+                options={'temperature': 0.1} # Very low temperature for a simple yes/no
+            )
+
+            verification_response = response['message']['content'].strip().lower()
+            print(f"DEBUG: Verification response for category '{proposed_category}' for title '{title}': {verification_response}")
+
+            if "sí" in verification_response or "si" in verification_response: # Accept with or without accent
+                return True, proposed_category
+            elif "no" in verification_response:
+                return False, proposed_category # Verification failed
+            else:
+                # Unclear response, treat as verification failed to be safe
+                print(f"DEBUG: Unclear verification response. Defaulting to not verified.")
+                return False, proposed_category
+
+        except ollama.ResponseError as e:
+            print(f"Error communicating with Ollama for category verification: {e.error}")
+            # If verification fails due to error, assume not verified
+            return False, proposed_category
+        except Exception as e:
+            print(f"Unexpected error in verify_category_with_ai: {e}")
+            # If verification fails due to error, assume not verified
+            return False, proposed_category
 
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
@@ -86,6 +206,13 @@ class BlinkGenerator:
         # Generar un ID único para el BLINK
         blink_id = hashlib.md5(title.encode()).hexdigest()
 
+        # Determine and verify category
+        determined_category_name = self.determine_category_with_ai(combined_content, title)
+        is_verified, final_category_name = self.verify_category_with_ai(combined_content, title, determined_category_name)
+
+        if not is_verified:
+            final_category_name = "general" # Fallback if verification fails
+
         # Crear el objeto BLINK
         blink = {
             'id': blink_id,
@@ -96,7 +223,7 @@ class BlinkGenerator:
             'urls': urls,
             'timestamp': datetime.now().isoformat(),
             'content': combined_content[:15000],
-            'categories': ['tecnologia'],
+            'categories': [final_category_name],
             'votes': {'likes': 0, 'dislikes': 0}
         }
 
