@@ -8,6 +8,7 @@ export const useRealNews = () => {
   const [error, setError] = useState<string | null>(null);
 
   const loadNews = async (tab: string = 'ultimas') => {
+    console.log('loadNews called with tab:', tab);
     setLoading(true);
     setError(null);
     
@@ -25,7 +26,7 @@ export const useRealNews = () => {
       
       setNews(transformedNews);
     } catch (err) {
-      console.error('Error al cargar noticias:', err);
+      console.error('Full error object in loadNews catch block:', err);
       setError('Error al cargar las noticias. Por favor, intente nuevamente más tarde.');
       // Fallback to empty array on error
       setNews([]);
