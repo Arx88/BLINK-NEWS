@@ -138,35 +138,45 @@ def _get_key_events(self, topic, hours_back):
         search_query = f"últimas noticias sobre {topic}"
         initial_results = self.search_tool.invoke({"query": search_query, "search_depth": "advanced"})
 
-        # --- PASO DE DEPURACIÓN ---
-        # Imprimimos la respuesta cruda de Tavily para ver qué estamos recibiendo.
+        # Opcional: puedes quitar las líneas de DEBUG una vez que todo funcione.
         print("\n--- DEBUG: RESPUESTA CRUDA DE TAVILY ---")
         print(initial_results)
         print("--- FIN DEL DEBUG ---\n")
-        # --- FIN DEL PASO DE DEPURACIÓN ---
 
         if not initial_results:
             return []
 
-        # Verificamos que la clave 'title' exista en cada resultado antes de usarla.
-        headlines = "\n".join([f"- {res.get('title')}" for res in initial_results if 'title' in res and res.get('title')])
+        # --- LÍNEA CORREGIDA ---
+        # En lugar de buscar 'title', usamos 'content' que sí está presente.
+        # Limpiamos un poco el contenido para que sea más legible para la IA.
+        content_snippets = []
+        for res in initial_results:
+            if 'content' in res and res.get('content'):
+                # Limpiamos saltos de línea y quitamos espacios extra para un mejor análisis
+                clean_content = " ".join(res.get('content').split())
+                content_snippets.append(f"- {clean_content[:250]}") # Usamos los primeros 250 caracteres
 
-        if not headlines:
-            print("🟡 No se encontraron titulares válidos en los resultados de búsqueda inicial.")
+        # Unimos los resúmenes en un solo bloque de texto
+        summaries_text = "\n".join(content_snippets)
+
+        if not summaries_text:
+            print("🟡 No se encontraron resúmenes válidos en los resultados de búsqueda inicial.")
             return []
 
+        # --- PROMPT CORREGIDO ---
+        # Actualizamos el prompt para que sepa que está analizando resúmenes, no titulares.
         prompt = f"""
-        A partir de la siguiente lista de titulares de noticias recientes sobre "{topic}", tu tarea es actuar como un editor jefe.
+        A partir de la siguiente lista de resúmenes de noticias recientes sobre "{topic}", tu tarea es actuar como un editor jefe.
         Identifica los 3 a 5 eventos o historias noticiosas más importantes y distintas.
         Para cada evento, genera un término de búsqueda en español, muy específico y neutral que usarías para encontrar más artículos sobre esa historia exacta.
 
         Reglas:
-        - No inventes eventos que no estén en la lista.
+        - Basa tus conclusiones únicamente en los resúmenes proporcionados.
         - Devuelve el resultado únicamente en formato JSON, como una lista de strings.
         - Ejemplo de respuesta: {{"eventos": ["anuncio del nuevo chip de Intel", "debate sobre la ley de IA en el parlamento europeo", "compra de una startup de IA por parte de Apple"]}}
 
-        Titulares:
-        {headlines}
+        Resúmenes de noticias:
+        {summaries_text}
         """
 
         response = self.llm.invoke(prompt)
@@ -178,7 +188,6 @@ def _get_key_events(self, topic, hours_back):
         parsed_json = json.loads(json_match.group(0))
         return parsed_json.get("eventos", [])
     except Exception as e:
-        # Imprimimos el error completo para tener más detalles
         import traceback
         print(f"❌ Error en _get_key_events: {e}")
         traceback.print_exc()
