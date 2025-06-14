@@ -193,34 +193,49 @@ class TopicSearcher:
             traceback.print_exc()
             return []
 
-    def _get_sources_for_event(self, event_query, max_sources):
-        """
-        Para un evento específico, busca en dominios confiables y extrae el contenido completo.
-        """
-        try:
-            sites_query_part = " OR ".join([f"site:{domain}" for domain in self.reliable_domains])
-            full_query = f'"{event_query}" ({sites_query_part})'
-            results = self.search_tool.invoke({"query": full_query, "search_depth": "advanced", "include_raw_content": True})
-            
-            articles = []
-            if not results:
-                return []
+def _get_sources_for_event(self, event_query, max_sources):
+    """
+    Para un evento específico, busca en dominios confiables y extrae el contenido completo.
+    """
+    try:
+        sites_query_part = " OR ".join([f"site:{domain}" for domain in self.reliable_domains])
+        full_query = f'"{event_query}" ({sites_query_part})'
+        results = self.search_tool.invoke({"query": full_query, "search_depth": "advanced", "include_raw_content": True})
 
-            for res in results[:max_sources]:
-                if res.get("raw_content"):
-                    source_name = "Fuente Desconocida"
-                    match = re.search(r'https://(?:www\.)?([^/]+)', res['url'])
-                    if match:
-                        source_name = match.group(1)
+        # --- PASO DE DEPURACIÓN ---
+        print(f"\n--- DEBUG: RESPUESTA DE TAVILY PARA EL EVENTO '{event_query}' ---")
+        print(f"Tipo de 'results': {type(results)}")
+        print(results)
+        print("--- FIN DEL DEBUG ---\n")
+        # --- FIN DEL PASO DE DEPURACIÓN ---
 
-                    articles.append({
-                        'title': res['title'],
-                        'url': res['url'],
-                        'summary': res['content'],
-                        'source': source_name.split('.')[0].capitalize(),
-                        'content': res['raw_content']
-                    })
-            return articles
-        except Exception as e:
-            print(f"❌ Error en _get_sources_for_event: {e}")
+        articles = []
+        if not results:
             return []
+
+        # AÑADIMOS UNA DEFENSA: Nos aseguramos de que 'results' sea una lista para poder iterar.
+        if not isinstance(results, list):
+            print(f"🟡 Alerta: La respuesta de Tavily para el evento '{event_query}' no fue una lista como se esperaba.")
+            return []
+
+        for res in results[:max_sources]:
+            # AÑADIMOS OTRA DEFENSA: Nos aseguramos de que cada 'res' sea un diccionario.
+            if isinstance(res, dict) and res.get("raw_content"):
+                source_name = "Fuente Desconocida"
+                match = re.search(r'https://(?:www\.)?([^/]+)', res.get('url', ''))
+                if match:
+                    source_name = match.group(1)
+
+                articles.append({
+                    'title': res.get('title', event_query), # Usamos el título si existe, si no, la consulta.
+                    'url': res.get('url'),
+                    'summary': res.get('content'),
+                    'source': source_name.split('.')[0].capitalize(),
+                    'content': res.get('raw_content')
+                })
+        return articles
+    except Exception as e:
+        import traceback
+        print(f"❌ Error en _get_sources_for_event: {e}")
+        traceback.print_exc()
+        return []
