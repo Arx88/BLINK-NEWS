@@ -5,7 +5,7 @@ export const AnimatedBackground = () => {
   const { isDarkMode } = useTheme();
 
   return (
-    <div className="fixed inset-0 -z-10">
+    <div className="fixed inset-0 z-0">
       {/* Fondo base sólido - sin amarillo */}
       <div className={`absolute inset-0 ${isDarkMode ? 'bg-black' : 'bg-gray-50'}`} />
       
