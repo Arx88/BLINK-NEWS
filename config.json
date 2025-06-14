@@ -67,5 +67,6 @@
   "default_articles_per_source": 8,
   "max_articles_homepage": 0,
   "recency_filter_hours": 24,
-  "similarity_threshold": 0.6
+  "similarity_threshold": 0.6,
+  "allowed_publish_categories": ["tecnologia"]
 }
