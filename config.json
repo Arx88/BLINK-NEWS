@@ -68,5 +68,5 @@
   "max_articles_homepage": 0,
   "recency_filter_hours": 24,
   "similarity_threshold": 0.6,
-  "allowed_publish_categories": ["tecnologia"]
+  "allowed_publish_categories": ["tecnología"]
 }
