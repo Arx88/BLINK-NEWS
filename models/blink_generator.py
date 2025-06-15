@@ -260,11 +260,13 @@ Texto del Artículo Original (en texto plano):
 Artículo Estructurado en Formato Markdown:"""
 
         try:
+            print(f"DEBUG_BLINK_GEN: Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {self.ollama_model}. Temperatura: 0.6")
             response = self.ollama_client.chat(
                 model=self.ollama_model,
                 messages=[{'role': 'user', 'content': prompt}],
                 options={'temperature': 0.6} # Adjusted temperature for a balance
             )
+            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para FORMATEAR CONTENIDO para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}")
             raw_markdown_content = response['message']['content'].strip()
 
             # Cleanup <think>...</think> blocks from the beginning of the response
@@ -280,12 +282,12 @@ Artículo Estructurado en Formato Markdown:"""
             print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title}")
             return final_content
         except ollama.ResponseError as e:
-            print(f"Ollama API error during content formatting for title '{title}': {e.error}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (OllamaResponseError) para título: {title}")
+            print(f"DEBUG_BLINK_GEN: Ollama ResponseError en format_content_with_ai para título '{title}': {e.error}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (OllamaResponseError) para título: {title}") # This line was already good
             return plain_text_content # Fallback to original plain text
         except Exception as e:
-            print(f"Unexpected error during AI content formatting for title '{title}': {e}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (Exception) para título: {title}")
+            print(f"DEBUG_BLINK_GEN: Excepción INESPERADA en format_content_with_ai para título '{title}': {e}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (Exception) para título: {title}") # This line was already good
             return plain_text_content # Fallback to original plain text
 
     def generate_blink_from_news_group(self, news_group):
