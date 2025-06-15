@@ -20,33 +20,8 @@ export interface NewsItem {
 
 // Mock API functions using local data
 export const fetchNews = async (tab: string = 'ultimas'): Promise<NewsItem[]> => {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  let filteredNews = [...mockNews];
-  
-  switch (tab) {
-    case 'tendencias':
-      filteredNews = mockNews.filter(item => item.isHot || item.aiScore > 85);
-      break;
-    case 'rumores':
-      filteredNews = mockNews.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
-      break;
-    case 'ultimas':
-    default:
-      filteredNews = mockNews.sort((a, b) => 
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      );
-      break;
-  }
-  
-  // Ensure all news items have required properties
-  return filteredNews.map(item => ({
-    ...item,
-    isHot: item.isHot || false,
-    votes: item.votes || { likes: 0, dislikes: 0 },
-    sources: item.sources || []
-  }));
+  console.warn("fetchNews in api.ts is deprecated. Please use the useRealNews hook for fetching news lists.");
+  return Promise.resolve([]);
 };
 
 export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike'): Promise<void> => {
