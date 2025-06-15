@@ -208,6 +208,70 @@ Respuesta:"""
             # If verification fails due to error, assume not verified
             return False, proposed_category
 
+    def format_content_with_ai(self, plain_text_content: str, title: str) -> str:
+        """
+        Formatea el contenido de texto plano de un artículo a Markdown usando Ollama,
+        incluyendo el cuerpo del artículo, una cita destacada y conclusiones clave.
+        """
+        if not plain_text_content:
+            return ""
+
+        prompt = f"""
+Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
+
+El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
+
+1.  **Texto Principal del Artículo:**
+    *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
+    *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
+    *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
+
+2.  **Cita Destacada:**
+    *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
+    *   Formatea esta cita como un blockquote en Markdown (usando `>`).
+    *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
+        `> Esta es la cita impactante.`
+        `
+        - Nombre de la Persona o Fuente`
+
+3.  **Conclusiones Clave:**
+    *   Al final del artículo, incluye una sección titulada `## Conclusiones Clave`.
+    *   Debajo de este encabezado, presenta una lista de 3 a 5 puntos clave o conclusiones derivados del artículo.
+    *   Formatea estos puntos como una lista de viñetas en Markdown (usando `*` o `-` para cada punto).
+
+**Consideraciones Adicionales para el Markdown:**
+*   Asegúrate de que todo el resultado sea un único bloque de texto en Markdown válido.
+*   No añadas ningún comentario, introducción o texto explicativo fuera del propio contenido del artículo en Markdown.
+*   El objetivo es tomar el texto plano proporcionado y enriquecerlo estructuralmente usando Markdown.
+
+Título del Artículo Original:
+{title}
+
+Texto del Artículo Original (en texto plano):
+{plain_text_content[:20000]}
+
+Artículo Estructurado en Formato Markdown:""" # Truncate input to avoid overly long prompts
+
+        try:
+            response = self.ollama_client.chat(
+                model=self.ollama_model,
+                messages=[{'role': 'user', 'content': prompt}],
+                options={'temperature': 0.6} # Adjusted temperature for a balance
+            )
+            markdown_content = response['message']['content'].strip()
+            # Basic check if response looks like markdown (e.g. contains common markdown chars)
+            if not any(char in markdown_content for char in ['#', '>', '*', '-']):
+                print(f"Warning: AI response for content formatting might not be Markdown for title '{title}'.")
+                # Optionally, return plain_text_content or try to wrap it in basic paragraph structure
+                # For now, returning what the model gave, but logging.
+            return markdown_content
+        except ollama.ResponseError as e:
+            print(f"Ollama API error during content formatting for title '{title}': {e.error}")
+            return plain_text_content # Fallback to original plain text
+        except Exception as e:
+            print(f"Unexpected error during AI content formatting for title '{title}': {e}")
+            return plain_text_content # Fallback to original plain text
+
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
         # Usar el título más representativo del grupo
@@ -264,6 +328,9 @@ Respuesta:"""
         if not is_verified:
             final_category_name = "general" # Fallback if verification fails
 
+        # Formatear el contenido combinado a Markdown usando IA
+        markdown_content = self.format_content_with_ai(combined_content, title)
+
         # Crear el objeto BLINK
         blink = {
             'id': blink_id,
@@ -273,7 +340,7 @@ Respuesta:"""
             'sources': list(set(sources)),
             'urls': urls,
             'timestamp': datetime.now().isoformat(),
-            'content': combined_content[:15000],
+            'content': markdown_content[:15000], # Apply truncation to the formatted Markdown content
             'categories': [final_category_name],
             'votes': {'likes': 0, 'dislikes': 0}
         }

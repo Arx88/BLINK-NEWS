@@ -1,31 +1,30 @@
 import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import ReactMarkdown from 'react-markdown'; // Import the library
 
 interface ArticleContentProps {
-  articleContent?: string; // Prop to accept article content
+  articleContent?: string;
 }
 
 export function ArticleContent({ articleContent }: ArticleContentProps) {
   const { isDarkMode } = useTheme();
 
-  if (!articleContent) {
+  if (!articleContent || articleContent.trim() === "") {
     return (
-      <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>
+      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
         Contenido no disponible.
       </p>
     );
   }
 
-  // Render the content, preserving newlines and wrapping text.
-  // The 'prose' classes might provide some default styling for HTML-like content,
-  // but for plain text with newlines, 'white-space: pre-line' is key.
-  // Adjust className as needed if 'prose' conflicts or is not desired.
+  // Apply Tailwind prose classes to a wrapper div.
+  // ReactMarkdown will generate HTML elements that prose can style.
+  // Using dark:prose-invert for Tailwind CSS dark mode compatibility with typography.
   return (
-    <div
-      className={`prose prose-lg max-w-none ${isDarkMode ? 'text-gray-300 prose-invert' : 'text-gray-700'}`}
-      style={{ whiteSpace: 'pre-line' }}
-    >
-      {articleContent}
+    <div className={`prose prose-lg max-w-none ${isDarkMode ? 'dark:prose-invert' : ''}`}>
+      <ReactMarkdown>
+        {articleContent}
+      </ReactMarkdown>
     </div>
   );
 }
