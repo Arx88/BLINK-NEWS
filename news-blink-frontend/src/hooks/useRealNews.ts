@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useCallback } from 'react'; // Import useCallback
 
 export interface NewsItem {
   id: string;
@@ -23,7 +22,7 @@ export const useRealNews = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadNews = async (tab: string = 'ultimas') => {
+  const loadNews = useCallback(async (tab: string = 'ultimas') => {
     setLoading(true);
     setError(null);
     
@@ -56,7 +55,6 @@ export const useRealNews = () => {
       }
       const data = await response.json();
 
-      // Enhanced logging
       console.log('[useRealNews] Raw data received from API:', JSON.stringify(data, null, 2));
       console.log('[useRealNews] Is raw data an array?', Array.isArray(data));
       if (Array.isArray(data)) {
@@ -66,11 +64,10 @@ export const useRealNews = () => {
         }
       }
 
-      // Ensure data is an array before trying to map
       if (!Array.isArray(data)) {
         console.error('[useRealNews] API response is not an array:', data);
         // Consider if data might be an object with an error message from the API
-        if (data && typeof data === 'object' && (data as any).error) {
+        if (data && typeof data === 'object' && (data as any).error) { // Type assertion for data.error
           throw new Error(`API returned an error: ${(data as any).error}`);
         }
         throw new Error('Invalid data format from API. Expected an array.');
@@ -90,19 +87,24 @@ export const useRealNews = () => {
         sources: [article.source?.name || 'N/A']
       }));
       
+      console.log('[useRealNews] Transformed news data length:', transformedNews.length);
+      if (transformedNews.length > 0) {
+        console.log('[useRealNews] First item of transformed news:', JSON.stringify(transformedNews[0], null, 2));
+      }
+
       setNews(transformedNews);
     } catch (err: any) {
-      console.error('Error al cargar noticias:', err);
+      console.error('[useRealNews] Error in loadNews catch block:', err.message);
       setError(err.message || 'Error al cargar las noticias. Por favor, intente nuevamente más tarde.');
       setNews([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Empty dependency array for useCallback
 
-  const refreshNews = (tab: string = 'ultimas') => {
+  const refreshNews = useCallback((tab: string = 'ultimas') => {
     loadNews(tab);
-  };
+  }, [loadNews]); // refreshNews depends on loadNews
 
   return {
     news,
