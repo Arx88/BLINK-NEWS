@@ -37,28 +37,11 @@ export const NewsContent = ({
 }: NewsContentProps) => {
   const { isDarkMode } = useTheme();
 
-  console.log('[NewsContent] Props received:', {
-    loading,
-    filteredNewsLength: filteredNews.length,
-    // Optional: log first item to verify data structure if needed
-    // filteredNewsFirstItem: filteredNews.length > 0 ? filteredNews[0] : 'N/A',
-    heroNewsExists: !!heroNews,
-    searchTerm,
-    selectedCategory,
-    activeTab
-  });
-
   if (loading) {
-    console.log('[NewsContent] Rendering LoadingState because loading is true.');
     return <LoadingState />;
   }
 
   if (filteredNews.length === 0) {
-    if (searchTerm || selectedCategory !== 'all') {
-      console.log('[NewsContent] Rendering EmptyState because filteredNews is empty AND search/category filters ARE active.');
-    } else {
-      console.log('[NewsContent] Rendering EmptyState because filteredNews is empty AND no search/category filters are active.');
-    }
     return (
       <>
         <IntegratedNavigationBar
@@ -75,8 +58,6 @@ export const NewsContent = ({
     );
   }
 
-  // If we reach here, filteredNews.length > 0
-  console.log(`[NewsContent] Conditions met to render main content with NewsGrid. Filtered news length: ${filteredNews.length}`);
   return (
     <div className="space-y-12">
       {heroNews && (
@@ -135,7 +116,7 @@ export const NewsContent = ({
         Let's add a log for the case where filteredNews.length is 1 and heroNews is present, so "Más Noticias" is skipped.
       */}
       {heroNews && filteredNews.length === 1 && (
-        console.log('[NewsContent] Rendering main content with HeroNews only (filteredNews.length is 1). No "Más Noticias" grid.')
+        null /* Was: console.log('[NewsContent] Rendering main content with HeroNews only (filteredNews.length is 1). No "Más Noticias" grid.') */
       )}
       {!heroNews && filteredNews.length > 0 && (
          // This case is not explicitly handled by the current NewsGrid rendering logic if heroNews is null.
@@ -143,7 +124,7 @@ export const NewsContent = ({
          // The current NewsGrid is only for filteredNews.slice(1).
          // This indicates a potential area for future code improvement if heroNews can be null while filteredNews is not empty.
          // For now, logging the observation.
-        console.log('[NewsContent] Rendering main content. heroNews is not present, but filteredNews has items. NewsGrid will show filteredNews.slice(1).')
+         null /* Was: console.log('[NewsContent] Rendering main content. heroNews is not present, but filteredNews has items. NewsGrid will show filteredNews.slice(1).') */
       )}
 
     </div>

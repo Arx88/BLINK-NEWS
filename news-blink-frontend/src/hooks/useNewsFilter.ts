@@ -4,12 +4,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => { // Keep the signature allowing initialActiveTab
   const [activeTab, setActiveTab] = useState(initialActiveTab);
 
-  // THIS IS THE CRUCIAL LOG - ensuring it's exactly this:
-  console.log(
-    '[useNewsFilter] Hook called/re-rendered. Received initialActiveTab:', initialActiveTab,
-    '. Current internal activeTab state (from useState):', activeTab,
-    '. Input news length:', news.length
-  );
   const [filteredNews, setFilteredNews] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -24,13 +18,11 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
       (item.points && item.points.some((point: string) => point.toLowerCase().includes(lowercaseSearch)))
     );
   }, [news, searchTerm]);
-  console.log('[useNewsFilter] searchFilteredNews computed. Length:', searchFilteredNews.length, 'ActiveSearchTerm:', searchTerm, 'First item:', searchFilteredNews.length > 0 ? searchFilteredNews[0] : 'N/A');
 
   const categoryFilteredNews = useMemo(() => {
     if (selectedCategory === 'all') return searchFilteredNews;
     return searchFilteredNews.filter(item => item.category === selectedCategory);
   }, [searchFilteredNews, selectedCategory]);
-  console.log('[useNewsFilter] categoryFilteredNews computed. Length:', categoryFilteredNews.length, 'SelectedCategory:', selectedCategory, 'First item:', categoryFilteredNews.length > 0 ? categoryFilteredNews[0] : 'N/A');
 
   const tabFilteredNews = useMemo(() => {
     let filtered = [...categoryFilteredNews];
@@ -61,10 +53,8 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
 
     return filtered;
   }, [categoryFilteredNews, activeTab]);
-  console.log('[useNewsFilter] tabFilteredNews (variable from useMemo) computed. Length:', tabFilteredNews.length, 'ActiveTab:', activeTab, 'First item:', tabFilteredNews.length > 0 ? tabFilteredNews[0] : 'N/A');
 
   useEffect(() => {
-    console.log('[useNewsFilter] useEffect for tabFilteredNews. tabFilteredNews length:', tabFilteredNews.length, 'First item if exists:', tabFilteredNews.length > 0 ? tabFilteredNews[0] : 'N/A');
     setFilteredNews(tabFilteredNews);
   }, [tabFilteredNews]);
 

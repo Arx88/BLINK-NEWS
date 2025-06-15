@@ -79,15 +79,6 @@ export const useRealNews = () => {
       }
       const data = await response.json();
 
-      console.log('[useRealNews] Raw data received from API:', JSON.stringify(data, null, 2));
-      console.log('[useRealNews] Is raw data an array?', Array.isArray(data));
-      if (Array.isArray(data)) {
-        console.log('[useRealNews] Raw data array length:', data.length);
-        if (data.length > 0) {
-          console.log('[useRealNews] First item of raw data:', JSON.stringify(data[0], null, 2));
-        }
-      }
-
       if (!Array.isArray(data)) {
         console.error('[useRealNews] API response is not an array:', data);
         // Consider if data might be an object with an error message from the API
@@ -122,11 +113,6 @@ export const useRealNews = () => {
         };
       });
       
-      console.log('[useRealNews] Transformed news data length:', transformedNews.length);
-      if (transformedNews.length > 0) {
-        console.log('[useRealNews] First item of transformed news:', JSON.stringify(transformedNews[0], null, 2));
-      }
-
       setNews(transformedNews);
     } catch (err: any) {
       console.error('[useRealNews] Error in loadNews catch block:', err.message);
