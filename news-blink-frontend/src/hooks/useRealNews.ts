@@ -50,13 +50,25 @@ export const useRealNews = () => {
     try {
       const response = await fetch(apiUrl);
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[useRealNews] API request failed. Status:', response.status, 'Response text:', errorText);
         throw new Error(`API request failed with status ${response.status}`);
       }
       const data = await response.json();
 
+      // Enhanced logging
+      console.log('[useRealNews] Raw data received from API:', JSON.stringify(data, null, 2));
+      console.log('[useRealNews] Is raw data an array?', Array.isArray(data));
+      if (Array.isArray(data)) {
+        console.log('[useRealNews] Raw data array length:', data.length);
+        if (data.length > 0) {
+          console.log('[useRealNews] First item of raw data:', JSON.stringify(data[0], null, 2));
+        }
+      }
+
       // Ensure data is an array before trying to map
       if (!Array.isArray(data)) {
-        console.error('API response is not an array:', data);
+        console.error('[useRealNews] API response is not an array:', data);
         // Consider if data might be an object with an error message from the API
         if (data && typeof data === 'object' && (data as any).error) {
           throw new Error(`API returned an error: ${(data as any).error}`);
