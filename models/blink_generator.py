@@ -36,7 +36,7 @@ class BlinkGenerator:
 
         # Leer la URL de Ollama desde la variable de entorno
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.ollama_client = ollama.Client(host=ollama_base_url)
+        self.ollama_client = ollama.Client(host=ollama_base_url, timeout=90) # Added timeout=90
         self.ollama_model = 'qwen3:32b' # Modelo por defecto, se puede configurar
 
     def determine_category_with_ai(self, text_content, title):
@@ -282,13 +282,21 @@ Artículo Estructurado en Formato Markdown:"""
             print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title}")
             return final_content
         except ollama.ResponseError as e:
-            print(f"DEBUG_BLINK_GEN: Ollama ResponseError en format_content_with_ai para título '{title}': {e.error}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (OllamaResponseError) para título: {title}") # This line was already good
-            return plain_text_content # Fallback to original plain text
-        except Exception as e:
-            print(f"DEBUG_BLINK_GEN: Excepción INESPERADA en format_content_with_ai para título '{title}': {e}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (Exception) para título: {title}") # This line was already good
-            return plain_text_content # Fallback to original plain text
+            error_message = str(e.error) if hasattr(e, 'error') else str(e)
+            if "timeout" in error_message.lower():
+                print(f"DEBUG_BLINK_GEN: TIMEOUT de Ollama (ResponseError) en format_content_with_ai para título '{title}': {error_message}")
+            else:
+                print(f"DEBUG_BLINK_GEN: Ollama ResponseError en format_content_with_ai para título '{title}': {error_message}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO POR OLLAMA ResponseError)")
+            return plain_text_content
+        except Exception as e: # Catch other exceptions, including potential RequestError wrapping TimeoutException
+            error_message = str(e)
+            if "timeout" in error_message.lower():
+                print(f"DEBUG_BLINK_GEN: TIMEOUT (detectado en Exception genérica) en format_content_with_ai para título '{title}': {error_message}")
+            else:
+                print(f"DEBUG_BLINK_GEN: Excepción INESPERADA en format_content_with_ai para título '{title}': {error_message}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO POR Exception)")
+            return plain_text_content
 
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
