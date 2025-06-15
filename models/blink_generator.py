@@ -213,8 +213,15 @@ Respuesta:"""
         Formatea el contenido de texto plano de un artículo a Markdown usando Ollama,
         incluyendo el cuerpo del artículo, una cita destacada y conclusiones clave.
         """
+        print(f"DEBUG_BLINK_GEN: Iniciando format_content_with_ai para título: {title}")
         if not plain_text_content:
+            print(f"DEBUG_BLINK_GEN: plain_text_content está vacío. Finalizando format_content_with_ai para título: {title}")
             return ""
+
+        # Truncate plain_text_content for the prompt to avoid overly long inputs
+        # This is the effective plain_text_content that will be used in the prompt.
+        effective_plain_text_content = plain_text_content[:20000]
+        print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}")
 
         prompt = f"""
 Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
@@ -248,9 +255,9 @@ Título del Artículo Original:
 {title}
 
 Texto del Artículo Original (en texto plano):
-{plain_text_content[:20000]}
+{effective_plain_text_content}
 
-Artículo Estructurado en Formato Markdown:""" # Truncate input to avoid overly long prompts
+Artículo Estructurado en Formato Markdown:"""
 
         try:
             response = self.ollama_client.chat(
@@ -269,18 +276,23 @@ Artículo Estructurado en Formato Markdown:""" # Truncate input to avoid overly 
                 print(f"Warning: AI response for content formatting (after cleanup) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
                 # Optionally, return plain_text_content or try to wrap it in basic paragraph structure
                 # For now, returning what the model gave, but logging.
+            print(f"DEBUG_BLINK_GEN: markdown_content generado y limpiado (primeros 500 chars): {final_content[:500]}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title}")
             return final_content
         except ollama.ResponseError as e:
             print(f"Ollama API error during content formatting for title '{title}': {e.error}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (OllamaResponseError) para título: {title}")
             return plain_text_content # Fallback to original plain text
         except Exception as e:
             print(f"Unexpected error during AI content formatting for title '{title}': {e}")
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai (Exception) para título: {title}")
             return plain_text_content # Fallback to original plain text
 
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
         # Usar el título más representativo del grupo
         title = self.select_best_title(news_group)
+        print(f"DEBUG_BLINK_GEN: Iniciando generate_blink_from_news_group para título representativo: {title}")
 
         # Combinar contenido de todas las noticias
         combined_content = ""
@@ -333,6 +345,7 @@ Artículo Estructurado en Formato Markdown:""" # Truncate input to avoid overly 
         if not is_verified:
             final_category_name = "general" # Fallback if verification fails
 
+        print(f"DEBUG_BLINK_GEN: combined_content (primeros 500 chars) para IA: {combined_content[:500]}")
         # Formatear el contenido combinado a Markdown usando IA
         markdown_content = self.format_content_with_ai(combined_content, title)
 
