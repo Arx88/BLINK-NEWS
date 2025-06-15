@@ -258,13 +258,18 @@ Artículo Estructurado en Formato Markdown:""" # Truncate input to avoid overly 
                 messages=[{'role': 'user', 'content': prompt}],
                 options={'temperature': 0.6} # Adjusted temperature for a balance
             )
-            markdown_content = response['message']['content'].strip()
+            raw_markdown_content = response['message']['content'].strip()
+
+            # Cleanup <think>...</think> blocks from the beginning of the response
+            cleaned_markdown_content = re.sub(r"^\s*<think>.*?</think>\s*", "", raw_markdown_content, flags=re.DOTALL | re.IGNORECASE)
+            final_content = cleaned_markdown_content.strip()
+
             # Basic check if response looks like markdown (e.g. contains common markdown chars)
-            if not any(char in markdown_content for char in ['#', '>', '*', '-']):
-                print(f"Warning: AI response for content formatting might not be Markdown for title '{title}'.")
+            if not any(char in final_content for char in ['#', '>', '*', '-']):
+                print(f"Warning: AI response for content formatting (after cleanup) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
                 # Optionally, return plain_text_content or try to wrap it in basic paragraph structure
                 # For now, returning what the model gave, but logging.
-            return markdown_content
+            return final_content
         except ollama.ResponseError as e:
             print(f"Ollama API error during content formatting for title '{title}': {e.error}")
             return plain_text_content # Fallback to original plain text
