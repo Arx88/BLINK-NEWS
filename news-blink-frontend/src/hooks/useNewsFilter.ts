@@ -1,12 +1,18 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
-export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => {
-  console.log('[useNewsFilter] Hook called/re-rendered. Input news length:', news.length, 'First item if exists:', news.length > 0 ? news[0] : 'N/A');
+export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => { // Keep the signature allowing initialActiveTab
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
+
+  // THIS IS THE CRUCIAL LOG - ensuring it's exactly this:
+  console.log(
+    '[useNewsFilter] Hook called/re-rendered. Received initialActiveTab:', initialActiveTab,
+    '. Current internal activeTab state (from useState):', activeTab,
+    '. Input news length:', news.length
+  );
   const [filteredNews, setFilteredNews] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [activeTab, setActiveTab] = useState(initialActiveTab);
 
   // Memoize expensive computations
   const searchFilteredNews = useMemo(() => {
