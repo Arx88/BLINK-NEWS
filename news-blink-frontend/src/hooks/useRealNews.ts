@@ -80,6 +80,14 @@ export const useRealNews = () => {
       }
       const data = await response.json();
 
+      // Handle specific "processing" status object response from API
+      if (!Array.isArray(data) && typeof data === 'object' && data !== null && data.status === 'processing') {
+        setNews([]);
+        setError((data as any).message || 'El backend está procesando noticias. Por favor, actualice en unos momentos.');
+        setLoading(false); // Processing isn't an error state for loading, but a message state
+        return; // Exit the function, news processing is pending
+      }
+
       if (!Array.isArray(data)) {
         console.error('[useRealNews] API response is not an array:', data);
         // Consider if data might be an object with an error message from the API
