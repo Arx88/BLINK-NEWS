@@ -203,8 +203,12 @@ def collect_and_process_news(app):
                         determined_category = blink.get('categories', ["general"])[0]
 
                         if determined_category not in allowed_publish_categories:
-                            print(f"SKIPPING: Blink '{blink.get('title', 'N/A')}' with category '{determined_category}' not in allowed_publish_categories {allowed_publish_categories}.")
+                            print(f"DEBUG_API_ROUTE: SKIPPING por CATEGORÍA: Blink '{blink.get('title', 'N/A')}' con categoría '{determined_category}' no está en allowed_publish_categories {allowed_publish_categories}.")
                             continue
+                        else:
+                            # This else block is for clarity; the actual saving logic follows.
+                            # The print statement below will indicate it's proceeding.
+                            pass # Explicitly doing nothing here, saving happens below if not skipped
 
                         # --- Start: In-run duplicate check based on generated blink ID (final check) ---
                         if blink['id'] in processed_in_this_run_ids:
@@ -212,7 +216,13 @@ def collect_and_process_news(app):
                             continue
                         # --- End: In-run duplicate check based on generated blink ID ---
 
+                        # If category was allowed, print that we are proceeding to save
+                        if determined_category in allowed_publish_categories: # Re-check for safety or rely on not continuing
+                             print(f"DEBUG_API_ROUTE: Blink '{blink.get('title', 'N/A')}' con categoría '{determined_category}' SÍ ESTÁ en allowed_categories. Procediendo a guardar.")
+
+                        print(f"DEBUG_API_ROUTE: Intentando guardar BLINK. ID: {blink['id']}, Título: {blink['title']}, Categorías: {blink.get('categories')}")
                         news_model.save_blink(blink['id'], blink)
+                        print(f"DEBUG_API_ROUTE: BLINK GUARDADO EXITOSAMENTE. ID: {blink['id']}")
                         processed_in_this_run_ids.add(blink['id']) # Add ID after successful save of blink
                         # Also add the tentative_group_id to prevent re-processing of similar groups that might lead to different blink['id']s but were essentially the same source
                         processed_in_this_run_ids.add(tentative_group_id)
@@ -235,7 +245,7 @@ def collect_and_process_news(app):
                         successful_blinks += 1
 
                     except Exception as e:
-                        print(f"Error al procesar grupo de noticias {i+1}: {e}")
+                        print(f"DEBUG_API_ROUTE: Error EXCEPCIÓN al procesar grupo de noticias {i+1} (Título tentativo: {group[0].get('title', 'N/A') if group else 'Grupo vacío'}): {e}")
 
                 print(f"Recopilación completada. Se generaron {successful_blinks} BLINKs exitosamente.")
             else:
