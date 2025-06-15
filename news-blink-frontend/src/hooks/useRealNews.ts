@@ -54,11 +54,21 @@ export const useRealNews = () => {
       }
       const data = await response.json();
 
-      const transformedNews = data.articles.map((article: any, index: number) => ({
+      // Ensure data is an array before trying to map
+      if (!Array.isArray(data)) {
+        console.error('API response is not an array:', data);
+        // Consider if data might be an object with an error message from the API
+        if (data && typeof data === 'object' && (data as any).error) {
+          throw new Error(`API returned an error: ${(data as any).error}`);
+        }
+        throw new Error('Invalid data format from API. Expected an array.');
+      }
+
+      const transformedNews = data.map((article: any, index: number) => ({
         id: article.url || `news-${index}`,
         title: article.title || 'No Title',
         image: article.urlToImage || 'https://via.placeholder.com/800x600.png?text=No+Image',
-        points: [article.description || 'No detailed points available.'],
+        points: [article.description || article.content || 'No detailed points available.'],
         category: apiCategory,
         isHot: false,
         readTime: '5 min',
