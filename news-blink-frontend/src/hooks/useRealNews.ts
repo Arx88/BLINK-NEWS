@@ -33,14 +33,14 @@ export const useRealNews = () => {
 
     switch (tab) {
       case 'tendencias':
-        apiCategory = 'technology';
+        apiCategory = 'tecnología'; // Changed from 'technology'
         break;
       case 'rumores':
-        apiCategory = 'science';
+        apiCategory = 'science'; // Remains 'science'
         break;
       case 'ultimas':
       default:
-        apiCategory = 'technology'; // Changed from 'general' to 'technology'
+        apiCategory = 'tecnología'; // Changed from 'technology'
         break;
     }
 
