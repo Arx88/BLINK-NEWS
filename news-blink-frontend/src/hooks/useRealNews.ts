@@ -110,7 +110,7 @@ export const useRealNews = () => {
         return {
           id: article.url || `news-${index}`,
           title: article.title || 'No Title',
-          image: article.urlToImage || 'https://via.placeholder.com/800x600.png?text=No+Image',
+          image: (typeof article.image === 'string' && article.image.trim() !== '') ? article.image.trim() : 'https://via.placeholder.com/800x600.png?text=No+Image',
           points: newPoints,
           category: apiCategory,
           isHot: typeof article.isHot === 'boolean' ? article.isHot : false,
