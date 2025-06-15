@@ -65,15 +65,15 @@ export const RealPowerBarVoteSystem = ({
           </span>
         </div>
         
-        <div className={`relative w-full h-5 ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-200/60'} rounded-full overflow-hidden border shadow-inner backdrop-blur-sm`}>
+        <div className={`relative w-full h-5 ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-200/60'} rounded-full overflow-hidden shadow-inner backdrop-blur-sm`}>
           <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 via-yellow-500/10 to-green-500/10 animate-pulse opacity-50" />
           
           <div 
-            className="relative h-full bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-400 transition-all duration-700 ease-out shadow-lg"
+            className="relative h-full bg-green-500 transition-all duration-700 ease-out shadow-lg"
             style={{ width: `${likePercentage}%` }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
-            <div className="absolute inset-0 shadow-lg shadow-green-400/40" />
+            <div className="absolute inset-0 shadow-lg shadow-green-500/40" />
           </div>
           
           <div className="absolute inset-0 opacity-10" style={{
@@ -91,8 +91,8 @@ export const RealPowerBarVoteSystem = ({
             userVote === 'like' 
               ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
               : isDarkMode 
-                ? 'bg-gray-800/40 text-gray-400 hover:bg-green-500/10 hover:text-green-400 border border-gray-700/30 hover:border-green-500/30 backdrop-blur-sm'
-                : 'bg-gray-50/50 text-gray-600 hover:bg-green-50 hover:text-green-600 border border-gray-200/50 hover:border-green-300/50 backdrop-blur-sm'
+                ? 'bg-gray-800/40 text-gray-400 hover:bg-green-500/10 hover:text-green-400 backdrop-blur-sm'
+                : 'bg-gray-100/50 text-gray-600 hover:bg-green-100 hover:text-green-600 backdrop-blur-sm'
           }`}
         >
           <ThumbsUp className={`w-5 h-5 transition-all duration-300 ${userVote === 'like' ? 'scale-110' : 'group-hover:scale-105'}`} />
@@ -106,8 +106,8 @@ export const RealPowerBarVoteSystem = ({
             userVote === 'dislike' 
               ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' 
               : isDarkMode 
-                ? 'bg-gray-800/40 text-gray-400 hover:bg-red-500/10 hover:text-red-400 border border-gray-700/30 hover:border-red-500/30 backdrop-blur-sm'
-                : 'bg-gray-50/50 text-gray-600 hover:bg-red-50 hover:text-red-600 border border-gray-200/50 hover:border-red-300/50 backdrop-blur-sm'
+                ? 'bg-gray-800/40 text-gray-400 hover:bg-red-500/10 hover:text-red-400 backdrop-blur-sm'
+                : 'bg-gray-100/50 text-gray-600 hover:bg-red-100 hover:text-red-600 backdrop-blur-sm'
           }`}
         >
           <ThumbsDown className={`w-5 h-5 transition-all duration-300 ${userVote === 'dislike' ? 'scale-110' : 'group-hover:scale-105'}`} />

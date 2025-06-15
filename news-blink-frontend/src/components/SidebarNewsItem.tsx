@@ -33,13 +33,13 @@ export const SidebarNewsItem = ({ item, index }: SidebarNewsItemProps) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`p-3 rounded-xl ${isDarkMode 
-        ? 'bg-gray-800/50 border-transparent hover:border-gray-600/30' 
-        : 'bg-white border-gray-200 hover:border-blue-300'} border transition-all duration-300 group cursor-pointer shadow-sm`}
+        ? 'bg-gray-800/50 hover:bg-gray-800' 
+        : 'bg-white hover:bg-gray-50'} transition-all duration-300 group cursor-pointer shadow-sm`}
     >
       <div className="flex items-start space-x-3">
         <div className={`w-8 h-8 ${isDarkMode 
-          ? 'bg-gradient-to-r from-white to-gray-300 border-gray-600/30 text-black' 
-          : 'bg-gradient-to-r from-blue-500 to-purple-600 border-blue-400/30 text-white'} rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 border mt-1 group-hover:scale-110 transition-transform duration-300`}>
+          ? 'bg-white text-black' 
+          : 'bg-blue-500 text-white'} rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 mt-1 group-hover:scale-110 transition-transform duration-300`}>
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
