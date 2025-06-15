@@ -50,8 +50,32 @@ export const useRealNews = () => {
       const response = await fetch(apiUrl);
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[useRealNews] API request failed. Status:', response.status, 'Response text:', errorText);
-        throw new Error(`API request failed with status ${response.status}`);
+        // Keep the detailed console error for developers
+        console.error('[useRealNews] API request failed. Status:', response.status, response.statusText, 'Response text:', errorText);
+
+        let detailedErrorMessage = `Request failed with status ${response.status} (${response.statusText})`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          // Common error structures: { message: "..." }, { error: "..." }, { detail: "..." }
+          if (errorJson && typeof errorJson.message === 'string') {
+            detailedErrorMessage = errorJson.message;
+          } else if (errorJson && typeof errorJson.error === 'string') {
+            detailedErrorMessage = errorJson.error;
+          } else if (errorJson && typeof errorJson.detail === 'string') {
+            detailedErrorMessage = errorJson.detail;
+          } else if (errorText.length > 0 && errorText.length < 150 && !errorText.toLowerCase().includes('<html')) {
+            // Use errorText if it's somewhat short and not HTML (which can be messy)
+            detailedErrorMessage = errorText;
+          }
+        } catch (parseError) {
+          // JSON.parse failed. errorText might be plain text or HTML.
+          // Use errorText if it's somewhat short and not HTML.
+          if (errorText.length > 0 && errorText.length < 150 && !errorText.toLowerCase().includes('<html')) {
+            detailedErrorMessage = errorText;
+          }
+        }
+        // This error is caught by the outer catch block. Its 'message' property will be detailedErrorMessage.
+        throw new Error(detailedErrorMessage);
       }
       const data = await response.json();
 
@@ -79,10 +103,10 @@ export const useRealNews = () => {
         image: article.urlToImage || 'https://via.placeholder.com/800x600.png?text=No+Image',
         points: [article.description || article.content || 'No detailed points available.'],
         category: apiCategory,
-        isHot: false,
+        isHot: typeof article.isHot === 'boolean' ? article.isHot : false,
         readTime: '5 min',
         publishedAt: article.publishedAt || new Date().toISOString(),
-        aiScore: 50,
+        aiScore: typeof article.aiScore === 'number' ? article.aiScore : 50,
         votes: { likes: 0, dislikes: 0 },
         sources: [article.source?.name || 'N/A']
       }));
@@ -95,6 +119,15 @@ export const useRealNews = () => {
       setNews(transformedNews);
     } catch (err: any) {
       console.error('[useRealNews] Error in loadNews catch block:', err.message);
+      // Check if the error object has a 'response' property and if it has a 'text' method
+      if (err.response && typeof err.response.text === 'function') {
+        try {
+          const responseText = await err.response.text();
+          console.error('[useRealNews] Error response text from server:', responseText);
+        } catch (textErr: any) {
+          console.error('[useRealNews] Error trying to get response text:', textErr.message);
+        }
+      }
       setError(err.message || 'Error al cargar las noticias. Por favor, intente nuevamente más tarde.');
       setNews([]);
     } finally {
