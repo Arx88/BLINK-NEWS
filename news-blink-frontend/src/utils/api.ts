@@ -62,3 +62,73 @@ export const searchNewsByTopic = async (topic: string): Promise<NewsItem[]> => {
     sources: item.sources || []
   }));
 };
+
+// --- Advanced Topic Search Functions ---
+
+/**
+ * Starts an advanced topic search.
+ * @param topic The topic to search for.
+ * @returns A promise that resolves to an object containing task_id and message.
+ */
+export const startAdvancedTopicSearch = async (topic: string): Promise<{ task_id: string, message: string }> => {
+  try {
+    const response = await fetch('/search/start_topic_search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ topic }),
+    });
+
+    if (!response.ok) {
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        // Ignore error if response text cannot be read
+      }
+      throw new Error(`API request failed with status ${response.status} (${response.statusText}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error in startAdvancedTopicSearch:', error);
+    // Re-throw the error so it can be caught by the caller
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unknown error occurred during advanced topic search initiation.');
+  }
+};
+
+/**
+ * Gets the status of an advanced topic search.
+ * @param taskId The ID of the search task.
+ * @returns A promise that resolves to the search status data.
+ */
+export const getAdvancedTopicSearchStatus = async (taskId: string): Promise<any> => {
+  try {
+    const response = await fetch(`/search/topic_search_status/${taskId}`);
+
+    if (!response.ok) {
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        // Ignore error if response text cannot be read
+      }
+      throw new Error(`API request failed with status ${response.status} (${response.statusText}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error in getAdvancedTopicSearchStatus:', error);
+    // Re-throw the error so it can be caught by the caller
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('An unknown error occurred while fetching advanced topic search status.');
+  }
+};
