@@ -88,7 +88,7 @@ export default function BlinkDetail() {
               />
 
               <div className="prose prose-lg max-w-none">
-                <ArticleContent />
+                <ArticleContent articleContent={article?.content} />
               </div>
 
               {article.sources && article.sources.length > 0 && (
