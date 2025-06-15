@@ -9,10 +9,15 @@ services:
     restart: unless-stopped
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
-    # Carga las variables desde el archivo .env
     env_file:
       - .env
     command: python -u -m flask run --host=0.0.0.0 --port=5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   frontend:
     build:
@@ -27,3 +32,6 @@ services:
     restart: unless-stopped
     environment:
       - VITE_API_PROXY_TARGET=http://backend:5000
+    depends_on:
+      backend:
+        condition: service_healthy
