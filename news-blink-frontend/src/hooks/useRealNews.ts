@@ -97,19 +97,30 @@ export const useRealNews = () => {
         throw new Error('Invalid data format from API. Expected an array.');
       }
 
-      const transformedNews = data.map((article: any, index: number) => ({
-        id: article.url || `news-${index}`,
-        title: article.title || 'No Title',
-        image: article.urlToImage || 'https://via.placeholder.com/800x600.png?text=No+Image',
-        points: [article.description || article.content || 'No detailed points available.'],
-        category: apiCategory,
-        isHot: typeof article.isHot === 'boolean' ? article.isHot : false,
-        readTime: '5 min',
+      const transformedNews = data.map((article: any, index: number) => {
+        let newPoints: string[];
+        if (Array.isArray(article.points) && article.points.length > 0 && article.points.every(p => typeof p === 'string')) {
+          newPoints = article.points;
+        } else if (typeof article.description === 'string' && article.description.trim() !== '') {
+          newPoints = [article.description.trim()];
+        } else {
+          newPoints = ['No summary points available.'];
+        }
+
+        return {
+          id: article.url || `news-${index}`,
+          title: article.title || 'No Title',
+          image: article.urlToImage || 'https://via.placeholder.com/800x600.png?text=No+Image',
+          points: newPoints,
+          category: apiCategory,
+          isHot: typeof article.isHot === 'boolean' ? article.isHot : false,
+          readTime: '5 min',
         publishedAt: article.publishedAt || new Date().toISOString(),
         aiScore: typeof article.aiScore === 'number' ? article.aiScore : 50,
         votes: { likes: 0, dislikes: 0 },
         sources: [article.source?.name || 'N/A']
-      }));
+        };
+      });
       
       console.log('[useRealNews] Transformed news data length:', transformedNews.length);
       if (transformedNews.length > 0) {
