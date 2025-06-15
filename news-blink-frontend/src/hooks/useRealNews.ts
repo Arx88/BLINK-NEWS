@@ -40,7 +40,7 @@ export const useRealNews = () => {
         break;
       case 'ultimas':
       default:
-        apiCategory = 'general';
+        apiCategory = 'technology'; // Changed from 'general' to 'technology'
         break;
     }
 
