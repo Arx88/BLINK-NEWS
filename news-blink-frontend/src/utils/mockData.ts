@@ -151,6 +151,120 @@ export const mockNews = [
     publishedAt: '2024-06-14T03:00:00Z',
     readTime: '2 min',
     aiScore: 67
+  },
+  {
+    id: '9',
+    title: 'RUMOR: Google desarrolla chip cuántico secreto',
+    image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&h=600&fit=crop',
+    points: [
+      'Procesador cuántico de 1000 qubits',
+      'Colaboración secreta con IBM',
+      'Breakthrough en corrección de errores',
+      'Pruebas internas desde 2023',
+      'Posible anuncio en I/O 2025'
+    ],
+    votes: { likes: 1234, dislikes: 678 },
+    category: 'RUMORES',
+    isHot: false,
+    sources: ['Tech Leaks', 'Quantum Insider'],
+    publishedAt: '2024-06-14T02:45:00Z',
+    readTime: '3 min',
+    aiScore: 45
+  },
+  {
+    id: '10',
+    title: 'RUMOR: Tesla Model Pi con internet satelital',
+    image: 'https://images.unsplash.com/photo-1593941707882-a5bac6861d75?w=800&h=600&fit=crop',
+    points: [
+      'Smartphone que se conecta a Starlink',
+      'Minería de criptomonedas integrada',
+      'Carga solar en la parte trasera',
+      'Control total de vehículos Tesla',
+      'Lanzamiento rumoreado para 2025'
+    ],
+    votes: { likes: 2156, dislikes: 1234 },
+    category: 'RUMORES',
+    isHot: true,
+    sources: ['Tesla Rumors', 'Space Tech'],
+    publishedAt: '2024-06-14T02:20:00Z',
+    readTime: '4 min',
+    aiScore: 35
+  },
+  {
+    id: '11',
+    title: 'RUMOR: Microsoft compra Discord por $50B',
+    image: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&h=600&fit=crop',
+    points: [
+      'Negociaciones secretas en curso',
+      'Integración con Xbox Game Pass',
+      'Competencia directa con Slack',
+      'Expansion del metaverso Microsoft',
+      'Anuncio posible en próximas semanas'
+    ],
+    votes: { likes: 1789, dislikes: 890 },
+    category: 'RUMORES',
+    isHot: false,
+    sources: ['Gaming Leaks', 'Business Insider'],
+    publishedAt: '2024-06-14T01:55:00Z',
+    readTime: '3 min',
+    aiScore: 52
+  },
+  {
+    id: '12',
+    title: 'RUMOR: Amazon lanza criptomoneda propia',
+    image: 'https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=800&h=600&fit=crop',
+    points: [
+      'Amazon Coin para pagos internos',
+      'Recompensas por compras frecuentes',
+      'Blockchain propio desarrollado',
+      'Pilots en Brasil y México',
+      'Lanzamiento global en Q4 2024'
+    ],
+    votes: { likes: 1456, dislikes: 987 },
+    category: 'RUMORES',
+    isHot: false,
+    sources: ['Crypto Rumors', 'E-commerce News'],
+    publishedAt: '2024-06-14T01:30:00Z',
+    readTime: '2 min',
+    aiScore: 38
+  },
+  {
+    id: '13',
+    title: 'RUMOR: Netflix desarrolla videojuegos AAA',
+    image: 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop',
+    points: [
+      'Estudio interno de 500 desarrolladores',
+      'Presupuesto de $200M por juego',
+      'Exclusivos para suscriptores Premium',
+      'Colaboración con CD Projekt Red',
+      'Primer título en desarrollo avanzado'
+    ],
+    votes: { likes: 2234, dislikes: 567 },
+    category: 'RUMORES',
+    isHot: true,
+    sources: ['Gaming News', 'Netflix Insider'],
+    publishedAt: '2024-06-14T01:10:00Z',
+    readTime: '4 min',
+    aiScore: 63
+  },
+  {
+    id: '14',
+    title: 'RUMOR: OpenAI trabaja en AGI para 2025',
+    image: 'https://images.unsplash.com/photo-1676299081847-824916de030a?w=800&h=600&fit=crop',
+    points: [
+      'Proyecto interno ultra-secreto',
+      'Supercomputadora de $10 billones',
+      'Capacidades de razonamiento humano',
+      'Pruebas limitadas con gobiernos',
+      'Posible anuncio en próximos meses'
+    ],
+    votes: { likes: 3456, dislikes: 1890 },
+    category: 'RUMORES',
+    isHot: true,
+    sources: ['AI Leaks', 'OpenAI Insider'],
+    publishedAt: '2024-06-14T00:45:00Z',
+    readTime: '5 min',
+    aiScore: 28
   }
 ];
 
