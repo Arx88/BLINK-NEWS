@@ -24,16 +24,6 @@ const Index = () => {
     clearFilters
   } = useNewsFilter(news, 'ultimas');
 
-  // Add this new log statement:
-  console.log(
-    '[Index.tsx] Value from useNewsFilter hook. filteredNews.length:',
-    filteredNews.length,
-    'First item if exists:',
-    filteredNews.length > 0 ? filteredNews[0] : 'N/A',
-    'loading state:', loading, // also log loading state from useRealNews
-    'activeTab from useNewsFilter:', activeTab // also log activeTab
-  );
-
   const [heroNews, setHeroNews] = useState(null);
 
   // REMOVED:
