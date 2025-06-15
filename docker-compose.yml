@@ -27,9 +27,7 @@ services:
     container_name: blink-news-frontend
     ports:
       - "5173:5173"
-    volumes:
-      - ./news-blink-frontend:/app
-      - /app/node_modules
+    # VOLÚMENES ELIMINADOS PARA ASEGURAR UN ENTORNO LIMPIO
     restart: unless-stopped
     environment:
       - VITE_API_PROXY_TARGET=http://backend:5000
