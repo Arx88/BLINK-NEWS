@@ -15,18 +15,20 @@ export const useNewsFilter = (news: any[]) => {
     const lowercaseSearch = searchTerm.toLowerCase();
     return news.filter(item =>
       item.title.toLowerCase().includes(lowercaseSearch) ||
-      item.points.some((point: string) => point.toLowerCase().includes(lowercaseSearch))
+      (item.points && item.points.some((point: string) => point.toLowerCase().includes(lowercaseSearch)))
     );
   }, [news, searchTerm]);
+  console.log('[useNewsFilter] searchFilteredNews computed. Length:', searchFilteredNews.length, 'ActiveSearchTerm:', searchTerm, 'First item:', searchFilteredNews.length > 0 ? searchFilteredNews[0] : 'N/A');
 
   const categoryFilteredNews = useMemo(() => {
     if (selectedCategory === 'all') return searchFilteredNews;
     return searchFilteredNews.filter(item => item.category === selectedCategory);
   }, [searchFilteredNews, selectedCategory]);
+  console.log('[useNewsFilter] categoryFilteredNews computed. Length:', categoryFilteredNews.length, 'SelectedCategory:', selectedCategory, 'First item:', categoryFilteredNews.length > 0 ? categoryFilteredNews[0] : 'N/A');
 
   const tabFilteredNews = useMemo(() => {
     let filtered = [...categoryFilteredNews];
-
+    // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
       case 'tendencias':
         filtered = filtered.filter(item => item.isHot || item.aiScore > 85);
@@ -53,6 +55,7 @@ export const useNewsFilter = (news: any[]) => {
 
     return filtered;
   }, [categoryFilteredNews, activeTab]);
+  console.log('[useNewsFilter] tabFilteredNews (variable from useMemo) computed. Length:', tabFilteredNews.length, 'ActiveTab:', activeTab, 'First item:', tabFilteredNews.length > 0 ? tabFilteredNews[0] : 'N/A');
 
   useEffect(() => {
     console.log('[useNewsFilter] useEffect for tabFilteredNews. tabFilteredNews length:', tabFilteredNews.length, 'First item if exists:', tabFilteredNews.length > 0 ? tabFilteredNews[0] : 'N/A');
