@@ -15,6 +15,7 @@ export interface NewsItem {
     dislikes: number;
   };
   sources?: string[];
+  content?: string; // Added content field to match global NewsItem
 }
 
 export const useRealNews = () => {
@@ -98,18 +99,34 @@ export const useRealNews = () => {
           newPoints = ['No summary points available.'];
         }
 
+        // Determine category from article if available, else fallback
+        const category = article.category || (Array.isArray(article.categories) && article.categories.length > 0 ? article.categories[0] : apiCategory);
+
+        // Determine publishedAt from article.timestamp or article.publishedAt
+        let publishedAtDate = new Date().toISOString();
+        if (article.timestamp) {
+          if (typeof article.timestamp === 'number') {
+            publishedAtDate = new Date(article.timestamp * 1000).toISOString(); // Assuming Unix timestamp in seconds
+          } else if (typeof article.timestamp === 'string') {
+            publishedAtDate = new Date(article.timestamp).toISOString(); // Assuming ISO string or parsable date string
+          }
+        } else if (article.publishedAt) {
+          publishedAtDate = new Date(article.publishedAt).toISOString();
+        }
+
         return {
-          id: article.url || `news-${index}`,
+          id: article.id || `news-${index}`, // Prefer article.id, fallback for safety
           title: article.title || 'No Title',
           image: (typeof article.image === 'string' && article.image.trim() !== '') ? article.image.trim() : 'https://via.placeholder.com/800x600.png?text=No+Image',
           points: newPoints,
-          category: apiCategory,
+          category: category,
           isHot: typeof article.isHot === 'boolean' ? article.isHot : false,
-          readTime: '5 min',
-        publishedAt: article.publishedAt || new Date().toISOString(),
-        aiScore: typeof article.aiScore === 'number' ? article.aiScore : 50,
-        votes: { likes: 0, dislikes: 0 },
-        sources: [article.source?.name || 'N/A']
+          readTime: article.readTime || 'N/A', // Use article.readTime if available, else 'N/A'
+          publishedAt: publishedAtDate,
+          aiScore: typeof article.aiScore === 'number' ? article.aiScore : 50,
+          votes: article.votes || { likes: 0, dislikes: 0 }, // Use article.votes if available
+          sources: Array.isArray(article.sources) && article.sources.length > 0 ? article.sources : (article.source?.name ? [article.source.name] : ['N/A']),
+          content: article.content // Add content field, defaults to undefined if not on article
         };
       });
       
