@@ -1,12 +1,12 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
-export const useNewsFilter = (news: any[]) => {
+export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => {
   console.log('[useNewsFilter] Hook called/re-rendered. Input news length:', news.length, 'First item if exists:', news.length > 0 ? news[0] : 'N/A');
   const [filteredNews, setFilteredNews] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [activeTab, setActiveTab] = useState('tendencias');
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
 
   // Memoize expensive computations
   const searchFilteredNews = useMemo(() => {
