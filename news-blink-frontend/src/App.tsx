@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; // Removed Outlet for now
 import Index from './pages/Index';
 import BlinkDetail from './pages/BlinkDetail';
-import TopicSearch from './pages/TopicSearch';
+import DeepTopicSearch from './pages/TopicSearch';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -26,7 +26,7 @@ function App() {
               <Route path="/" element={<Index />} />
               <Route path="/blink/:id" element={<BlinkDetail />} />
               {/* Changed /topic-search to /busqueda to match original if that was intended */}
-              <Route path="/busqueda" element={<TopicSearch />} />
+              <Route path="/deep-topic-search" element={<DeepTopicSearch />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Router>

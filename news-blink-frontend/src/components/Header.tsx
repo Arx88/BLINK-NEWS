@@ -61,7 +61,7 @@ export const Header = ({ onRefresh }: HeaderProps) => {
               <span className={`absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 group-hover:w-full transition-all duration-300`}></span>
             </Link>
             <Link 
-              to="/busqueda" 
+              to="/deep-topic-search"
               className={`${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'} font-medium transition-all duration-300 flex items-center space-x-2 relative group`}
             >
               <Search className="w-4 h-4" />
@@ -130,7 +130,7 @@ export const Header = ({ onRefresh }: HeaderProps) => {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/busqueda" className={`flex items-center space-x-2 ${isDarkMode 
+                    <Link to="/deep-topic-search" className={`flex items-center space-x-2 ${isDarkMode
                       ? 'text-gray-300 hover:text-white focus:text-white' 
                       : 'text-gray-700 hover:text-gray-900 focus:text-gray-900'}`}>
                       <Search className="w-4 h-4" />
