@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 export const useNewsFilter = (news: any[]) => {
+  console.log('[useNewsFilter] Hook called/re-rendered. Input news length:', news.length, 'First item if exists:', news.length > 0 ? news[0] : 'N/A');
   const [filteredNews, setFilteredNews] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -54,6 +55,7 @@ export const useNewsFilter = (news: any[]) => {
   }, [categoryFilteredNews, activeTab]);
 
   useEffect(() => {
+    console.log('[useNewsFilter] useEffect for tabFilteredNews. tabFilteredNews length:', tabFilteredNews.length, 'First item if exists:', tabFilteredNews.length > 0 ? tabFilteredNews[0] : 'N/A');
     setFilteredNews(tabFilteredNews);
   }, [tabFilteredNews]);
 
