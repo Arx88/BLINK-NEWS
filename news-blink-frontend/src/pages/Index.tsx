@@ -22,7 +22,7 @@ const Index = () => {
     activeTab,
     setActiveTab,
     clearFilters
-  } = useNewsFilter(news);
+  } = useNewsFilter(news, 'ultimas');
 
   // Add this new log statement:
   console.log(
@@ -36,13 +36,16 @@ const Index = () => {
 
   const [heroNews, setHeroNews] = useState(null);
 
-  useEffect(() => {
-    loadNews('ultimas');
-  }, []);
+  // REMOVED:
+  // useEffect(() => {
+  //   loadNews('ultimas');
+  // }, []);
 
   useEffect(() => {
-    loadNews(activeTab);
-  }, [activeTab]);
+    if (activeTab) { // Ensure activeTab is truthy before loading
+      loadNews(activeTab);
+    }
+  }, [activeTab, loadNews]); // loadNews is from useRealNews
 
   useEffect(() => {
     if (filteredNews.length > 0) {
