@@ -1,6 +1,5 @@
 
 import { useState } from 'react';
-import { mockNews } from '@/utils/mockData';
 
 export interface NewsItem {
   id: string;
@@ -28,45 +27,51 @@ export const useRealNews = () => {
     setLoading(true);
     setError(null);
     
+    let apiCategory: string;
+    let apiCountry: string;
+
+    apiCountry = 'us';
+
+    switch (tab) {
+      case 'tendencias':
+        apiCategory = 'technology';
+        break;
+      case 'rumores':
+        apiCategory = 'science';
+        break;
+      case 'ultimas':
+      default:
+        apiCategory = 'general';
+        break;
+    }
+
+    const apiUrl = `/api/news?country=${apiCountry}&category=${apiCategory}`;
+
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Use mock data instead of API call
-      let filteredNews = [...mockNews];
-      
-      // Filter based on tab
-      switch (tab) {
-        case 'tendencias':
-          filteredNews = mockNews.filter(item => item.isHot || item.aiScore > 85);
-          break;
-        case 'rumores':
-          filteredNews = mockNews.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
-          break;
-        case 'ultimas':
-        default:
-          // Sort by publishedAt for latest news
-          filteredNews = mockNews.sort((a, b) => 
-            new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-          );
-          break;
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
       }
-      
-      // Transform data to ensure all required fields
-      const transformedNews = filteredNews.map(item => ({
-        ...item,
-        category: item.category || 'TECNOLOGÍA',
-        isHot: item.isHot || (item.sources && item.sources.length > 2),
-        readTime: item.readTime || '5 min',
-        publishedAt: item.publishedAt || new Date().toISOString(),
-        aiScore: item.aiScore || Math.floor(Math.random() * 100),
-        votes: item.votes || { likes: Math.floor(Math.random() * 50), dislikes: Math.floor(Math.random() * 10) }
+      const data = await response.json();
+
+      const transformedNews = data.articles.map((article: any, index: number) => ({
+        id: article.url || `news-${index}`,
+        title: article.title || 'No Title',
+        image: article.urlToImage || 'https://via.placeholder.com/800x600.png?text=No+Image',
+        points: [article.description || 'No detailed points available.'],
+        category: apiCategory,
+        isHot: false,
+        readTime: '5 min',
+        publishedAt: article.publishedAt || new Date().toISOString(),
+        aiScore: 50,
+        votes: { likes: 0, dislikes: 0 },
+        sources: [article.source?.name || 'N/A']
       }));
       
       setNews(transformedNews);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al cargar noticias:', err);
-      setError('Error al cargar las noticias. Por favor, intente nuevamente más tarde.');
+      setError(err.message || 'Error al cargar las noticias. Por favor, intente nuevamente más tarde.');
       setNews([]);
     } finally {
       setLoading(false);
