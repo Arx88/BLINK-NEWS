@@ -681,18 +681,32 @@ Artículo Estructurado en Formato Markdown:"""
             print(f"DEBUG_SUMM_OLLAMA_RAW_RESPONSE: Raw response from Ollama:\n{response}")
             summary_content = response['message']['content']
 
-            all_lines = summary_content.strip().split('\n')
-            extracted_points = []
-            for line in reversed(all_lines):
-                cleaned_line = re.sub(r'^\s*[\*\-•\d\.]+\s*', '', line).strip()
-                if cleaned_line:
-                    extracted_points.insert(0, cleaned_line)
-                if len(extracted_points) == num_points:
-                    break
+            # *** NEW LOGIC TO HANDLE <think> BLOCK START ***
+            think_block_end_tag = "</think>"
+            idx_end_think = summary_content.rfind(think_block_end_tag)
+            if idx_end_think != -1:
+                actual_summary_text = summary_content[idx_end_think + len(think_block_end_tag):].strip()
+                print(f"DEBUG_SUMM_PARSED_TEXT_AFTER_THINK: Text after <think> block:\n{actual_summary_text}")
+            else:
+                actual_summary_text = summary_content.strip()
+                print(f"DEBUG_SUMM_PARSED_TEXT_NO_THINK: No <think> block found, using full content.")
+            # *** NEW LOGIC TO HANDLE <think> BLOCK END ***
 
-            points = extracted_points
+            all_lines = actual_summary_text.strip().split('\n') # Use actual_summary_text here
+            extracted_points = []
+            # The existing loop for point extraction should be fine now
+            for line in all_lines: # Iterate forward, not reversed, if model produces points in order
+                cleaned_line = re.sub(r'^\s*[\*\-•\d\.]+\s*', '', line).strip()
+                if cleaned_line: # Only add non-empty lines
+                    extracted_points.append(cleaned_line)
+
+            # Take up to num_points, in case model gives more than requested
+            points = extracted_points[:num_points]
+            print(f"DEBUG_SUMM_EXTRACTED_POINTS: Points extracted: {points}")
+
 
             if len(points) < num_points:
+                print(f"DEBUG_SUMM_MISSING_POINTS: Missing {num_points - len(points)} points, using fallbacks.")
                 missing_points = num_points - len(points)
                 fallback_points = self.generate_fallback_points(title, missing_points)
                 points.extend(fallback_points)
