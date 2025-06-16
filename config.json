@@ -63,7 +63,7 @@
       "summary_selector": "p",
       "category": "tecnologia"
     }
-  ],
+  ]
   "default_articles_per_source": 8,
   "max_articles_homepage": 0,
   "recency_filter_hours": 24,
