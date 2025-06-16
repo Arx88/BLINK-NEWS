@@ -22,12 +22,79 @@ class BlinkGenerator:
         """Inicializa el generador de BLINKS"""
         self.app_config = app_config if app_config is not None else {}
 
-        # Default AI task configurations
+        # Default AI task configurations with prompt templates
         default_task_configs = {
-            "determine_category": {"model_name": "qwen3:32b", "input_max_chars": 1000, "temperature": 0.2},
-            "verify_category": {"model_name": "qwen3:32b", "input_max_chars": 1000, "temperature": 0.1},
-            "generate_summary_points": {"model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.3},
-            "format_main_content": {"model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6}
+            "determine_category": {
+                "model_name": "qwen3:32b", "input_max_chars": 1000, "temperature": 0.2,
+                "prompt_template": """Analiza el siguiente texto de una noticia y clasifícalo en UNA de las siguientes categorías: {categories_str}.
+
+Título: {title}
+Texto:
+{input_text_truncated}
+
+Responde ÚNICAMENTE con el nombre de la categoría que mejor se ajuste al texto. No añadas ninguna explicación, puntuación o frase adicional.
+Categoría:"""
+            },
+            "verify_category": {
+                "model_name": "qwen3:32b", "input_max_chars": 1000, "temperature": 0.1,
+                "prompt_template": """Se ha clasificado una noticia con el título "{title}" y el siguiente texto como perteneciente a la categoría "{proposed_category}".
+
+Texto de la noticia:
+{input_text_truncated}
+
+¿Consideras que esta clasificación en la categoría "{proposed_category}" es correcta? Responde únicamente con "sí" o "no".
+Respuesta:"""
+            },
+            "generate_summary_points": {
+                "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.3,
+                "prompt_template": """A partir del siguiente texto de una noticia con el título "{title}", extrae exactamente {num_points} puntos clave.
+
+  Reglas:
+  - Cada punto debe ser una oración concisa y clara.
+  - No incluyas frases introductorias, explicaciones o numeración.
+  - Responde únicamente con los {num_points} puntos, cada uno en una nueva línea. NO INCLUYAS NINGÚN OTRO TEXTO, RAZONAMIENTO O CONVERSACIÓN. SOLO EMITE LA LISTA DE PUNTOS.
+
+  Texto:
+  {truncated_text}
+  """
+            },
+            "format_main_content": {
+                "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6,
+                "prompt_template": """Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
+
+El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
+
+1.  **Texto Principal del Artículo:**
+    *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
+    *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
+    *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
+
+2.  **Cita Destacada:**
+    *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
+    *   Formatea esta cita como un blockquote en Markdown (usando `>`).
+    *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
+        `> Esta es la cita impactante.`
+        `
+        - Nombre de la Persona o Fuente`
+
+3.  **Conclusiones Clave:**
+    *   Al final del artículo, incluye una sección titulada `## Conclusiones Clave`.
+    *   Debajo de este encabezado, presenta una lista de 3 a 5 puntos clave o conclusiones derivados del artículo.
+    *   Formatea estos puntos como una lista de viñetas en Markdown (usando `*` o `-` para cada punto).
+
+**Consideraciones Adicionales para el Markdown:**
+*   Asegúrate de que todo el resultado sea un único bloque de texto en Markdown válido.
+*   No añadas ningún comentario, introducción o texto explicativo fuera del propio contenido del artículo en Markdown.
+*   El objetivo es tomar el texto plano proporcionado y enriquecerlo estructuralmente usando Markdown.
+
+Título del Artículo Original:
+{title}
+
+Texto del Artículo Original (en texto plano):
+{effective_plain_text_content}
+
+Artículo Estructurado en Formato Markdown:"""
+            }
         }
 
         # Merge with configurations from app_config if available
@@ -64,10 +131,16 @@ class BlinkGenerator:
 
     def determine_category_with_ai(self, text_content, title):
         task_key = "determine_category"
-        task_config = self.ai_task_configs.get(task_key, {})
+        task_config = self.ai_task_configs.get(task_key, {}) # This will now contain prompt_template and temperature
         model_to_use = task_config.get('model_name', self.ollama_model)
-        max_chars = task_config.get('input_max_chars', 1000) # Default from original method
-        temperature = task_config.get('temperature', 0.2) # Default from original method
+        max_chars = task_config.get('input_max_chars', 1000)
+        temperature = task_config.get('temperature', 0.2)
+        prompt_template_str = task_config.get('prompt_template')
+
+        if not prompt_template_str:
+            # Fallback or error if template is crucial and not found
+            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            return "general" # Or raise an error
 
         print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
@@ -82,15 +155,13 @@ class BlinkGenerator:
         input_text_truncated = input_text_combined[:max_chars]
 
         categories_str = ", ".join(ALLOWED_CATEGORIES)
-        prompt = f"""
-Analiza el siguiente texto de una noticia y clasifícalo en UNA de las siguientes categorías: {categories_str}.
 
-Título: {title}
-Texto:
-{input_text_truncated}
-
-Responde ÚNICAMENTE con el nombre de la categoría que mejor se ajuste al texto. No añadas ninguna explicación, puntuación o frase adicional.
-Categoría:"""
+        prompt_variables = {
+            "categories_str": categories_str,
+            "title": title,
+            "input_text_truncated": input_text_truncated
+        }
+        prompt = prompt_template_str.format(**prompt_variables)
 
         try:
             response = self.ollama_client.chat(
@@ -194,10 +265,15 @@ Categoría:"""
             input_text = title + "\n\n" + input_text
 
         task_key = "verify_category"
-        task_config = self.ai_task_configs.get(task_key, {})
+        task_config = self.ai_task_configs.get(task_key, {}) # This will now contain prompt_template and temperature
         model_to_use = task_config.get('model_name', self.ollama_model)
-        max_chars = task_config.get('input_max_chars', 1000) # Default from original method
-        temperature = task_config.get('temperature', 0.1) # Default from original method
+        max_chars = task_config.get('input_max_chars', 1000)
+        temperature = task_config.get('temperature', 0.1)
+        prompt_template_str = task_config.get('prompt_template')
+
+        if not prompt_template_str:
+            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            return False, proposed_category # Or raise an error
 
         print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
@@ -208,14 +284,12 @@ Categoría:"""
 
         input_text_truncated = input_text_combined[:max_chars]
 
-        prompt = f"""
-Se ha clasificado una noticia con el título "{title}" y el siguiente texto como perteneciente a la categoría "{proposed_category}".
-
-Texto de la noticia:
-{input_text_truncated}
-
-¿Consideras que esta clasificación en la categoría "{proposed_category}" es correcta? Responde únicamente con "sí" o "no".
-Respuesta:"""
+        prompt_variables = {
+            "title": title,
+            "proposed_category": proposed_category,
+            "input_text_truncated": input_text_truncated
+        }
+        prompt = prompt_template_str.format(**prompt_variables)
 
         try:
             response = self.ollama_client.chat(
@@ -262,52 +336,27 @@ Respuesta:"""
 
         # Truncate plain_text_content for the prompt to avoid overly long inputs
         task_key = "format_main_content"
-        task_config = self.ai_task_configs.get(task_key, {})
+        task_config = self.ai_task_configs.get(task_key, {}) # This will now contain prompt_template and temperature
         model_to_use = task_config.get('model_name', self.ollama_model)
-        max_chars = task_config.get('input_max_chars', 20000) # Default from original method
-        temperature = task_config.get('temperature', 0.6) # Default from original method
+        max_chars = task_config.get('input_max_chars', 20000)
+        temperature = task_config.get('temperature', 0.6)
+        prompt_template_str = task_config.get('prompt_template')
+
+        if not prompt_template_str:
+            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            return plain_text_content # Or raise an error
 
         print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
         # This is the effective plain_text_content that will be used in the prompt.
         effective_plain_text_content = plain_text_content[:max_chars]
-        print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}") # Already good
+        print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}")
 
-        prompt = f"""
-Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
-
-El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
-
-1.  **Texto Principal del Artículo:**
-    *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
-    *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
-    *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
-
-2.  **Cita Destacada:**
-    *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
-    *   Formatea esta cita como un blockquote en Markdown (usando `>`).
-    *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
-        `> Esta es la cita impactante.`
-        `
-        - Nombre de la Persona o Fuente`
-
-3.  **Conclusiones Clave:**
-    *   Al final del artículo, incluye una sección titulada `## Conclusiones Clave`.
-    *   Debajo de este encabezado, presenta una lista de 3 a 5 puntos clave o conclusiones derivados del artículo.
-    *   Formatea estos puntos como una lista de viñetas en Markdown (usando `*` o `-` para cada punto).
-
-**Consideraciones Adicionales para el Markdown:**
-*   Asegúrate de que todo el resultado sea un único bloque de texto en Markdown válido.
-*   No añadas ningún comentario, introducción o texto explicativo fuera del propio contenido del artículo en Markdown.
-*   El objetivo es tomar el texto plano proporcionado y enriquecerlo estructuralmente usando Markdown.
-
-Título del Artículo Original:
-{title}
-
-Texto del Artículo Original (en texto plano):
-{effective_plain_text_content}
-
-Artículo Estructurado en Formato Markdown:"""
+        prompt_variables = {
+            "title": title,
+            "effective_plain_text_content": effective_plain_text_content
+        }
+        prompt = prompt_template_str.format(**prompt_variables)
 
         try:
             print(f"DEBUG_BLINK_GEN: Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
@@ -533,10 +582,15 @@ Artículo Estructurado en Formato Markdown:"""
     def generate_ollama_summary(self, text, title="", num_points=5): # text here is combined_content
         """Genera un resumen de 5 puntos clave usando Ollama."""
         task_key = "generate_summary_points"
-        task_config = self.ai_task_configs.get(task_key, {})
+        task_config = self.ai_task_configs.get(task_key, {}) # This will now contain prompt_template and temperature
         model_to_use = task_config.get('model_name', self.ollama_model)
-        max_chars = task_config.get('input_max_chars', 20000) # Default from original method
-        temperature = task_config.get('temperature', 0.3) # Default from original method
+        max_chars = task_config.get('input_max_chars', 20000)
+        temperature = task_config.get('temperature', 0.3)
+        prompt_template_str = task_config.get('prompt_template')
+
+        if not prompt_template_str:
+            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            return self.generate_fallback_points(title, num_points) # Or raise an error
 
         print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
@@ -546,17 +600,12 @@ Artículo Estructurado en Formato Markdown:"""
         truncated_text = text[:max_chars]
         print(f"DEBUG_BLINK_GEN: Texto para resumen (primeros 500 chars): {truncated_text[:500]}")
 
-
-        prompt = f"""A partir del siguiente texto de una noticia con el título "{title}", extrae exactamente {num_points} puntos clave.
-
-  Reglas:
-  - Cada punto debe ser una oración concisa y clara.
-  - No incluyas frases introductorias, explicaciones o numeración.
-  - Responde únicamente con los {num_points} puntos, cada uno en una nueva línea. NO INCLUYAS NINGÚN OTRO TEXTO, RAZONAMIENTO O CONVERSACIÓN. SOLO EMITE LA LISTA DE PUNTOS.
-
-  Texto:
-  {truncated_text}
-  """
+        prompt_variables = {
+            "title": title,
+            "num_points": num_points,
+            "truncated_text": truncated_text
+        }
+        prompt = prompt_template_str.format(**prompt_variables)
 
         try:
             print(f"DEBUG_BLINK_GEN: Llamando a Ollama para GENERAR PUNTOS para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
@@ -570,7 +619,7 @@ Artículo Estructurado en Formato Markdown:"""
                 ],
                 options={'temperature': temperature}
             )
-            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para GENERAR PUNTOS para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}")
+            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para GENERAR PUNTOS para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}") # Already good
             summary_content = response['message']['content']
 
             all_lines = summary_content.strip().split('\n')
