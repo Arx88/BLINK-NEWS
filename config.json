@@ -68,5 +68,30 @@
   "max_articles_homepage": 0,
   "recency_filter_hours": 24,
   "similarity_threshold": 0.6,
-  "allowed_publish_categories": ["tecnología", "general", "science"]
+  "allowed_publish_categories": ["tecnología", "general", "science"],
+  "default_ollama_model_name": "qwen3:32b",
+  "ollama_client_timeout": 90,
+
+  "ai_task_configs": {
+    "determine_category": {
+      "model_name": "llama3:latest",
+      "input_max_chars": 8000,
+      "temperature": 0.2
+    },
+    "verify_category": {
+      "model_name": "llama3:latest",
+      "input_max_chars": 8000,
+      "temperature": 0.1
+    },
+    "generate_summary_points": {
+      "model_name": "qwen3:32b",
+      "input_max_chars": 18000,
+      "temperature": 0.3
+    },
+    "format_main_content": {
+      "model_name": "deepseek-r1:32b",
+      "input_max_chars": 18000,
+      "temperature": 0.6
+    }
+  }
 }
