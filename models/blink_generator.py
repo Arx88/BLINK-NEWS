@@ -60,43 +60,12 @@ Respuesta:"""
             },
             "format_main_content": {
                 "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6,
-                "prompt_template": """Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
+                "prompt_template": """Transforma el siguiente texto en párrafos de Markdown. Asegúrate de que los párrafos estén separados por dos saltos de línea.
 
-El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
-
-1.  **Texto Principal del Artículo:**
-    *   El texto de entrada ({effective_plain_text_content}) puede ser una compilación de varias fuentes y podría necesitar una limpieza significativa.
-    *   Tu principal objetivo es estructurarlo en párrafos coherentes y legibles.
-    *   **Párrafos:** Utiliza saltos de línea dobles (presionar Enter dos veces) para separar párrafos en Markdown. Cada párrafo debe tratar una idea o tema principal. Evita párrafos excesivamente largos; si una sección de texto es muy extensa y no tiene pausas naturales, intenta dividirla lógicamente.
-    *   **Fluidez:** Asegura una buena fluidez y cohesión entre párrafos.
-    *   **Subtítulos:** Si el texto original contiene subtítulos implícitos o secciones claramente diferenciadas, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante` o `### Sub-subtítulo`) para mejorar la organización. No inventes subtítulos si no son evidentes en el texto. Prioriza una buena estructura de párrafos sobre el uso excesivo de subtítulos.
-
-2.  **Cita Destacada:**
-    *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
-    *   Formatea esta cita como un blockquote en Markdown (usando `>`).
-    *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
-        `> Esta es la cita impactante.`
-        `
-        - Nombre de la Persona o Fuente`
-
-3.  **Conclusiones Clave:**
-    *   Al final del artículo, incluye una sección titulada `## Conclusiones Clave`.
-    *   Debajo de este encabezado, presenta una lista de 3 a 5 puntos clave o conclusiones derivados del artículo.
-    *   Formatea estos puntos como una lista de viñetas en Markdown (usando `*` o `-` para cada punto).
-
-**Consideraciones Adicionales para el Markdown:**
-*   Asegúrate de que todo el resultado sea un único bloque de texto en Markdown válido.
-*   No añadas ningún comentario, introducción o texto explicativo fuera del propio contenido del artículo en Markdown.
-*   El objetivo es tomar el texto plano proporcionado y enriquecerlo estructuralmente usando Markdown.
-*   Presta especial atención a la correcta formación de párrafos. El contenido NO debe ser un solo bloque de texto. Separa las ideas en párrafos distintos usando dos saltos de línea.
-
-Título del Artículo Original:
-{title}
-
-Texto del Artículo Original (en texto plano):
+Texto Original:
 {effective_plain_text_content}
 
-Artículo Estructurado en Formato Markdown:"""
+Texto en Markdown:"""
             }
         }
 
