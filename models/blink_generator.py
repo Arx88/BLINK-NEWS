@@ -18,8 +18,29 @@ ALLOWED_CATEGORIES = ["tecnología", "deportes", "entretenimiento", "política",
 class BlinkGenerator:
     """Clase para generar resúmenes en formato BLINK a partir de noticias"""
 
-    def __init__(self):
+    def __init__(self, app_config=None): # Added app_config parameter
         """Inicializa el generador de BLINKS"""
+        self.app_config = app_config if app_config is not None else {}
+
+        # Default AI task configurations
+        default_task_configs = {
+            "determine_category": {"model_name": "qwen3:32b", "input_max_chars": 1000, "temperature": 0.2},
+            "verify_category": {"model_name": "qwen3:32b", "input_max_chars": 1000, "temperature": 0.1},
+            "generate_summary_points": {"model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.3},
+            "format_main_content": {"model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6}
+        }
+
+        # Merge with configurations from app_config if available
+        self.ai_task_configs = {k: v.copy() for k, v in default_task_configs.items()} # Deep copy defaults
+        ext_task_configs = self.app_config.get('ai_task_configs', {})
+        for task_name, task_cfg in ext_task_configs.items():
+            if task_name in self.ai_task_configs:
+                self.ai_task_configs[task_name].update(task_cfg)
+            else:
+                # Allow new tasks to be defined entirely in config.json
+                self.ai_task_configs[task_name] = task_cfg.copy()
+
+
         # Descargar recursos de NLTK necesarios
         try:
             nltk.data.find('tokenizers/punkt')
@@ -36,20 +57,29 @@ class BlinkGenerator:
 
         # Leer la URL de Ollama desde la variable de entorno
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.ollama_client = ollama.Client(host=ollama_base_url, timeout=90) # Added timeout=90
-        self.ollama_model = 'qwen3:32b' # Modelo por defecto, se puede configurar
+        self.ollama_client = ollama.Client(host=ollama_base_url, timeout=90)
+        # self.ollama_model is now a general fallback, specific models are in ai_task_configs
+        self.ollama_model = self.app_config.get('default_ollama_model_name', 'qwen3:32b')
+
 
     def determine_category_with_ai(self, text_content, title):
+        task_key = "determine_category"
+        task_config = self.ai_task_configs.get(task_key, {})
+        model_to_use = task_config.get('model_name', self.ollama_model)
+        max_chars = task_config.get('input_max_chars', 1000) # Default from original method
+        temperature = task_config.get('temperature', 0.2) # Default from original method
+
+        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+
         if not text_content and not title:
             return "general" # Not enough info to determine category
 
         # Combine title and content for better context, prioritizing content
-        input_text = text_content if text_content else ""
+        input_text_combined = text_content if text_content else ""
         if title:
-            input_text = title + "\n\n" + input_text
+            input_text_combined = title + "\n\n" + input_text_combined
 
-        # Limit input text length to avoid overly long prompts (e.g., first 1000 chars)
-        input_text = input_text[:1000]
+        input_text_truncated = input_text_combined[:max_chars]
 
         categories_str = ", ".join(ALLOWED_CATEGORIES)
         prompt = f"""
@@ -57,21 +87,21 @@ Analiza el siguiente texto de una noticia y clasifícalo en UNA de las siguiente
 
 Título: {title}
 Texto:
-{input_text}
+{input_text_truncated}
 
 Responde ÚNICAMENTE con el nombre de la categoría que mejor se ajuste al texto. No añadas ninguna explicación, puntuación o frase adicional.
 Categoría:"""
 
         try:
             response = self.ollama_client.chat(
-                model=self.ollama_model,
+                model=model_to_use,
                 messages=[
                     {
                         'role': 'user',
                         'content': prompt,
                     },
                 ],
-                options={'temperature': 0.2} # Low temperature for more deterministic category output
+                options={'temperature': temperature}
             )
 
             # Ensure 're' is imported at the top of the file: import re
@@ -163,28 +193,40 @@ Categoría:"""
         if title:
             input_text = title + "\n\n" + input_text
 
-        # Limit input text length (e.g., first 1000 chars)
-        input_text = input_text[:1000]
+        task_key = "verify_category"
+        task_config = self.ai_task_configs.get(task_key, {})
+        model_to_use = task_config.get('model_name', self.ollama_model)
+        max_chars = task_config.get('input_max_chars', 1000) # Default from original method
+        temperature = task_config.get('temperature', 0.1) # Default from original method
+
+        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+
+        # Combine title and content for better context, prioritizing content
+        input_text_combined = text_content if text_content else ""
+        if title:
+            input_text_combined = title + "\n\n" + input_text_combined
+
+        input_text_truncated = input_text_combined[:max_chars]
 
         prompt = f"""
 Se ha clasificado una noticia con el título "{title}" y el siguiente texto como perteneciente a la categoría "{proposed_category}".
 
 Texto de la noticia:
-{input_text}
+{input_text_truncated}
 
 ¿Consideras que esta clasificación en la categoría "{proposed_category}" es correcta? Responde únicamente con "sí" o "no".
 Respuesta:"""
 
         try:
             response = self.ollama_client.chat(
-                model=self.ollama_model,
+                model=model_to_use,
                 messages=[
                     {
                         'role': 'user',
                         'content': prompt,
                     },
                 ],
-                options={'temperature': 0.1} # Very low temperature for a simple yes/no
+                options={'temperature': temperature}
             )
 
             verification_response = response['message']['content'].strip().lower()
@@ -219,9 +261,17 @@ Respuesta:"""
             return ""
 
         # Truncate plain_text_content for the prompt to avoid overly long inputs
+        task_key = "format_main_content"
+        task_config = self.ai_task_configs.get(task_key, {})
+        model_to_use = task_config.get('model_name', self.ollama_model)
+        max_chars = task_config.get('input_max_chars', 20000) # Default from original method
+        temperature = task_config.get('temperature', 0.6) # Default from original method
+
+        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+
         # This is the effective plain_text_content that will be used in the prompt.
-        effective_plain_text_content = plain_text_content[:20000]
-        print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}")
+        effective_plain_text_content = plain_text_content[:max_chars]
+        print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}") # Already good
 
         prompt = f"""
 Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
@@ -260,13 +310,13 @@ Texto del Artículo Original (en texto plano):
 Artículo Estructurado en Formato Markdown:"""
 
         try:
-            print(f"DEBUG_BLINK_GEN: Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {self.ollama_model}. Temperatura: 0.6")
+            print(f"DEBUG_BLINK_GEN: Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
             response = self.ollama_client.chat(
-                model=self.ollama_model,
+                model=model_to_use,
                 messages=[{'role': 'user', 'content': prompt}],
-                options={'temperature': 0.6} # Adjusted temperature for a balance
+                options={'temperature': temperature}
             )
-            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para FORMATEAR CONTENIDO para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}")
+            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para FORMATEAR CONTENIDO para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}") # Already good
             raw_markdown_content = response['message']['content'].strip()
 
             # Cleanup <think>...</think> blocks from the beginning of the response
@@ -480,10 +530,22 @@ Artículo Estructurado en Formato Markdown:"""
                 'image_url': None
             }
     
-    def generate_ollama_summary(self, text, title="", num_points=5):
+    def generate_ollama_summary(self, text, title="", num_points=5): # text here is combined_content
         """Genera un resumen de 5 puntos clave usando Ollama."""
+        task_key = "generate_summary_points"
+        task_config = self.ai_task_configs.get(task_key, {})
+        model_to_use = task_config.get('model_name', self.ollama_model)
+        max_chars = task_config.get('input_max_chars', 20000) # Default from original method
+        temperature = task_config.get('temperature', 0.3) # Default from original method
+
+        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+
         if not text:
             return self.generate_fallback_points(title, num_points)
+
+        truncated_text = text[:max_chars]
+        print(f"DEBUG_BLINK_GEN: Texto para resumen (primeros 500 chars): {truncated_text[:500]}")
+
 
         prompt = f"""A partir del siguiente texto de una noticia con el título "{title}", extrae exactamente {num_points} puntos clave.
 
@@ -493,20 +555,22 @@ Artículo Estructurado en Formato Markdown:"""
   - Responde únicamente con los {num_points} puntos, cada uno en una nueva línea. NO INCLUYAS NINGÚN OTRO TEXTO, RAZONAMIENTO O CONVERSACIÓN. SOLO EMITE LA LISTA DE PUNTOS.
 
   Texto:
-  {text}
+  {truncated_text}
   """
 
         try:
+            print(f"DEBUG_BLINK_GEN: Llamando a Ollama para GENERAR PUNTOS para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
             response = self.ollama_client.chat(
-                model=self.ollama_model,
+                model=model_to_use,
                 messages=[
                     {
                         'role': 'user',
                         'content': prompt,
                     },
                 ],
-                options={'temperature': 0.3}
+                options={'temperature': temperature}
             )
+            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para GENERAR PUNTOS para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}")
             summary_content = response['message']['content']
 
             all_lines = summary_content.strip().split('\n')
