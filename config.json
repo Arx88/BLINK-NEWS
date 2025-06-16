@@ -70,7 +70,7 @@
   "similarity_threshold": 0.6,
   "allowed_publish_categories": ["tecnología", "general", "science"],
   "default_ollama_model_name": "qwen3:32b",
-  "ollama_client_timeout": 90,
+  "ollama_client_timeout": 300,
   "ai_task_configs": {
     "determine_category": {
       "model_name": "llama3:latest",
