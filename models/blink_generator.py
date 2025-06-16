@@ -94,7 +94,13 @@ Respuesta:"""
             },
             "format_main_content": {
                 "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6,
-                "prompt_template": """Transforma el siguiente texto en párrafos de Markdown. Asegúrate de que los párrafos estén separados por dos saltos de línea.
+                "prompt_template": """Transforma el siguiente texto en un contenido bien formateado en Markdown.
+
+Utiliza las siguientes directrices para el formato Markdown:
+- **Párrafos**: Separa los párrafos con dos saltos de línea.
+- **Énfasis**: Usa asteriscos para *itálicas* y dobles asteriscos para **negritas** cuando sea apropiado para dar énfasis.
+- **Listas**: Formatea las listas (si existen en el texto original o si son una forma natural de estructurar partes del texto) usando guiones (-) o asteriscos (*) para listas no ordenadas, y números seguidos de un punto (1., 2.) para listas ordenadas. Asegúrate de que cada elemento de la lista esté en una nueva línea.
+- **Encabezados**: Si es necesario estructurar el texto con encabezados, usa los símbolos de almohadilla (#, ##, ###). Sin embargo, para este contenido, prioriza párrafos bien separados.
 
 Texto Original:
 {effective_plain_text_content}
@@ -423,22 +429,100 @@ Texto en Markdown:"""
         # Strip leading/trailing whitespace from the whole content
         content = content.strip()
 
-        # Split into lines, strip each line, and rejoin. This handles individual line whitespace.
-        lines = [line.strip() for line in content.split('\n')]
-        content = '\n'.join(lines)
-
-        # Attempt to ensure paragraphs are separated by double newlines
-        # if no double newlines exist but single newlines do.
-        if '\n\n' not in content and '\n' in content:
-            # A more careful regex:
-            # - Negative lookbehind for a newline (don't act if already \n\n)
-            # - A newline
-            # - Negative lookahead for a newline, or markdown list/blockquote/header characters
-            # This tries to avoid messing up lists or other structures.
-            content = re.sub(r'(?<!\n)\n(?![\n*#>\s-])', '\n\n', content)
-
-        # Remove excessive blank lines (more than two consecutive newlines down to two)
+        # Normalize multiple newlines (3 or more) down to exactly two first.
         content = re.sub(r'\n{3,}', '\n\n', content)
+
+        # Split into lines, strip each line.
+        lines = [line.strip() for line in content.split('\n')]
+
+        # Rejoin lines, ensuring that single newlines that are likely paragraph breaks become double,
+        # while trying to preserve existing double newlines and list/header structures.
+        processed_lines = []
+        for i, line in enumerate(lines):
+            processed_lines.append(line)
+            if i < len(lines) - 1: # If it's not the last line
+                # Check if the current line is not empty and the next line is not empty,
+                # and the current line does not end a list item or header,
+                # and the next line doesn't start one immediately (basic check).
+                # This logic aims to convert single newlines between text blocks to double.
+                if line and lines[i+1] and \
+                   not (line.startswith(('* ')) or line.startswith(('- ')) or line.startswith('#')) and \
+                   not (lines[i+1].startswith(('* ')) or lines[i+1].startswith(('- ')) or lines[i+1].startswith('#')):
+                    # If the original separation was just one newline (after stripping and initial normalization)
+                    # and now it's not followed by an immediate double newline in processed_lines.
+                    # This part is tricky. Let's simplify:
+                    # After stripping and reducing \n{3,} to \n\n,
+                    # any single \n remaining between non-empty lines should become \n\n.
+                    pass # The logic below will handle this better.
+
+        content = '\n'.join(processed_lines)
+
+        # Replace single newlines with double newlines, unless it's a list item, blockquote, or header.
+        # This regex is more aggressive and should be applied carefully.
+        # It looks for a newline that is NOT preceded or followed by another newline,
+        # and is not followed by typical markdown list/header/blockquote markers.
+        # This is run *after* stripping lines and initial \n{3,} normalization.
+        # The goal is to make sure standard paragraphs are separated by \n\n.
+
+        # First, ensure all existing intentional double newlines are preserved (or created if missing between "paragraphs")
+        # A paragraph is roughly a block of text not starting with list/header markers.
+        # This is complex. Let's try a simpler sequence:
+        # 1. Normalize \r\n and \r to \n
+        # 2. Strip leading/trailing whitespace from the whole string.
+        # 3. Reduce 3+ newlines to 2: \n\n\n -> \n\n
+        # 4. Strip whitespace from each line.
+        # 5. Re-join. At this point, paragraphs might be separated by \n or \n\n.
+        # 6. Convert single \n to \n\n if they are not part of a list-like structure.
+
+        # Step 1 & 2 already done essentially with initial `content.strip()` and `replace`
+        # Step 3:
+        content = re.sub(r'\n{3,}', '\n\n', content) # Done again to be sure
+
+        # Step 4 & 5:
+        lines = [line.strip() for line in content.split('\n')]
+        content = '\n'.join(lines) # Now lines are stripped, and only \n or \n\n separate them.
+
+        # Step 6: Convert single \n to \n\n if not a list item etc.
+        # This regex finds a single newline (not preceded or followed by another \n)
+        # and ensures the line following it doesn't start with markdown list/header.
+        # (?<!\n) - not preceded by \n
+        # \n       - the single newline
+        # (?!\n)   - not followed by \n
+        # (?![\*\-#>\s]) - not followed by typical markdown structural characters or space (e.g. indented lists)
+        # The negative lookahead (?![\*\-#>\s]) might be too broad.
+        # Let's refine: we want to turn `foo\nbar` into `foo\n\nbar`
+        # But not `* item1\n* item2` or `# H1\nContent`
+
+        # Simpler approach: Split by \n then intelligently join with \n or \n\n
+        new_content_parts = []
+        for i, line in enumerate(lines):
+            new_content_parts.append(line)
+            if i < len(lines) - 1: # If there is a next line
+                current_line_is_list_item = line.startswith(("* ", "- ", "+ ")) or re.match(r"^\d+\.\s", line)
+                next_line_is_list_item = lines[i+1].startswith(("* ", "- ", "+ ")) or re.match(r"^\d+\.\s", lines[i+1])
+                current_line_is_header = line.startswith("#")
+
+                if current_line_is_list_item and next_line_is_list_item:
+                    new_content_parts.append("\n") # Single newline between list items
+                elif line == "" and lines[i+1] == "": # If we have two empty lines from original \n\n, preserve one \n\n effectively
+                    if not (new_content_parts[-2] == "") : # Avoid creating more than \n\n from multiple blank lines
+                       new_content_parts.append("\n")
+                elif line and lines[i+1]: # Both current and next are non-empty
+                    new_content_parts.append("\n\n") # Default to double newline for paragraph separation
+                elif line and not lines[i+1]: # Current is non-empty, next is empty
+                     new_content_parts.append("\n\n") # End of a paragraph before a blank line
+                elif not line and lines[i+1]: # Current is empty, next is non-empty
+                     # This implies an existing \n\n structure, so just ensure one \n before next content
+                     if i > 0 and new_content_parts[-2] != "": # if previous was not empty
+                         pass # \n\n already handled by previous line.
+                     # else it's start of file or multiple blank lines, handled by strip and \n{3,}
+                # else: single \n if one is empty, handled by previous logic or stripping
+
+        content = "\n".join(new_content_parts)
+        # Post-process to clean up:
+        # Remove excessive blank lines again (more than two consecutive newlines down to two)
+        content = re.sub(r'\n{3,}', '\n\n', content).strip()
+
 
         # Fallback for severely unformatted text
         # Check if it's still a long block without proper paragraph separation
@@ -514,8 +598,20 @@ Texto en Markdown:"""
             final_category_name = "general" # Fallback if verification fails
 
         logger.debug(f"combined_content (primeros 500 chars) para IA: {combined_content[:500]}")
-        # Formatear el contenido combinado a Markdown usando IA
-        markdown_content = self.format_content_with_ai(combined_content, title)
+
+        # Truncate combined_content before sending to AI for Markdown formatting
+        # Max length for plain text to keep formatted Markdown likely under a certain size.
+        # E.g. 10000 chars plain text -> perhaps ~12000-15000 Markdown.
+        MAX_PLAIN_TEXT_LENGTH = 10000 # Configurable, or based on `format_main_content`'s input_max_chars
+
+        if len(combined_content) > MAX_PLAIN_TEXT_LENGTH:
+            logger.debug(f"Truncating combined_content from {len(combined_content)} to {MAX_PLAIN_TEXT_LENGTH} characters.")
+            truncated_combined_content = combined_content[:MAX_PLAIN_TEXT_LENGTH]
+        else:
+            truncated_combined_content = combined_content
+
+        # Formatear el contenido combinado (y truncado) a Markdown usando IA
+        markdown_content = self.format_content_with_ai(truncated_combined_content, title)
 
         # Crear el objeto BLINK
         blink = {
@@ -526,7 +622,7 @@ Texto en Markdown:"""
             'sources': list(set(sources)),
             'urls': urls,
             'timestamp': datetime.now().isoformat(),
-            'content': markdown_content[:15000], # Apply truncation to the formatted Markdown content
+            'content': markdown_content, # Truncation now happens on input to format_content_with_ai
             'categories': [final_category_name],
             'votes': {'likes': 0, 'dislikes': 0}
         }

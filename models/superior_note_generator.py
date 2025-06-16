@@ -204,6 +204,7 @@ class SuperiorNoteGenerator:
 4. Proporcione un análisis equilibrado y completo
 5. Mantenga un tono periodístico profesional
 6. Tenga una extensión de aproximadamente 800-1200 palabras
+7. ESTÉ FORMATEADA EN MARKDOWN. Utiliza encabezados (#, ##, ###), listas (con -, * o números), negritas (**texto**), itálicas (*texto*), y párrafos separados por doble salto de línea.
 
 La nota debe estar estructurada con:
 - Introducción que presente el tema
@@ -214,7 +215,7 @@ La nota debe estar estructurada con:
 Contexto de las fuentes:
 {context}
 
-NOTA SUPERIOR:"""
+NOTA SUPERIOR (en formato Markdown):"""
 
             response = self.ollama_client.chat(model=self.ollama_model, messages=[
                 {
@@ -223,11 +224,57 @@ NOTA SUPERIOR:"""
                 }
             ])
 
-            return response['message']['content']
+            ai_content = response['message']['content']
+            # Combine all original content for fallback reference in sanitization
+            combined_original_content = "\n\n".join([c['content'] for c in all_contents])
+            return self._sanitize_ai_output(ai_content, combined_original_content, topic)
 
         except Exception as e:
             print(f"Error generando nota con OLLAMA: {e}")
-            return self._generate_basic_note(all_contents, topic)
+            basic_note_content = self._generate_basic_note(all_contents, topic)
+            # Combine all original content for fallback reference in sanitization
+            combined_original_content = "\n\n".join([c['content'] for c in all_contents])
+            return self._sanitize_ai_output(basic_note_content, combined_original_content, topic)
+
+    def _sanitize_ai_output(self, ai_content: str, original_plain_text: str, title: str) -> str:
+        # Normalize line endings
+        content = ai_content.replace('\r\n', '\n').replace('\r', '\n')
+
+        # Strip leading/trailing whitespace from the whole content
+        content = content.strip()
+
+        # Split into lines, strip each line, and rejoin. This handles individual line whitespace.
+        lines = [line.strip() for line in content.split('\n')]
+        content = '\n'.join(lines)
+
+        # Attempt to ensure paragraphs are separated by double newlines
+        # if no double newlines exist but single newlines do.
+        if '\n\n' not in content and '\n' in content:
+            # A more careful regex:
+            # - Negative lookbehind for a newline (don't act if already \n\n)
+            # - A newline
+            # - Negative lookahead for a newline, or markdown list/blockquote/header characters
+            # This tries to avoid messing up lists or other structures.
+            content = re.sub(r'(?<!\n)\n(?![\n*#>\s-])', '\n\n', content)
+
+        # Remove excessive blank lines (more than two consecutive newlines down to two)
+        content = re.sub(r'\n{3,}', '\n\n', content)
+
+        # Fallback for severely unformatted text
+        # Check if it's still a long block without proper paragraph separation
+        # Also, check if it contains at least some typical markdown structuring characters.
+        # If not, it's likely the AI just returned a blob of text.
+        is_likely_blob = len(content) > 300 and '\n\n' not in content
+        has_markdown_chars = any(char in content for char in ['#', '>', '*', '-'])
+
+        if is_likely_blob and not has_markdown_chars:
+            print(f"AI output for title '{title}' appears unformatted after sanitization. Using fallback based on original plain text.")
+            # Fallback to original plain text, trying to make paragraphs
+            fallback_content = original_plain_text.replace('\r\n', '\n').replace('\r', '\n')
+            fallback_lines = [line.strip() for line in fallback_content.split('\n') if line.strip()]
+            return '\n\n'.join(fallback_lines)
+
+        return content
 
     def _generate_ultra_summary(self, full_content, topic):
         """Genera un ultra resumen de 5 bullets usando OLLAMA"""
