@@ -676,6 +676,7 @@ Texto en Markdown:"""
             points = extracted_points[:num_points]
             print(f"DEBUG_SUMM_EXTRACTED_POINTS: Points extracted ({len(points)}): {points}")
 
+            print(f"DEBUG_SUMM_FALLBACK_CHECK: len(points) = {len(points)}, num_points = {num_points}, Condition (len(points) < num_points) is {len(points) < num_points}")
             if len(points) < num_points:
                 print(f"DEBUG_SUMM_MISSING_POINTS: Missing {num_points - len(points)} points, using fallbacks.")
                 missing_points = num_points - len(points)
