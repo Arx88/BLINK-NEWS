@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -67,14 +66,10 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-        customBlue: {
-          DEFAULT: 'hsl(217, 91%, 60%)',
-          foreground: 'hsl(217, 91%, 98%)'
-        },
-        customLightBlue: {
-          DEFAULT: 'hsl(215, 100%, 95%)',
-          foreground: 'hsl(215, 30%, 25%)'
-        }
+        customQuoteBg: '#060D19',
+        customQuoteText: '#89B9EE',
+        customConclusionsBg: '#090C11',
+        customConclusionsBullet: '#3B82F6'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -123,7 +118,7 @@ export default {
 
             // For "Conclusiones Clave" List bullets
             'ul > li::before': {
-              'background-color': theme('colors.customBlue.DEFAULT'),
+              'background-color': theme('colors.customConclusionsBullet'),
             },
           },
         },
@@ -143,7 +138,7 @@ export default {
             'blockquote p:first-of-type::before': { content: 'none' }, // Ensure quotes are off in dark
             'blockquote p:last-of-type::after': { content: 'none' },   // Ensure quotes are off in dark
             'ul > li::before': {
-              'background-color': theme('colors.customBlue.DEFAULT'),
+              'background-color': theme('colors.customConclusionsBullet'),
             },
           }
         }
