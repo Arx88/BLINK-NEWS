@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -138,4 +137,27 @@
 .dark .bg-yellow-400,
 .dark .bg-yellow-500 {
   background-color: black !important;
+}
+
+/* Custom styles for Conclusions Key block */
+.prose h2 + ul,
+.prose-lg h2 + ul { /* Targeting ul immediately following an h2 within prose scope */
+  background-color: hsl(215, 100%, 95%); /* customLightBlue.DEFAULT */
+  padding: 1rem; /* Adjust padding as needed */
+  border-radius: 0.5rem; /* var(--radius) or a specific value */
+  margin-top: 0.5em; /* Optional: space between heading and list box */
+}
+
+/* Ensure list items inside this specific UL have appropriate color if needed */
+/* This might not be necessary if prose-invert handles it for dark mode */
+.prose h2 + ul li,
+.prose-lg h2 + ul li {
+  /* color: hsl(var(--foreground)); */ /* Example if text color needs adjustment */
+}
+
+/* Dark mode considerations for the conclusions box */
+.dark .prose h2 + ul,
+.dark .prose-lg h2 + ul {
+  background-color: hsl(var(--secondary)); /* Using a dark theme secondary/accent color */
+  /* color: hsl(var(--foreground)); */ /* Ensure text is readable */
 }

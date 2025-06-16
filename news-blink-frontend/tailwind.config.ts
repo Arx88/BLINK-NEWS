@@ -66,7 +66,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+        customBlue: {
+          DEFAULT: 'hsl(217, 91%, 60%)',
+          foreground: 'hsl(217, 91%, 98%)'
+        },
+        customLightBlue: {
+          DEFAULT: 'hsl(215, 100%, 95%)',
+          foreground: 'hsl(215, 30%, 25%)'
+        }
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -94,7 +102,44 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+			},
+      typography: (theme) => ({
+        DEFAULT: {
+          css: {
+            // Blockquotes (Cita Destacada)
+            'blockquote': {
+              'font-style': 'italic',
+              'border-left-width': '0.25rem', // Ensure border width is set
+              'border-left-color': theme('colors.customBlue.DEFAULT'),
+              'background-color': theme('colors.customLightBlue.DEFAULT'),
+              'color': theme('colors.customLightBlue.foreground'),
+              'padding-top': '0.5em',
+              'padding-bottom': '0.5em',
+              'padding-left': '1em',
+              'padding-right': '1em',
+            },
+            'blockquote p:first-of-type::before': { content: 'none' },
+            'blockquote p:last-of-type::after': { content: 'none' },
+
+            // For "Conclusiones Clave" List bullets
+            'ul > li::before': {
+              'background-color': theme('colors.customBlue.DEFAULT'),
+            },
+          },
+        },
+        dark: {
+          css: {
+            'blockquote': {
+              'border-left-color': theme('colors.customBlue.DEFAULT'),
+              'background-color': 'hsl(var(--secondary))',
+              'color': 'hsl(var(--foreground))',
+            },
+            'ul > li::before': {
+              'background-color': theme('colors.customBlue.DEFAULT'),
+            },
+          }
+        }
+      }),
 		}
 	},
 	plugins: [require("tailwindcss-animate"), require('@tailwindcss/typography')],
