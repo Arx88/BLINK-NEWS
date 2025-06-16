@@ -10,8 +10,42 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import re
+import logging
 # from models.image_generator import ImageGenerator # <-- LÍNEA COMENTADA
 import ollama
+
+# Setup logger
+logger = logging.getLogger(__name__)
+
+def setup_file_logger(log_dir_name="LOG"):
+    if not logger.handlers: # Check if handlers are already configured
+        logger.setLevel(logging.DEBUG) # Set logger level
+
+        # Create log directory
+        # Assuming /app is the WORKDIR in Dockerfile, so logs go to /app/LOG
+        log_dir_path = os.path.join("/app", log_dir_name)
+        os.makedirs(log_dir_path, exist_ok=True)
+
+        # Create timestamped log file
+        log_file_name = f"blink_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        log_file_path = os.path.join(log_dir_path, log_file_name)
+
+        # Create file handler
+        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+
+        # Create formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+
+        # Add handler to the logger
+        logger.addHandler(file_handler)
+
+        logger.info("File logger setup complete. Logging to: " + log_file_path)
+    else:
+        logger.info("File logger already configured.")
+
+setup_file_logger() # Call it once at module level
 
 ALLOWED_CATEGORIES = ["tecnología", "deportes", "entretenimiento", "política", "economía", "salud", "ciencia", "mundo", "cultura", "general"]
 
@@ -111,10 +145,10 @@ Texto en Markdown:"""
 
         if not prompt_template_str:
             # Fallback or error if template is crucial and not found
-            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            logger.error(f"Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
             return "general" # Or raise an error
 
-        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
         if not text_content and not title:
             return "general" # Not enough info to determine category
@@ -164,9 +198,9 @@ Texto en Markdown:"""
                     extracted_cat = extracted_cat.strip()
                     if extracted_cat in ALLOWED_CATEGORIES:
                         best_match_category = extracted_cat
-                        print(f"DEBUG: Determined category by explicit pattern: {best_match_category} from line: '{line}'")
+                        logger.debug(f"Determined category by explicit pattern: {best_match_category} from line: '{line}'")
                         # Return immediately as this is the highest confidence match
-                        print(f"DEBUG: Determined category (final by explicit pattern): {best_match_category} (raw response: {raw_response_content[:200]})")
+                        logger.debug(f"Determined category (final by explicit pattern): {best_match_category} (raw response: {raw_response_content[:200]})")
                         return best_match_category
 
             # 2. If no explicit pattern, check the last non-empty line for an exact match from ALLOWED_CATEGORIES
@@ -182,9 +216,9 @@ Texto en Markdown:"""
 
             if last_line_text in ALLOWED_CATEGORIES:
                 best_match_category = last_line_text
-                print(f"DEBUG: Determined category by exact match on last line: {best_match_category}")
+                logger.debug(f"Determined category by exact match on last line: {best_match_category}")
                 # Return immediately
-                print(f"DEBUG: Determined category (final by last line exact match): {best_match_category} (raw response: {raw_response_content[:200]})")
+                logger.debug(f"Determined category (final by last line exact match): {best_match_category} (raw response: {raw_response_content[:200]})")
                 return best_match_category
 
             # 3. Fallback: Check if any ALLOWED_CATEGORIES is a whole word match in the cleaned last line
@@ -198,9 +232,9 @@ Texto en Markdown:"""
                 if found_cats_in_last_line:
                     found_cats_in_last_line.sort(key=len, reverse=True)
                     best_match_category = found_cats_in_last_line[0]
-                    print(f"DEBUG: Determined category by whole word match in last line: {best_match_category}")
+                    logger.debug(f"Determined category by whole word match in last line: {best_match_category}")
                     # Return immediately
-                    print(f"DEBUG: Determined category (final by last line whole word): {best_match_category} (raw response: {raw_response_content[:200]})")
+                    logger.debug(f"Determined category (final by last line whole word): {best_match_category} (raw response: {raw_response_content[:200]})")
                     return best_match_category
 
             # 4. Final Fallback (Original broader substring search across the entire raw response - use with caution)
@@ -214,16 +248,16 @@ Texto en Markdown:"""
                 if potential_matches:
                     potential_matches.sort(key=len, reverse=True)
                     best_match_category = potential_matches[0]
-                    print(f"DEBUG: Determined category by broad substring search (fallback): {best_match_category}")
+                    logger.debug(f"Determined category by broad substring search (fallback): {best_match_category}")
 
-            print(f"DEBUG: Determined category (final): {best_match_category} (raw response snippet: {raw_response_content[:200]})")
+            logger.debug(f"Determined category (final): {best_match_category} (raw response snippet: {raw_response_content[:200]})")
             return best_match_category
 
         except ollama.ResponseError as e:
-            print(f"Error communicating with Ollama for category determination: {e.error}")
+            logger.error(f"Error communicating with Ollama for category determination: {e.error}")
             return "general" # Fallback category
         except Exception as e:
-            print(f"Unexpected error in determine_category_with_ai: {e}")
+            logger.error(f"Unexpected error in determine_category_with_ai: {e}")
             return "general" # Fallback category
 
     def verify_category_with_ai(self, text_content, title, proposed_category):
@@ -244,10 +278,10 @@ Texto en Markdown:"""
         prompt_template_str = task_config.get('prompt_template')
 
         if not prompt_template_str:
-            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            logger.error(f"Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
             return False, proposed_category # Or raise an error
 
-        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
         # Combine title and content for better context, prioritizing content
         input_text_combined = text_content if text_content else ""
@@ -276,7 +310,7 @@ Texto en Markdown:"""
             )
 
             verification_response = response['message']['content'].strip().lower()
-            print(f"DEBUG: Verification response for category '{proposed_category}' for title '{title}': {verification_response}")
+            logger.debug(f"Verification response for category '{proposed_category}' for title '{title}': {verification_response}")
 
             if "sí" in verification_response or "si" in verification_response: # Accept with or without accent
                 return True, proposed_category
@@ -284,15 +318,15 @@ Texto en Markdown:"""
                 return False, proposed_category # Verification failed
             else:
                 # Unclear response, treat as verification failed to be safe
-                print(f"DEBUG: Unclear verification response. Defaulting to not verified.")
+                logger.debug(f"Unclear verification response. Defaulting to not verified.")
                 return False, proposed_category
 
         except ollama.ResponseError as e:
-            print(f"Error communicating with Ollama for category verification: {e.error}")
+            logger.error(f"Error communicating with Ollama for category verification: {e.error}")
             # If verification fails due to error, assume not verified
             return False, proposed_category
         except Exception as e:
-            print(f"Unexpected error in verify_category_with_ai: {e}")
+            logger.error(f"Unexpected error in verify_category_with_ai: {e}")
             # If verification fails due to error, assume not verified
             return False, proposed_category
 
@@ -301,9 +335,9 @@ Texto en Markdown:"""
         Formatea el contenido de texto plano de un artículo a Markdown usando Ollama,
         incluyendo el cuerpo del artículo, una cita destacada y conclusiones clave.
         """
-        print(f"DEBUG_BLINK_GEN: Iniciando format_content_with_ai para título: {title}")
+        logger.debug(f"Iniciando format_content_with_ai para título: {title}")
         if not plain_text_content:
-            print(f"DEBUG_BLINK_GEN: plain_text_content está vacío. Finalizando format_content_with_ai para título: {title}")
+            logger.debug(f"plain_text_content está vacío. Finalizando format_content_with_ai para título: {title}")
             return ""
 
         # Truncate plain_text_content for the prompt to avoid overly long inputs
@@ -315,14 +349,14 @@ Texto en Markdown:"""
         prompt_template_str = task_config.get('prompt_template')
 
         if not prompt_template_str:
-            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            logger.error(f"Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
             return plain_text_content # Or raise an error
 
-        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
         # This is the effective plain_text_content that will be used in the prompt.
         effective_plain_text_content = plain_text_content[:max_chars]
-        # print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}") # Replaced by DEBUG_FORMAT_INPUT_TEXT
+        # logger.debug(f"plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}") # Replaced by DEBUG_FORMAT_INPUT_TEXT
 
         prompt_variables = {
             "title": title,
@@ -330,17 +364,17 @@ Texto en Markdown:"""
         }
         prompt = prompt_template_str.format(**prompt_variables)
 
-        print(f"DEBUG_FORMAT_INPUT_TEXT: Input plain_text_content (first 500 chars): {plain_text_content[:500]}")
-        print(f"DEBUG_FORMAT_PROMPT: Full prompt being sent for formatting:\n{prompt}")
+        logger.debug(f"Input plain_text_content (first 500 chars): {plain_text_content[:500]}")
+        logger.debug(f"Full prompt being sent for formatting:\n{prompt}")
 
         try:
-            print(f"DEBUG_BLINK_GEN: Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
+            logger.debug(f"Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
             response = self.ollama_client.chat(
                 model=model_to_use,
                 messages=[{'role': 'user', 'content': prompt}],
                 options={'temperature': temperature}
             )
-            print(f"DEBUG_FORMAT_OLLAMA_RAW_RESPONSE: Raw response from Ollama for formatting:\n{response}")
+            logger.debug(f"Raw response from Ollama for formatting:\n{response}")
             raw_markdown_content = response['message']['content'].strip()
 
             # Cleanup <think>...</think> blocks from the beginning of the response
@@ -349,36 +383,36 @@ Texto en Markdown:"""
 
             # Basic check if response looks like markdown (e.g. contains common markdown chars)
             if not any(char in final_content for char in ['#', '>', '*', '-']):
-                print(f"Warning: AI response for content formatting (after cleanup) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
+                logger.warning(f"AI response for content formatting (after cleanup) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
             # *** NEW SANITIZATION CALL ***
             final_content = self._sanitize_ai_output(final_content, plain_text_content, title)
 
             # Basic check if response looks like markdown (e.g. contains common markdown chars)
             # This check is now less critical due to sanitization but can still be a log.
             if not any(char in final_content for char in ['#', '>', '*', '-']):
-                print(f"Warning: AI response for content formatting (after sanitization) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
+                logger.warning(f"AI response for content formatting (after sanitization) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
 
-            print(f"DEBUG_BLINK_GEN: markdown_content generado y sanitizado (primeros 500 chars): {final_content[:500]}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title}")
+            logger.debug(f"markdown_content generado y sanitizado (primeros 500 chars): {final_content[:500]}")
+            logger.debug(f"Finalizando format_content_with_ai para título: {title}")
             return final_content
         except ollama.ResponseError as e:
             error_message = str(e.error) if hasattr(e, 'error') else str(e)
             # The following error logging for timeouts is maintained as it's specific and useful.
             if "timeout" in error_message.lower():
-                print(f"DEBUG_BLINK_GEN: TIMEOUT de Ollama (ResponseError) en format_content_with_ai para título '{title}': {error_message}")
+                logger.debug(f"TIMEOUT de Ollama (ResponseError) en format_content_with_ai para título '{title}': {error_message}")
             # General ResponseError log is now more specific
-            print(f"ERROR_FORMAT_OLLAMA_RESPONSE: Ollama ResponseError during content formatting: {error_message}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR OLLAMA ResponseError)")
+            logger.error(f"Ollama ResponseError during content formatting: {error_message}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
+            logger.debug(f"Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR OLLAMA ResponseError)")
             # *** SANITIZE FALLBACK ***
             return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
         except Exception as e: # Catch other exceptions, including potential RequestError wrapping TimeoutException
             error_message = str(e)
             # The following error logging for timeouts is maintained as it's specific and useful.
             if "timeout" in error_message.lower():
-                print(f"DEBUG_BLINK_GEN: TIMEOUT (detectado en Exception genérica) en format_content_with_ai para título '{title}': {error_message}")
+                logger.debug(f"TIMEOUT (detectado en Exception genérica) en format_content_with_ai para título '{title}': {error_message}")
             # General Exception log is now more specific
-            print(f"ERROR_FORMAT_UNEXPECTED: Unexpected error during content formatting: {error_message}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR Exception)")
+            logger.error(f"Unexpected error during content formatting: {error_message}")
+            logger.debug(f"Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR Exception)")
             # *** SANITIZE FALLBACK ***
             return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
 
@@ -414,7 +448,7 @@ Texto en Markdown:"""
         has_markdown_chars = any(char in content for char in ['#', '>', '*', '-'])
 
         if is_likely_blob and not has_markdown_chars:
-            print(f"Warning: AI output for title '{title}' appears unformatted after sanitization. Using fallback based on original plain text.")
+            logger.warning(f"AI output for title '{title}' appears unformatted after sanitization. Using fallback based on original plain text.")
             # Fallback to original plain text, trying to make paragraphs
             fallback_content = original_plain_text.replace('\r\n', '\n').replace('\r', '\n')
             fallback_lines = [line.strip() for line in fallback_content.split('\n') if line.strip()]
@@ -426,7 +460,7 @@ Texto en Markdown:"""
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
         # Usar el título más representativo del grupo
         title = self.select_best_title(news_group)
-        print(f"DEBUG_BLINK_GEN: Iniciando generate_blink_from_news_group para título representativo: {title}")
+        logger.debug(f"Iniciando generate_blink_from_news_group para título representativo: {title}")
 
         # Combinar contenido de todas las noticias
         combined_content = ""
@@ -454,7 +488,7 @@ Texto en Markdown:"""
                     image_url = content_data['image_url']
 
             except Exception as e:
-                print(f"Error al procesar URL {url}: {e}")
+                logger.error(f"Error al procesar URL {url}: {e}")
 
         # Si no se encontró contenido, usar los resúmenes disponibles
         if not combined_content:
@@ -479,7 +513,7 @@ Texto en Markdown:"""
         if not is_verified:
             final_category_name = "general" # Fallback if verification fails
 
-        print(f"DEBUG_BLINK_GEN: combined_content (primeros 500 chars) para IA: {combined_content[:500]}")
+        logger.debug(f"combined_content (primeros 500 chars) para IA: {combined_content[:500]}")
         # Formatear el contenido combinado a Markdown usando IA
         markdown_content = self.format_content_with_ai(combined_content, title)
 
@@ -598,7 +632,7 @@ Texto en Markdown:"""
                 'image_url': image_url
             }
         except Exception as e:
-            print(f"Error al obtener contenido del artículo {url}: {e}")
+            logger.error(f"Error al obtener contenido del artículo {url}: {e}")
             return {
                 'content': "",
                 'image_url': None
@@ -614,16 +648,16 @@ Texto en Markdown:"""
         prompt_template_str = task_config.get('prompt_template')
 
         if not prompt_template_str:
-            print(f"ERROR_BLINK_GEN: Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
+            logger.error(f"Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
             return self.generate_fallback_points(title, num_points) # Or raise an error
 
-        print(f"DEBUG_BLINK_GEN: Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
 
         if not text:
             return self.generate_fallback_points(title, num_points)
 
         truncated_text = text[:max_chars]
-        # print(f"DEBUG_BLINK_GEN: Texto para resumen (primeros 500 chars): {truncated_text[:500]}") # Replaced by DEBUG_SUMM_INPUT_TEXT
+        # logger.debug(f"Texto para resumen (primeros 500 chars): {truncated_text[:500]}") # Replaced by DEBUG_SUMM_INPUT_TEXT
 
         prompt_variables = {
             "title": title,
@@ -632,11 +666,11 @@ Texto en Markdown:"""
         }
         prompt = prompt_template_str.format(**prompt_variables)
 
-        print(f"DEBUG_SUMM_INPUT_TEXT: Input text (first 500 chars): {text[:500]}")
-        print(f"DEBUG_SUMM_PROMPT: Full prompt being sent:\n{prompt}")
+        logger.debug(f"Input text (first 500 chars): {text[:500]}")
+        logger.debug(f"Full prompt being sent:\n{prompt}")
 
         try:
-            print(f"DEBUG_BLINK_GEN: Llamando a Ollama para GENERAR PUNTOS para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
+            logger.debug(f"Llamando a Ollama para GENERAR PUNTOS para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
             response = self.ollama_client.chat(
                 model=model_to_use,
                 messages=[
@@ -647,9 +681,9 @@ Texto en Markdown:"""
                 ],
                 options={'temperature': temperature}
             )
-            print(f"DEBUG_SUMM_OLLAMA_RAW_RESPONSE: Raw response from Ollama:\n{response}")
+            logger.debug(f"Raw response from Ollama:\n{response}")
             summary_content = response['message']['content']
-            print(f"DEBUG_SUMM_RAW_CONTENT_FROM_AI: Raw summary_content:\n{summary_content}") # Log the raw content
+            logger.debug(f"Raw summary_content:\n{summary_content}") # Log the raw content
 
             # *** REVISED LOGIC TO HANDLE <think> BLOCK START ***
             think_block_end_tag = "</think>"
@@ -657,16 +691,16 @@ Texto en Markdown:"""
 
             if idx_end_think != -1:
                 actual_summary_text = summary_content[idx_end_think + len(think_block_end_tag):].strip()
-                print(f"DEBUG_SUMM_PARSED_TEXT_AFTER_THINK: Text after <think> block (len {len(actual_summary_text)}):\n{actual_summary_text}")
+                logger.debug(f"Text after <think> block (len {len(actual_summary_text)}):\n{actual_summary_text}")
             else:
                 actual_summary_text = summary_content.strip()
-                print(f"DEBUG_SUMM_PARSED_TEXT_NO_THINK: No <think> block found, using full content (len {len(actual_summary_text)}).")
+                logger.debug(f"No <think> block found, using full content (len {len(actual_summary_text)}).")
             # *** REVISED LOGIC TO HANDLE <think> BLOCK END ***
 
             extracted_points = []
             if actual_summary_text: # Proceed only if there's text to parse
                 all_lines = actual_summary_text.split('\n')
-                print(f"DEBUG_SUMM_LINES_FOR_EXTRACTION: Lines split for point extraction: {all_lines}")
+                logger.debug(f"Lines split for point extraction: {all_lines}")
                 for line in all_lines:
                     # Remove common list markers and leading/trailing whitespace
                     cleaned_line = re.sub(r'^\s*([\*\-\+]\s*|\d+\.\s+)?', '', line).strip()
@@ -674,11 +708,11 @@ Texto en Markdown:"""
                         extracted_points.append(cleaned_line)
 
             points = extracted_points[:num_points]
-            print(f"DEBUG_SUMM_EXTRACTED_POINTS: Points extracted ({len(points)}): {points}")
+            logger.debug(f"Points extracted ({len(points)}): {points}")
 
-            print(f"DEBUG_SUMM_FALLBACK_CHECK: len(points) = {len(points)}, num_points = {num_points}, Condition (len(points) < num_points) is {len(points) < num_points}")
+            logger.debug(f"len(points) = {len(points)}, num_points = {num_points}, Condition (len(points) < num_points) is {len(points) < num_points}")
             if len(points) < num_points:
-                print(f"DEBUG_SUMM_MISSING_POINTS: Missing {num_points - len(points)} points, using fallbacks.")
+                logger.debug(f"Missing {num_points - len(points)} points, using fallbacks.")
                 missing_points = num_points - len(points)
                 fallback_points = self.generate_fallback_points(title, missing_points)
                 points.extend(fallback_points)
@@ -686,10 +720,10 @@ Texto en Markdown:"""
             return points
 
         except ollama.ResponseError as e:
-            print(f"ERROR_SUMM_OLLAMA_RESPONSE: Ollama ResponseError during summary generation: {e.error}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
+            logger.error(f"Ollama ResponseError during summary generation: {e.error}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
             return self.generate_fallback_points(title, num_points)
         except Exception as e:
-            print(f"ERROR_SUMM_UNEXPECTED: Unexpected error during summary generation: {str(e)}")
+            logger.error(f"Unexpected error during summary generation: {str(e)}")
             return self.generate_fallback_points(title, num_points)
 
     def generate_fallback_points(self, title, num_points):
