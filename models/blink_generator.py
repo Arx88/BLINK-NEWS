@@ -680,30 +680,32 @@ Artículo Estructurado en Formato Markdown:"""
             )
             print(f"DEBUG_SUMM_OLLAMA_RAW_RESPONSE: Raw response from Ollama:\n{response}")
             summary_content = response['message']['content']
+            print(f"DEBUG_SUMM_RAW_CONTENT_FROM_AI: Raw summary_content:\n{summary_content}") # Log the raw content
 
-            # *** NEW LOGIC TO HANDLE <think> BLOCK START ***
+            # *** REVISED LOGIC TO HANDLE <think> BLOCK START ***
             think_block_end_tag = "</think>"
-            idx_end_think = summary_content.rfind(think_block_end_tag)
+            idx_end_think = summary_content.rfind(think_block_end_tag) # Use rfind to get the last occurrence
+
             if idx_end_think != -1:
                 actual_summary_text = summary_content[idx_end_think + len(think_block_end_tag):].strip()
-                print(f"DEBUG_SUMM_PARSED_TEXT_AFTER_THINK: Text after <think> block:\n{actual_summary_text}")
+                print(f"DEBUG_SUMM_PARSED_TEXT_AFTER_THINK: Text after <think> block (len {len(actual_summary_text)}):\n{actual_summary_text}")
             else:
                 actual_summary_text = summary_content.strip()
-                print(f"DEBUG_SUMM_PARSED_TEXT_NO_THINK: No <think> block found, using full content.")
-            # *** NEW LOGIC TO HANDLE <think> BLOCK END ***
+                print(f"DEBUG_SUMM_PARSED_TEXT_NO_THINK: No <think> block found, using full content (len {len(actual_summary_text)}).")
+            # *** REVISED LOGIC TO HANDLE <think> BLOCK END ***
 
-            all_lines = actual_summary_text.strip().split('\n') # Use actual_summary_text here
             extracted_points = []
-            # The existing loop for point extraction should be fine now
-            for line in all_lines: # Iterate forward, not reversed, if model produces points in order
-                cleaned_line = re.sub(r'^\s*[\*\-•\d\.]+\s*', '', line).strip()
-                if cleaned_line: # Only add non-empty lines
-                    extracted_points.append(cleaned_line)
+            if actual_summary_text: # Proceed only if there's text to parse
+                all_lines = actual_summary_text.split('\n')
+                print(f"DEBUG_SUMM_LINES_FOR_EXTRACTION: Lines split for point extraction: {all_lines}")
+                for line in all_lines:
+                    # Remove common list markers and leading/trailing whitespace
+                    cleaned_line = re.sub(r'^\s*([\*\-\+]\s*|\d+\.\s+)?', '', line).strip()
+                    if cleaned_line: # Only add non-empty lines
+                        extracted_points.append(cleaned_line)
 
-            # Take up to num_points, in case model gives more than requested
             points = extracted_points[:num_points]
-            print(f"DEBUG_SUMM_EXTRACTED_POINTS: Points extracted: {points}")
-
+            print(f"DEBUG_SUMM_EXTRACTED_POINTS: Points extracted ({len(points)}): {points}")
 
             if len(points) < num_points:
                 print(f"DEBUG_SUMM_MISSING_POINTS: Missing {num_points - len(points)} points, using fallbacks.")
