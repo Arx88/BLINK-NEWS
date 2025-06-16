@@ -353,13 +353,16 @@ Artículo Estructurado en Formato Markdown:"""
 
         # This is the effective plain_text_content that will be used in the prompt.
         effective_plain_text_content = plain_text_content[:max_chars]
-        print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}")
+        # print(f"DEBUG_BLINK_GEN: plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}") # Replaced by DEBUG_FORMAT_INPUT_TEXT
 
         prompt_variables = {
             "title": title,
             "effective_plain_text_content": effective_plain_text_content
         }
         prompt = prompt_template_str.format(**prompt_variables)
+
+        print(f"DEBUG_FORMAT_INPUT_TEXT: Input plain_text_content (first 500 chars): {plain_text_content[:500]}")
+        print(f"DEBUG_FORMAT_PROMPT: Full prompt being sent for formatting:\n{prompt}")
 
         try:
             print(f"DEBUG_BLINK_GEN: Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
@@ -368,7 +371,7 @@ Artículo Estructurado en Formato Markdown:"""
                 messages=[{'role': 'user', 'content': prompt}],
                 options={'temperature': temperature}
             )
-            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para FORMATEAR CONTENIDO para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}") # Already good
+            print(f"DEBUG_FORMAT_OLLAMA_RAW_RESPONSE: Raw response from Ollama for formatting:\n{response}")
             raw_markdown_content = response['message']['content'].strip()
 
             # Cleanup <think>...</think> blocks from the beginning of the response
@@ -391,19 +394,21 @@ Artículo Estructurado en Formato Markdown:"""
             return final_content
         except ollama.ResponseError as e:
             error_message = str(e.error) if hasattr(e, 'error') else str(e)
+            # The following error logging for timeouts is maintained as it's specific and useful.
             if "timeout" in error_message.lower():
                 print(f"DEBUG_BLINK_GEN: TIMEOUT de Ollama (ResponseError) en format_content_with_ai para título '{title}': {error_message}")
-            else:
-                print(f"DEBUG_BLINK_GEN: Ollama ResponseError en format_content_with_ai para título '{title}': {error_message}")
+            # General ResponseError log is now more specific
+            print(f"ERROR_FORMAT_OLLAMA_RESPONSE: Ollama ResponseError during content formatting: {error_message}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
             print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR OLLAMA ResponseError)")
             # *** SANITIZE FALLBACK ***
             return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
         except Exception as e: # Catch other exceptions, including potential RequestError wrapping TimeoutException
             error_message = str(e)
+            # The following error logging for timeouts is maintained as it's specific and useful.
             if "timeout" in error_message.lower():
                 print(f"DEBUG_BLINK_GEN: TIMEOUT (detectado en Exception genérica) en format_content_with_ai para título '{title}': {error_message}")
-            else:
-                print(f"DEBUG_BLINK_GEN: Excepción INESPERADA en format_content_with_ai para título '{title}': {error_message}")
+            # General Exception log is now more specific
+            print(f"ERROR_FORMAT_UNEXPECTED: Unexpected error during content formatting: {error_message}")
             print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR Exception)")
             # *** SANITIZE FALLBACK ***
             return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
@@ -649,7 +654,7 @@ Artículo Estructurado en Formato Markdown:"""
             return self.generate_fallback_points(title, num_points)
 
         truncated_text = text[:max_chars]
-        print(f"DEBUG_BLINK_GEN: Texto para resumen (primeros 500 chars): {truncated_text[:500]}")
+        # print(f"DEBUG_BLINK_GEN: Texto para resumen (primeros 500 chars): {truncated_text[:500]}") # Replaced by DEBUG_SUMM_INPUT_TEXT
 
         prompt_variables = {
             "title": title,
@@ -657,6 +662,9 @@ Artículo Estructurado en Formato Markdown:"""
             "truncated_text": truncated_text
         }
         prompt = prompt_template_str.format(**prompt_variables)
+
+        print(f"DEBUG_SUMM_INPUT_TEXT: Input text (first 500 chars): {text[:500]}")
+        print(f"DEBUG_SUMM_PROMPT: Full prompt being sent:\n{prompt}")
 
         try:
             print(f"DEBUG_BLINK_GEN: Llamando a Ollama para GENERAR PUNTOS para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
@@ -670,7 +678,7 @@ Artículo Estructurado en Formato Markdown:"""
                 ],
                 options={'temperature': temperature}
             )
-            print(f"DEBUG_BLINK_GEN: Ollama RESPONDIÓ para GENERAR PUNTOS para título: {title}. Respuesta (primeros 100 chars): {response['message']['content'][:100] if response and response.get('message') else 'Respuesta vacía o inválida'}") # Already good
+            print(f"DEBUG_SUMM_OLLAMA_RAW_RESPONSE: Raw response from Ollama:\n{response}")
             summary_content = response['message']['content']
 
             all_lines = summary_content.strip().split('\n')
@@ -692,10 +700,10 @@ Artículo Estructurado en Formato Markdown:"""
             return points
 
         except ollama.ResponseError as e:
-            print(f"Error al comunicarse con Ollama: {e.error}")
+            print(f"ERROR_SUMM_OLLAMA_RESPONSE: Ollama ResponseError during summary generation: {e.error}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
             return self.generate_fallback_points(title, num_points)
         except Exception as e:
-            print(f"Error inesperado al generar resumen con Ollama: {e}")
+            print(f"ERROR_SUMM_UNEXPECTED: Unexpected error during summary generation: {str(e)}")
             return self.generate_fallback_points(title, num_points)
 
     def generate_fallback_points(self, title, num_points):
