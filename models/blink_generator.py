@@ -65,9 +65,11 @@ Respuesta:"""
 El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
 
 1.  **Texto Principal del Artículo:**
-    *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
-    *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
-    *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
+    *   El texto de entrada ({effective_plain_text_content}) puede ser una compilación de varias fuentes y podría necesitar una limpieza significativa.
+    *   Tu principal objetivo es estructurarlo en párrafos coherentes y legibles.
+    *   **Párrafos:** Utiliza saltos de línea dobles (presionar Enter dos veces) para separar párrafos en Markdown. Cada párrafo debe tratar una idea o tema principal. Evita párrafos excesivamente largos; si una sección de texto es muy extensa y no tiene pausas naturales, intenta dividirla lógicamente.
+    *   **Fluidez:** Asegura una buena fluidez y cohesión entre párrafos.
+    *   **Subtítulos:** Si el texto original contiene subtítulos implícitos o secciones claramente diferenciadas, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante` o `### Sub-subtítulo`) para mejorar la organización. No inventes subtítulos si no son evidentes en el texto. Prioriza una buena estructura de párrafos sobre el uso excesivo de subtítulos.
 
 2.  **Cita Destacada:**
     *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
@@ -86,6 +88,7 @@ El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
 *   Asegúrate de que todo el resultado sea un único bloque de texto en Markdown válido.
 *   No añadas ningún comentario, introducción o texto explicativo fuera del propio contenido del artículo en Markdown.
 *   El objetivo es tomar el texto plano proporcionado y enriquecerlo estructuralmente usando Markdown.
+*   Presta especial atención a la correcta formación de párrafos. El contenido NO debe ser un solo bloque de texto. Separa las ideas en párrafos distintos usando dos saltos de línea.
 
 Título del Artículo Original:
 {title}
@@ -375,9 +378,15 @@ Artículo Estructurado en Formato Markdown:"""
             # Basic check if response looks like markdown (e.g. contains common markdown chars)
             if not any(char in final_content for char in ['#', '>', '*', '-']):
                 print(f"Warning: AI response for content formatting (after cleanup) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
-                # Optionally, return plain_text_content or try to wrap it in basic paragraph structure
-                # For now, returning what the model gave, but logging.
-            print(f"DEBUG_BLINK_GEN: markdown_content generado y limpiado (primeros 500 chars): {final_content[:500]}")
+            # *** NEW SANITIZATION CALL ***
+            final_content = self._sanitize_ai_output(final_content, plain_text_content, title)
+
+            # Basic check if response looks like markdown (e.g. contains common markdown chars)
+            # This check is now less critical due to sanitization but can still be a log.
+            if not any(char in final_content for char in ['#', '>', '*', '-']):
+                print(f"Warning: AI response for content formatting (after sanitization) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
+
+            print(f"DEBUG_BLINK_GEN: markdown_content generado y sanitizado (primeros 500 chars): {final_content[:500]}")
             print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title}")
             return final_content
         except ollama.ResponseError as e:
@@ -386,16 +395,58 @@ Artículo Estructurado en Formato Markdown:"""
                 print(f"DEBUG_BLINK_GEN: TIMEOUT de Ollama (ResponseError) en format_content_with_ai para título '{title}': {error_message}")
             else:
                 print(f"DEBUG_BLINK_GEN: Ollama ResponseError en format_content_with_ai para título '{title}': {error_message}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO POR OLLAMA ResponseError)")
-            return plain_text_content
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR OLLAMA ResponseError)")
+            # *** SANITIZE FALLBACK ***
+            return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
         except Exception as e: # Catch other exceptions, including potential RequestError wrapping TimeoutException
             error_message = str(e)
             if "timeout" in error_message.lower():
                 print(f"DEBUG_BLINK_GEN: TIMEOUT (detectado en Exception genérica) en format_content_with_ai para título '{title}': {error_message}")
             else:
                 print(f"DEBUG_BLINK_GEN: Excepción INESPERADA en format_content_with_ai para título '{title}': {error_message}")
-            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO POR Exception)")
-            return plain_text_content
+            print(f"DEBUG_BLINK_GEN: Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR Exception)")
+            # *** SANITIZE FALLBACK ***
+            return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
+
+    def _sanitize_ai_output(self, ai_content: str, original_plain_text: str, title: str) -> str:
+        # Normalize line endings
+        content = ai_content.replace('\r\n', '\n').replace('\r', '\n')
+
+        # Strip leading/trailing whitespace from the whole content
+        content = content.strip()
+
+        # Split into lines, strip each line, and rejoin. This handles individual line whitespace.
+        lines = [line.strip() for line in content.split('\n')]
+        content = '\n'.join(lines)
+
+        # Attempt to ensure paragraphs are separated by double newlines
+        # if no double newlines exist but single newlines do.
+        if '\n\n' not in content and '\n' in content:
+            # A more careful regex:
+            # - Negative lookbehind for a newline (don't act if already \n\n)
+            # - A newline
+            # - Negative lookahead for a newline, or markdown list/blockquote/header characters
+            # This tries to avoid messing up lists or other structures.
+            content = re.sub(r'(?<!\n)\n(?![\n*#>\s-])', '\n\n', content)
+
+        # Remove excessive blank lines (more than two consecutive newlines down to two)
+        content = re.sub(r'\n{3,}', '\n\n', content)
+
+        # Fallback for severely unformatted text
+        # Check if it's still a long block without proper paragraph separation
+        # Also, check if it contains at least some typical markdown structuring characters.
+        # If not, it's likely the AI just returned a blob of text.
+        is_likely_blob = len(content) > 300 and '\n\n' not in content
+        has_markdown_chars = any(char in content for char in ['#', '>', '*', '-'])
+
+        if is_likely_blob and not has_markdown_chars:
+            print(f"Warning: AI output for title '{title}' appears unformatted after sanitization. Using fallback based on original plain text.")
+            # Fallback to original plain text, trying to make paragraphs
+            fallback_content = original_plain_text.replace('\r\n', '\n').replace('\r', '\n')
+            fallback_lines = [line.strip() for line in fallback_content.split('\n') if line.strip()]
+            return '\n\n'.join(fallback_lines)
+
+        return content
 
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
