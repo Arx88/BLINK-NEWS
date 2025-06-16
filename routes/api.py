@@ -284,9 +284,11 @@ def schedule_news_collection(app):
 # Función para inicializar las rutas de la API
 def init_api(app):
     global scraper # Para modificar la instancia global del scraper
+    global blink_generator # Para modificar la instancia global del blink_generator
 
     app_config = app.config.get('APP_CONFIG', {})
     scraper = NewsScraper(app_config) # Inicializar con la configuración de la app
+    blink_generator = BlinkGenerator(app_config=app_config) # Re-inicializar con la configuración de la app
 
     app.register_blueprint(api_bp, url_prefix='/api')
     
