@@ -56,6 +56,34 @@ class BlinkGenerator:
         """Inicializa el generador de BLINKS"""
         self.app_config = app_config if app_config is not None else {}
 
+        # Load external AI task configurations from config.json
+        external_ai_configs = {}
+        try:
+            # Assuming config.json is in the parent directory of the 'models' directory
+            config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    loaded_config_json = json.load(f)
+                    if 'ai_task_configs' in loaded_config_json:
+                        external_ai_configs = loaded_config_json['ai_task_configs']
+                        logger.info(f"Successfully loaded ai_task_configs from {config_path}")
+                    else:
+                        logger.warning(f"'ai_task_configs' not found in {config_path}. Using defaults.")
+            else:
+                logger.warning(f"{config_path} not found. Using default AI task configurations.")
+        except FileNotFoundError:
+            logger.warning(f"config.json not found at {config_path}. Using default AI task configurations.")
+        except json.JSONDecodeError:
+            logger.error(f"Error decoding config.json at {config_path}. Using default AI task configurations.")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while loading config.json: {e}. Using defaults.")
+
+        if 'ai_task_configs' not in self.app_config:
+            self.app_config['ai_task_configs'] = {}
+        # Merge external_ai_configs into self.app_config['ai_task_configs'], giving precedence to external_ai_configs
+        self.app_config['ai_task_configs'].update(external_ai_configs)
+
+
         # Default AI task configurations with prompt templates
         default_task_configs = {
             "determine_category": {
@@ -92,8 +120,19 @@ Respuesta:"""
   {truncated_text}
   """
             },
+            "generate_blink_base_text": {
+                "model_name": "qwen3:32b", # Default model, can be overridden by config.json
+                "input_max_chars": 15000, # Max input characters for base text generation
+                "temperature": 0.5,
+                "prompt_template": """A partir del siguiente texto de varias noticias con el título "{title}", genera un único texto base coherente y conciso que sirva como cuerpo principal para un resumen tipo Blink. El texto debe ser fluido y estar bien escrito, pero NO DEBE INCLUIR NINGÚN FORMATO MARKDOWN (como encabezados, citas, o listas). Debe ser texto plano listo para ser formateado posteriormente.
+
+Texto de las noticias:
+{input_text_truncated}
+
+Texto base para Blink (solo texto plano):"""
+            },
             "format_main_content": {
-                "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6,
+                "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6, # Max input for the formatter
                 "prompt_template": '''Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
 
 El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
@@ -131,15 +170,17 @@ Artículo Estructurado en Formato Markdown:'''
             }
         }
 
-        # Merge with configurations from app_config if available
-        self.ai_task_configs = {k: v.copy() for k, v in default_task_configs.items()} # Deep copy defaults
-        ext_task_configs = self.app_config.get('ai_task_configs', {})
-        for task_name, task_cfg in ext_task_configs.items():
+        # Initialize self.ai_task_configs by deep copying default_task_configs
+        self.ai_task_configs = {k: v.copy() for k, v in default_task_configs.items()}
+
+        # Merge configurations from self.app_config['ai_task_configs'] (which now includes config.json content)
+        # into self.ai_task_configs. self.app_config['ai_task_configs'] takes precedence.
+        loaded_app_configs = self.app_config.get('ai_task_configs', {})
+        for task_name, task_cfg in loaded_app_configs.items():
             if task_name in self.ai_task_configs:
                 self.ai_task_configs[task_name].update(task_cfg)
             else:
-                # Allow new tasks to be defined entirely in config.json
-                self.ai_task_configs[task_name] = task_cfg.copy()
+                self.ai_task_configs[task_name] = task_cfg.copy() # Add as a new task if not in defaults
 
 
         # Descargar recursos de NLTK necesarios
@@ -358,91 +399,105 @@ Artículo Estructurado en Formato Markdown:'''
             # If verification fails due to error, assume not verified
             return False, proposed_category
 
-    def format_content_with_ai(self, plain_text_content: str, title: str) -> str:
-        """
-        Formatea el contenido de texto plano de un artículo a Markdown usando Ollama,
-        incluyendo el cuerpo del artículo, una cita destacada y conclusiones clave.
-        """
-        logger.debug(f"Iniciando format_content_with_ai para título: {title}")
-        if not plain_text_content:
-            logger.debug(f"plain_text_content está vacío. Finalizando format_content_with_ai para título: {title}")
-            return ""
-
-        # Truncate plain_text_content for the prompt to avoid overly long inputs
-        task_key = "format_main_content"
-        task_config = self.ai_task_configs.get(task_key, {}) # This will now contain prompt_template and temperature
+    def _generate_blink_base_content(self, combined_content: str, title: str) -> str:
+        """Genera el texto base para un Blink (sin formato Markdown) usando Ollama."""
+        task_key = "generate_blink_base_text"
+        task_config = self.ai_task_configs.get(task_key, {})
         model_to_use = task_config.get('model_name', self.ollama_model)
-        max_chars = task_config.get('input_max_chars', 20000)
-        temperature = task_config.get('temperature', 0.6)
+        max_chars_input = task_config.get('input_max_chars', 15000) # Max input for this specific task
+        temperature = task_config.get('temperature', 0.5)
         prompt_template_str = task_config.get('prompt_template')
 
         if not prompt_template_str:
-            logger.error(f"Prompt template for '{task_key}' not found. Using a very basic fallback or skipping.")
-            return plain_text_content # Or raise an error
+            logger.error(f"Prompt template for '{task_key}' not found. Returning original content.")
+            return combined_content
 
-        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxChars={max_chars}, Temp={temperature}")
+        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxCharsInput={max_chars_input}, Temp={temperature}")
 
-        # This is the effective plain_text_content that will be used in the prompt.
-        effective_plain_text_content = plain_text_content[:max_chars]
-        # logger.debug(f"plain_text_content para formatear (primeros 500 chars): {effective_plain_text_content[:500]}") # Replaced by DEBUG_FORMAT_INPUT_TEXT
+        input_text_truncated = combined_content[:max_chars_input]
 
         prompt_variables = {
             "title": title,
-            "effective_plain_text_content": effective_plain_text_content
+            "input_text_truncated": input_text_truncated
         }
         prompt = prompt_template_str.format(**prompt_variables)
-
-        logger.debug(f"Input plain_text_content (first 500 chars): {plain_text_content[:500]}")
-        logger.debug(f"Full prompt being sent for formatting:\n{prompt}")
+        logger.debug(f"Full prompt for '{task_key}':\n{prompt}")
 
         try:
-            logger.debug(f"Llamando a Ollama para FORMATEAR CONTENIDO para título: {title}. Modelo: {model_to_use}. Temperatura: {temperature}")
+            logger.debug(f"Llamando a Ollama para '{task_key}' para título: {title}. Modelo: {model_to_use}.")
             response = self.ollama_client.chat(
                 model=model_to_use,
                 messages=[{'role': 'user', 'content': prompt}],
                 options={'temperature': temperature}
             )
-            logger.debug(f"Raw response from Ollama for formatting:\n{response}")
+            base_text = response['message']['content'].strip()
+            logger.debug(f"Texto base generado para '{title}' (primeros 300 chars): {base_text[:300]}")
+            return base_text
+        except ollama.ResponseError as e:
+            logger.error(f"Ollama ResponseError during '{task_key}' for '{title}': {e.error}")
+            return combined_content # Fallback to original combined content
+        except Exception as e:
+            logger.error(f"Unexpected error during '{task_key}' for '{title}': {e}")
+            return combined_content # Fallback
+
+    def format_content_with_ai(self, base_text_content: str, title: str) -> str:
+        """
+        Formatea el texto base de un Blink a Markdown usando Ollama,
+        incluyendo cuerpo, cita destacada y conclusiones clave.
+        Utiliza la configuración de 'format_main_content'.
+        """
+        logger.debug(f"Iniciando format_content_with_ai (Markdown) para título: {title}")
+        if not base_text_content:
+            logger.warning(f"base_text_content está vacío para formatear. Título: {title}")
+            return ""
+
+        task_key = "format_main_content" # This task is for detailed Markdown formatting
+        task_config = self.ai_task_configs.get(task_key, {})
+        model_to_use = task_config.get('model_name', self.ollama_model)
+        # Max input for the formatter itself, base_text_content should already be somewhat condensed.
+        max_chars_formatter_input = task_config.get('input_max_chars', 20000)
+        temperature = task_config.get('temperature', 0.6)
+        prompt_template_str = task_config.get('prompt_template')
+
+        if not prompt_template_str:
+            logger.error(f"Prompt template for '{task_key}' not found. Returning base text content without formatting.")
+            # Sanitize the base text as a fallback, as it might be used directly
+            return self._sanitize_ai_output(base_text_content, base_text_content, title)
+
+
+        logger.debug(f"Using config for '{task_key}': Model={model_to_use}, MaxCharsFormatterInput={max_chars_formatter_input}, Temp={temperature}")
+
+        effective_plain_text_content = base_text_content[:max_chars_formatter_input]
+
+        prompt_variables = {
+            "title": title,
+            "effective_plain_text_content": effective_plain_text_content # This is the base text
+        }
+        prompt = prompt_template_str.format(**prompt_variables)
+        logger.debug(f"Full prompt for '{task_key}':\n{prompt}")
+
+
+        try:
+            logger.debug(f"Llamando a Ollama para FORMATEAR A MARKDOWN ('{task_key}') para título: {title}. Modelo: {model_to_use}.")
+            response = self.ollama_client.chat(
+                model=model_to_use,
+                messages=[{'role': 'user', 'content': prompt}],
+                options={'temperature': temperature}
+            )
             raw_markdown_content = response['message']['content'].strip()
 
-            # Cleanup <think>...</think> blocks from the beginning of the response
+            # Cleanup <think>...</think> blocks (if any model uses them)
             cleaned_markdown_content = re.sub(r"^\s*<think>.*?</think>\s*", "", raw_markdown_content, flags=re.DOTALL | re.IGNORECASE)
-            final_content = cleaned_markdown_content.strip()
 
-            # Basic check if response looks like markdown (e.g. contains common markdown chars)
-            if not any(char in final_content for char in ['#', '>', '*', '-']):
-                logger.warning(f"AI response for content formatting (after cleanup) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
-            # *** NEW SANITIZATION CALL ***
-            final_content = self._sanitize_ai_output(final_content, plain_text_content, title)
-
-            # Basic check if response looks like markdown (e.g. contains common markdown chars)
-            # This check is now less critical due to sanitization but can still be a log.
-            if not any(char in final_content for char in ['#', '>', '*', '-']):
-                logger.warning(f"AI response for content formatting (after sanitization) might not be Markdown for title '{title}'. Response: {final_content[:200]}")
-
-            logger.debug(f"markdown_content generado y sanitizado (primeros 500 chars): {final_content[:500]}")
-            logger.debug(f"Finalizando format_content_with_ai para título: {title}")
+            final_content = self._sanitize_ai_output(cleaned_markdown_content, base_text_content, title)
+            logger.debug(f"Markdown content generado y sanitizado para '{title}' (primeros 300 chars): {final_content[:300]}")
             return final_content
         except ollama.ResponseError as e:
-            error_message = str(e.error) if hasattr(e, 'error') else str(e)
-            # The following error logging for timeouts is maintained as it's specific and useful.
-            if "timeout" in error_message.lower():
-                logger.debug(f"TIMEOUT de Ollama (ResponseError) en format_content_with_ai para título '{title}': {error_message}")
-            # General ResponseError log is now more specific
-            logger.error(f"Ollama ResponseError during content formatting: {error_message}. Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
-            logger.debug(f"Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR OLLAMA ResponseError)")
-            # *** SANITIZE FALLBACK ***
-            return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
-        except Exception as e: # Catch other exceptions, including potential RequestError wrapping TimeoutException
-            error_message = str(e)
-            # The following error logging for timeouts is maintained as it's specific and useful.
-            if "timeout" in error_message.lower():
-                logger.debug(f"TIMEOUT (detectado en Exception genérica) en format_content_with_ai para título '{title}': {error_message}")
-            # General Exception log is now more specific
-            logger.error(f"Unexpected error during content formatting: {error_message}")
-            logger.debug(f"Finalizando format_content_with_ai para título: {title} (DEVOLVIENDO TEXTO PLANO SANITIZADO POR Exception)")
-            # *** SANITIZE FALLBACK ***
-            return self._sanitize_ai_output(plain_text_content, plain_text_content, title) # Sanitize the original text as fallback
+            logger.error(f"Ollama ResponseError during Markdown formatting ('{task_key}') for '{title}': {e.error}")
+            return self._sanitize_ai_output(base_text_content, base_text_content, title) # Sanitize base as fallback
+        except Exception as e:
+            logger.error(f"Unexpected error during Markdown formatting ('{task_key}') for '{title}': {e}")
+            return self._sanitize_ai_output(base_text_content, base_text_content, title) # Sanitize base as fallback
 
     def _sanitize_ai_output(self, ai_content: str, original_plain_text: str, title: str) -> str:
         # Normalize line endings
@@ -619,21 +674,24 @@ Artículo Estructurado en Formato Markdown:'''
         if not is_verified:
             final_category_name = "general" # Fallback if verification fails
 
-        logger.debug(f"combined_content (primeros 500 chars) para IA: {combined_content[:500]}")
+        logger.debug(f"Combined_content (primeros 500 chars) para IA: {combined_content[:500]}")
 
-        # Truncate combined_content before sending to AI for Markdown formatting
-        # Max length for plain text to keep formatted Markdown likely under a certain size.
-        # E.g. 10000 chars plain text -> perhaps ~12000-15000 Markdown.
-        MAX_PLAIN_TEXT_LENGTH = 10000 # Configurable, or based on `format_main_content`'s input_max_chars
+        # Truncate combined_content before sending to AI for base text generation
+        # This uses the input_max_chars from the 'generate_blink_base_text' task if defined, else a default.
+        base_text_task_cfg = self.ai_task_configs.get("generate_blink_base_text", {})
+        MAX_INPUT_FOR_BASE_GENERATION = base_text_task_cfg.get("input_max_chars", 15000)
 
-        if len(combined_content) > MAX_PLAIN_TEXT_LENGTH:
-            logger.debug(f"Truncating combined_content from {len(combined_content)} to {MAX_PLAIN_TEXT_LENGTH} characters.")
-            truncated_combined_content = combined_content[:MAX_PLAIN_TEXT_LENGTH]
+        if len(combined_content) > MAX_INPUT_FOR_BASE_GENERATION:
+            logger.debug(f"Truncating combined_content from {len(combined_content)} to {MAX_INPUT_FOR_BASE_GENERATION} for base text generation.")
+            truncated_combined_content = combined_content[:MAX_INPUT_FOR_BASE_GENERATION]
         else:
             truncated_combined_content = combined_content
 
-        # Formatear el contenido combinado (y truncado) a Markdown usando IA
-        markdown_content = self.format_content_with_ai(truncated_combined_content, title)
+        logger.info(f"Generando texto base para Blink: {title}")
+        base_content = self._generate_blink_base_content(truncated_combined_content, title)
+
+        logger.info(f"Formateando a Markdown el texto base para Blink: {title}")
+        markdown_content = self.format_content_with_ai(base_content, title)
 
         # Crear el objeto BLINK
         blink = {
