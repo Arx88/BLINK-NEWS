@@ -94,18 +94,40 @@ Respuesta:"""
             },
             "format_main_content": {
                 "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6,
-                "prompt_template": """Transforma el siguiente texto en un contenido bien formateado en Markdown.
+                "prompt_template": '''Eres un asistente editorial experto. Se te proporcionará el texto de un artículo de noticias y un título. Tu tarea es transformar este texto en un artículo bien estructurado en formato Markdown.
 
-Utiliza las siguientes directrices para el formato Markdown:
-- **Párrafos**: Separa los párrafos con dos saltos de línea.
-- **Énfasis**: Usa asteriscos para *itálicas* y dobles asteriscos para **negritas** cuando sea apropiado para dar énfasis.
-- **Listas**: Formatea las listas (si existen en el texto original o si son una forma natural de estructurar partes del texto) usando guiones (-) o asteriscos (*) para listas no ordenadas, y números seguidos de un punto (1., 2.) para listas ordenadas. Asegúrate de que cada elemento de la lista esté en una nueva línea.
-- **Encabezados**: Si es necesario estructurar el texto con encabezados, usa los símbolos de almohadilla (#, ##, ###). Sin embargo, para este contenido, prioriza párrafos bien separados.
+El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
 
-Texto Original:
+1.  **Texto Principal del Artículo:**
+    *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
+    *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
+    *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
+
+2.  **Cita Destacada:**
+    *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
+    *   Formatea esta cita como un blockquote en Markdown (usando `>`).
+    *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
+        `> Esta es la cita impactante.`
+        `
+- Nombre de la Persona o Fuente`
+
+3.  **Conclusiones Clave:**
+    *   Al final del artículo, incluye una sección titulada `## Conclusiones Clave`.
+    *   Debajo de este encabezado, presenta una lista de 3 a 5 puntos clave o conclusiones derivados del artículo.
+    *   Formatea estos puntos como una lista de viñetas en Markdown (usando `*` o `-` para cada punto).
+
+**Consideraciones Adicionales para el Markdown:**
+*   Asegúrate de que todo el resultado sea un único bloque de texto en Markdown válido.
+*   No añadas ningún comentario, introducción o texto explicativo fuera del propio contenido del artículo en Markdown.
+*   El objetivo es tomar el texto plano proporcionado y enriquecerlo estructuralmente usando Markdown.
+
+Título del Artículo Original:
+{title}
+
+Texto del Artículo Original (en texto plano):
 {effective_plain_text_content}
 
-Texto en Markdown:"""
+Artículo Estructurado en Formato Markdown:'''
             }
         }
 
@@ -136,7 +158,7 @@ Texto en Markdown:"""
 
         # Leer la URL de Ollama desde la variable de entorno
         ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.ollama_client = ollama.Client(host=ollama_base_url, timeout=90)
+        self.ollama_client = ollama.Client(host=ollama_base_url, timeout=180)
         # self.ollama_model is now a general fallback, specific models are in ai_task_configs
         self.ollama_model = self.app_config.get('default_ollama_model_name', 'qwen3:32b')
 
