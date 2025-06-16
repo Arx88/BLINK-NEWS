@@ -11,6 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import logging
+from string import Template
 # from models.image_generator import ImageGenerator # <-- LÍNEA COMENTADA
 import ollama
 
@@ -236,7 +237,8 @@ Artículo Estructurado en Formato Markdown:'''
             "title": title,
             "input_text_truncated": input_text_truncated
         }
-        prompt = prompt_template_str.format(**prompt_variables)
+        template = Template(prompt_template_str)
+        prompt = template.substitute(**prompt_variables)
 
         try:
             response = self.ollama_client.chat(
@@ -420,7 +422,8 @@ Artículo Estructurado en Formato Markdown:'''
             "title": title,
             "input_text_truncated": input_text_truncated
         }
-        prompt = prompt_template_str.format(**prompt_variables)
+        template = Template(prompt_template_str)
+        prompt = template.substitute(**prompt_variables)
         logger.debug(f"Full prompt for '{task_key}':\n{prompt}")
 
         try:
@@ -473,7 +476,8 @@ Artículo Estructurado en Formato Markdown:'''
             "title": title,
             "effective_plain_text_content": effective_plain_text_content # This is the base text
         }
-        prompt = prompt_template_str.format(**prompt_variables)
+        template = Template(prompt_template_str)
+        prompt = template.substitute(**prompt_variables)
         logger.debug(f"Full prompt for '{task_key}':\n{prompt}")
 
 
@@ -840,7 +844,8 @@ Artículo Estructurado en Formato Markdown:'''
             "num_points": num_points,
             "truncated_text": truncated_text
         }
-        prompt = prompt_template_str.format(**prompt_variables)
+        template = Template(prompt_template_str)
+        prompt = template.substitute(**prompt_variables)
 
         logger.debug(f"Input text (first 500 chars): {text[:500]}")
         logger.debug(f"Full prompt being sent:\n{prompt}")
