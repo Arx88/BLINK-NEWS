@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, Blueprint, current_app
 from flask_cors import CORS
 import os
 import json
+import glob # Added glob as requested
 from datetime import datetime
 import threading
 import time
@@ -76,6 +77,126 @@ def get_news():
 
     return jsonify(blinks)
 
+# --- New Blink Endpoints Start ---
+
+@api_bp.route('/blinks/<blink_id>/vote', methods=['POST'])
+def vote_on_blink(blink_id):
+    """
+    Records a vote (like or dislike) for a specific blink.
+    Accepts blink_id from URL path and voteType from JSON body.
+    """
+    data = request.get_json()
+    if not data or 'voteType' not in data:
+        return jsonify({'error': 'Missing voteType in request body'}), 400
+
+    vote_type = data.get('voteType')
+    if vote_type not in ['like', 'dislike']:
+        return jsonify({'error': 'Invalid voteType. Must be "like" or "dislike"'}), 400
+
+    # Construct the file path for the blink
+    blink_file_path = os.path.join(news_model.blinks_dir, f"{blink_id}.json")
+
+    if not os.path.exists(blink_file_path):
+        return jsonify({'error': 'Blink not found'}), 404
+
+    try:
+        with open(blink_file_path, 'r+', encoding='utf-8') as f:
+            blink_data = json.load(f)
+
+            # Initialize votes if not present
+            if 'votes' not in blink_data:
+                blink_data['votes'] = {'likes': 0, 'dislikes': 0}
+
+            if vote_type == 'like':
+                blink_data['votes']['likes'] = blink_data['votes'].get('likes', 0) + 1
+            elif vote_type == 'dislike':
+                blink_data['votes']['dislikes'] = blink_data['votes'].get('dislikes', 0) + 1
+
+            # Write updated data back
+            f.seek(0)
+            json.dump(blink_data, f, ensure_ascii=False, indent=2)
+            f.truncate()
+
+        # Also update the corresponding article file if it exists
+        # This part mimics the behavior of news_model.update_vote
+        article_file_path = os.path.join(news_model.articles_dir, f"{blink_id}.json")
+        if os.path.exists(article_file_path):
+            try:
+                with open(article_file_path, 'r+', encoding='utf-8') as f_article:
+                    article_data = json.load(f_article)
+                    article_data['votes'] = blink_data['votes'] # Sync votes
+                    f_article.seek(0)
+                    json.dump(article_data, f_article, ensure_ascii=False, indent=2)
+                    f_article.truncate()
+            except Exception as e:
+                # Log this error, but the primary operation on blink was successful
+                current_app.logger.error(f"Error updating votes in corresponding article {blink_id}: {e}")
+
+
+        return jsonify({"message": "Vote recorded", "data": blink_data}), 200
+
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Invalid JSON data in blink file'}), 500
+    except IOError as e:
+        current_app.logger.error(f"IOError during vote operation for {blink_id}: {e}")
+        return jsonify({'error': 'File operation failed'}), 500
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error during vote operation for {blink_id}: {e}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+
+@api_bp.route('/blinks/<blink_id>', methods=['GET'])
+def get_blink_by_id(blink_id):
+    """
+    Retrieves a specific blink by its ID.
+    Reads from data/blinks/{blink_id}.json.
+    """
+    blink = news_model.get_blink(blink_id) # Leverages existing model method
+    if not blink:
+        return jsonify({'error': 'Blink not found'}), 404
+    return jsonify(blink)
+
+@api_bp.route('/blinks', methods=['GET'])
+def get_all_blinks_sorted():
+    """
+    Retrieves all blinks, sorts them, and returns as JSON.
+    Sort primary: votes.likes (desc), secondary: timestamp (desc).
+    """
+    blinks_path = news_model.blinks_dir
+    all_blinks_data = []
+
+    # Using glob to find all json files as per general instruction, though news_model.get_all_blinks() also works
+    blink_files = glob.glob(os.path.join(blinks_path, "*.json"))
+
+    for blink_file in blink_files:
+        try:
+            with open(blink_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                all_blinks_data.append(data)
+        except json.JSONDecodeError:
+            current_app.logger.error(f"Error decoding JSON from file {blink_file}")
+            # Decide: skip this file or return an error for the whole request? For now, skip.
+            continue
+        except IOError as e:
+            current_app.logger.error(f"IOError reading file {blink_file}: {e}")
+            continue
+
+    # Sort the blinks
+    # Handle missing 'votes' or 'likes' by defaulting to 0
+    # Handle missing 'timestamp' by defaulting to a very old date (or empty string for type consistency if preferred)
+    def sort_key(blink):
+        likes = blink.get('votes', {}).get('likes', 0)
+        # Assuming timestamp is a string like '2023-10-20T12:00:00Z' or similar that can be string-compared
+        # Or if it's a Unix timestamp (number), direct comparison works.
+        # Default to 0 or an "early" string if missing, to ensure they go to the end if primary key is same.
+        timestamp = blink.get('timestamp', 0) # Assuming numeric/comparable or string 'YYYY-MM-DD...'
+        return (likes, timestamp)
+
+    all_blinks_data.sort(key=sort_key, reverse=True)
+
+    return jsonify(all_blinks_data)
+
+# --- New Blink Endpoints End ---
+
 @api_bp.route('/article/<article_id>', methods=['GET'])
 def get_article(article_id):
     """API para obtener un artículo específico"""
@@ -87,7 +208,7 @@ def get_article(article_id):
     return jsonify(article)
 
 @api_bp.route('/blink/<blink_id>', methods=['GET'])
-def get_blink(blink_id):
+def get_blink(blink_id): # This is the original /blink/<id> endpoint
     """API para obtener un blink específico"""
     blink = news_model.get_blink(blink_id)
     
@@ -97,7 +218,7 @@ def get_blink(blink_id):
     return jsonify(blink)
 
 @api_bp.route('/vote', methods=['POST'])
-def vote():
+def vote(): # This is the original /vote endpoint
     """API para registrar votos"""
     data = request.json
     article_id = data.get('articleId')
