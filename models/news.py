@@ -72,6 +72,8 @@ class News:
                 json.dump(article_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Error al guardar el artículo {article_id}: {e}")
+            raise
+            raise
 
     def get_article(self, article_id):
         """Obtiene un artículo específico por su ID."""
@@ -87,6 +89,41 @@ class News:
     def update_vote(self, article_id, vote_type):
         """Actualiza el contador de votos para un BLINK/artículo."""
         blink = self.get_blink(article_id)
+        if not blink:
+            print(f"Error en update_vote: No se encontró el blink con ID {article_id} al intentar votar.") # Added log
+            return False
+
+        if 'votes' not in blink:
+            blink['votes'] = {'likes': 0, 'dislikes': 0}
+
+        if vote_type == 'like':
+            blink['votes']['likes'] = blink['votes'].get('likes', 0) + 1
+        elif vote_type == 'dislike':
+            blink['votes']['dislikes'] = blink['votes'].get('dislikes', 0) + 1
+
+        try:
+            self.save_blink(article_id, blink)
+        except Exception as e:
+            print(f"Error crítico en update_vote al intentar guardar BLINK {article_id} después de actualizar votos: {e}")
+            return False # Indicates failure to the caller in routes/api.py
+
+        # Try to update the corresponding article file as well
+        try:
+            article = self.get_article(article_id) # This part should be safe, but good to have in try if logic grows
+            if article:
+                article['votes'] = blink['votes'] # Sync votes
+                self.save_article(article_id, article)
+        except Exception as e:
+            # This error is less critical than blink save, but still important to log
+            # and potentially signal as a partial failure if desired.
+            # For now, if blink save succeeded, we might still consider the vote operation "successful enough"
+            # for the primary data, but log this failure clearly.
+            print(f"Error crítico en update_vote al intentar guardar ARTÍCULO {article_id} después de actualizar votos: {e}")
+            # Depending on policy, you might return False here too, or just log.
+            # Let's make it strict: if article save fails, the overall operation is a failure.
+            return False
+
+        return True
         if not blink:
             return False
 
