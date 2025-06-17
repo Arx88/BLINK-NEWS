@@ -29,7 +29,9 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
       case 'tendencias':
-        filtered = filtered.filter(item => item.isHot || item.aiScore > 85);
+        // No specific client-side filtering or sorting here for 'tendencias'.
+        // It will use the data from categoryFilteredNews, which is already
+        // sorted by likes (primary) and timestamp (secondary) from the backend.
         break;
       case 'rumores':
         filtered = filtered.filter(item => item.category === 'RUMORES' || item.aiScore < 90);

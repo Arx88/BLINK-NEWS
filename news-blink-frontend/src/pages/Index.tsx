@@ -22,7 +22,7 @@ const Index = () => {
     activeTab,
     setActiveTab,
     clearFilters
-  } = useNewsFilter(news, 'ultimas');
+  } = useNewsFilter(news, 'tendencias'); // Changed 'ultimas' to 'tendencias'
 
   const [heroNews, setHeroNews] = useState(null);
 
