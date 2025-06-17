@@ -21,7 +21,7 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
 
   const categoryFilteredNews = useMemo(() => {
     if (selectedCategory === 'all') return searchFilteredNews;
-    return searchFilteredNews.filter(item => item.category === selectedCategory);
+    return searchFilteredNews.filter(item => item.category?.toUpperCase() === selectedCategory);
   }, [searchFilteredNews, selectedCategory]);
 
   const tabFilteredNews = useMemo(() => {
