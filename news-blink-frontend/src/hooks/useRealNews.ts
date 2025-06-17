@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'; // Import useCallback
-import { transformBlinkToNewsItem } from '../../utils/api'; // Import the helper
+import { transformBlinkToNewsItem } from '../utils/api'; // Corrected import path
 
 export interface NewsItem {
   id: string;
