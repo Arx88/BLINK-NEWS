@@ -129,7 +129,7 @@ Respuesta:"""
 
 Reglas para el Texto Base:
 -   Debe ser fluido y estar bien escrito.
--   **IMPORTANTE: NO incluyas el título "{title}" en el texto base que generes.** El texto base debe comenzar directamente con la narrativa periodística.
+-   **IMPORTANTE: El título del artículo (que es '{title}') es solo para tu contexto y NO debe ser incluido ni repetido en el texto base que generes.** El texto base debe comenzar directamente con la narrativa periodística.
 -   NO DEBE INCLUIR NINGÚN FORMATO MARKDOWN (como encabezados, negritas, itálicas, citas, o listas).
 -   NO intentes identificar, separar o formatear citas destacadas. Simplemente extrae y redacta el contenido periodístico principal.
 -   Debe ser solo texto plano, listo para ser formateado en un paso posterior.
@@ -137,7 +137,7 @@ Reglas para el Texto Base:
 Texto de las noticias:
 {input_text_truncated}
 
-Texto base para Blink (solo texto plano, sin el título "{title}" al inicio, sin formato Markdown, sin secciones de citas):"""
+Texto base para Blink (solo texto plano, comenzando directamente con la narrativa periodística sin repetir el título '{title}', sin formato Markdown, sin secciones de citas):"""
             },
             "format_main_content": {
                 "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6, # Max input for the formatter
