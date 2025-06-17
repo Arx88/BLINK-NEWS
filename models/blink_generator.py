@@ -138,7 +138,7 @@ Texto base para Blink (solo texto plano):"""
 
 El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
 
-1.  **Texto Principal del Artículo:**
+1.  **Contenido Principal del Artículo (Cuerpo del Texto):**
     *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
     *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
     *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
@@ -148,11 +148,10 @@ El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
     *   Formatea esta cita como un blockquote en Markdown (usando `>`).
     *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
         `> Esta es la cita impactante.`
-        `
-- Nombre de la Persona o Fuente`
+        `> — Nombre de la Persona o Fuente`
 
-3.  **Conclusiones Clave:**
-    *   Al final del artículo, incluye una sección titulada `## Conclusiones Clave`.
+3.  **Conclusiones Clave (como lista de puntos):**
+    *   Al final del artículo, utiliza el encabezado `## Conclusiones Clave`.
     *   Debajo de este encabezado, presenta una lista de 3 a 5 puntos clave o conclusiones derivados del artículo.
     *   Formatea estos puntos como una lista de viñetas en Markdown (usando `*` o `-` para cada punto).
 
@@ -582,9 +581,14 @@ Artículo Estructurado en Formato Markdown:'''
                 current_line_is_list_item = line.startswith(("* ", "- ", "+ ")) or re.match(r"^\d+\.\s", line)
                 next_line_is_list_item = lines[i+1].startswith(("* ", "- ", "+ ")) or re.match(r"^\d+\.\s", lines[i+1])
                 current_line_is_header = line.startswith("#")
+                # Add variables for blockquote check
+                current_line_is_blockquote = line.startswith(">")
+                next_line_is_blockquote = lines[i+1].startswith(">")
 
                 if current_line_is_list_item and next_line_is_list_item:
                     new_content_parts.append("\n") # Single newline between list items
+                elif current_line_is_blockquote and next_line_is_blockquote: # New condition
+                    new_content_parts.append("\n") # Single newline between blockquote lines
                 elif line == "" and lines[i+1] == "": # If we have two empty lines from original \n\n, preserve one \n\n effectively
                     if not (new_content_parts[-2] == "") : # Avoid creating more than \n\n from multiple blank lines
                        new_content_parts.append("\n")
