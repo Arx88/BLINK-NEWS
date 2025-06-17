@@ -220,10 +220,18 @@ def collect_and_process_news(app):
                         if determined_category in allowed_publish_categories: # Re-check for safety or rely on not continuing
                              print(f"DEBUG_API_ROUTE: Blink '{blink.get('title', 'N/A')}' con categoría '{determined_category}' SÍ ESTÁ en allowed_categories. Procediendo a guardar.")
 
-                        # Preserve existing votes
-                        existing_blink_data = news_model.get_blink(blink['id'])
-                        if existing_blink_data and 'votes' in existing_blink_data:
-                            blink['votes'] = existing_blink_data.get('votes', {'likes': 0, 'dislikes': 0})
+                        # Preserve existing votes if any
+                        try:
+                            existing_blink_data = news_model.get_blink(blink['id'])
+                            if existing_blink_data and 'votes' in existing_blink_data:
+                                blink['votes'] = existing_blink_data['votes']
+                                # print(f"DEBUG: Preserving votes for blink {blink['id']}: {blink['votes']}") # Optional debug
+                        except Exception as e:
+                            # Log if there's an error fetching existing blink, but don't let it stop the process
+                            print(f"DEBUG: Error trying to get existing blink for vote preservation (ID: {blink['id']}): {e}")
+                            # Ensure votes key still exists if it was somehow removed or not set by generator
+                            if 'votes' not in blink:
+                                blink['votes'] = {'likes': 0, 'dislikes': 0}
 
                         print(f"DEBUG_API_ROUTE: Intentando guardar BLINK. ID: {blink['id']}, Título: {blink['title']}, Categorías: {blink.get('categories')}")
                         news_model.save_blink(blink['id'], blink)
