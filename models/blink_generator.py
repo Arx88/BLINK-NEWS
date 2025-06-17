@@ -823,6 +823,7 @@ Artículo Estructurado en Formato Markdown:'''
 
         logger.info(f"Formateando a Markdown el texto base para Blink: {title}")
         markdown_content = self.format_content_with_ai(base_content, title)
+        markdown_content = self._polish_markdown_output(markdown_content, title) # Polish the AI-generated markdown
 
         # Crear el objeto BLINK
         blink = {
