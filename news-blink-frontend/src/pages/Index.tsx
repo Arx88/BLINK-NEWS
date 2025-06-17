@@ -6,7 +6,6 @@ import { Footer } from '@/components/ui/footer';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { HeroSection } from '@/components/HeroSection';
 import { NewsContent } from '@/components/NewsContent';
-import { MinimalSelectTest } from '@/components/MinimalSelectTest'; // Import the test component
 import { useNewsFilter } from '@/hooks/useNewsFilter';
 import { useRealNews } from '@/hooks/useRealNews';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -93,11 +92,6 @@ const Index = () => {
         <Header onRefresh={handleRefresh} />
         
         <main className="container mx-auto px-6 py-8 space-y-8">
-          {/* Render the MinimalSelectTest component here */}
-          <div className="my-8"> {/* Added a div for spacing */}
-            <MinimalSelectTest />
-          </div>
-
           <HeroSection />
 
           <NewsContent
