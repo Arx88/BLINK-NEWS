@@ -633,6 +633,68 @@ Artículo Estructurado en Formato Markdown:'''
 
         return content
 
+    def _polish_markdown_output(self, markdown_content: str, title: str) -> str:
+        """
+        Refina el contenido Markdown generado por la IA para corregir problemas comunes
+        de formato antes de que se considere final.
+        """
+        content = markdown_content
+        logger.debug(f"Iniciando _polish_markdown_output para título: {title}")
+
+        # 1. Eliminar título repetido al inicio, posiblemente con separador "==="
+        # El título puede tener caracteres especiales de regex, por lo que se escapa.
+        # Patrón: Opcional "**" + título escapado + opcional "**" + opcionales \s*\n + línea de === + opcional \s*\n
+        escaped_title = re.escape(title)
+        pattern_title_separator = re.compile(
+            r"^(?:\*\*)?" + escaped_title + r"(?:\*\*)?\s*[\r\n]+\s*={3,}\s*[\r\n]+",
+            re.IGNORECASE
+        )
+        content = pattern_title_separator.sub("", content)
+        logger.debug(f"Contenido después de eliminar título con separador '===' (primeros 200 chars): {content[:200]}")
+
+        # 2. Corregir duplicados de "Conclusiones Clave" y asegurar formato de encabezado
+        # Caso A: "Conclusiones Clave\nConclusiones Clave\n" -> "## Conclusiones Clave\n"
+        content = content.replace("Conclusiones Clave\nConclusiones Clave\n", "## Conclusiones Clave\n")
+        content = content.replace("Conclusiones Clave\r\nConclusiones Clave\r\n", "## Conclusiones Clave\r\n") # Windows newlines
+
+        # Caso B: "Conclusiones Clave" (texto plano) seguido por "## Conclusiones Clave" (encabezado)
+        # Eliminar el texto plano si ya existe el encabezado correcto después.
+        # Esto busca "Conclusiones Clave" (opcionalmente en negrita) + espacios/newlines + "## Conclusiones Clave"
+        # y elimina la primera parte.
+        pattern_plain_then_header_conclusion = re.compile(
+            r"^(?:\*\*)?Conclusiones Clave(?:\*\*)?\s*[\r\n]+\s*(?=## Conclusiones Clave)",
+            re.IGNORECASE | re.MULTILINE
+        )
+        content = pattern_plain_then_header_conclusion.sub("", content)
+        logger.debug(f"Contenido después de corregir duplicados de 'Conclusiones Clave' (primeros 200 chars): {content[:200]}")
+
+
+        # 3. Eliminar líneas separadoras huérfanas ("====" o "----")
+        #    que no estén actuando como cabeceras Setext válidas.
+        lines = content.splitlines()
+        polished_lines = []
+        for i, line in enumerate(lines):
+            is_separator_line = re.fullmatch(r"={3,}|-{3,}", line.strip())
+            if is_separator_line:
+                # Para ser una cabecera Setext válida, la línea anterior debe existir y no estar vacía,
+                # y no ser ella misma otro separador.
+                if i > 0 and lines[i-1].strip() and not re.fullmatch(r"={3,}|-{3,}", lines[i-1].strip()):
+                    polished_lines.append(line) # Es una cabecera Setext válida, mantenerla
+                else:
+                    logger.debug(f"Eliminando línea separadora huérfana: '{line}'")
+                    pass # Es huérfana, no añadirla
+            else:
+                polished_lines.append(line)
+        content = "\n".join(polished_lines)
+        logger.debug(f"Contenido después de eliminar separadores huérfanos (primeros 200 chars): {content[:200]}")
+
+        # Asegurar un solo salto de línea al final si el contenido no está vacío
+        if content.strip():
+            content = content.strip() + "\n"
+
+        logger.debug(f"_polish_markdown_output finalizado para título: {title} (primeros 200 chars): {content[:200]}")
+        return content
+
     def generate_blink_from_news_group(self, news_group):
         """Genera un resumen en formato BLINK a partir de un grupo de noticias similares"""
         # Usar el título más representativo del grupo
