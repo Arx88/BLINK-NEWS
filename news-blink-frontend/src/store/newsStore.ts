@@ -1,54 +1,44 @@
 import { create } from 'zustand';
 import { NewsItem, transformBlinkToNewsItem } from '../utils/api'; // Assuming NewsItem is exported from api.ts
 
-// Helper function to get a numerical timestamp.
-function getNumericTimestamp(timestamp: string | number): number {
-  if (typeof timestamp === 'number') {
-    return timestamp;
+// --- NEW SORTING FUNCTION (ADAPTED FROM USER SUGGESTION) ---
+const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] => {
+  // Create a copy to avoid modifying the original array directly
+  const newBlinks = [...blinks];
+
+  if (sortBy === 'hot') {
+    newBlinks.sort((a, b) => {
+      // Criterio 1: Ordenar por 'aiScore' (score) de mayor a menor
+      const scoreDiff = (b.aiScore || 0) - (a.aiScore || 0);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      // Los scores son iguales, pasamos al desempate.
+      // Criterio 2: Ordenar por votos negativos ('dislikes') de MENOR a mayor
+      const dislikesA = a.votes?.dislikes ?? a.votes?.down ?? 0;
+      const dislikesB = b.votes?.dislikes ?? b.votes?.down ?? 0;
+      const downVotesDiff = dislikesA - dislikesB;
+      if (downVotesDiff !== 0) {
+        return downVotesDiff;
+      }
+
+      // Los votos negativos también son iguales, último desempate.
+      // Criterio 3: Ordenar por fecha de creación ('publishedAt') de MÁS RECIENTE a más antiguo
+      // Ensure publishedAt is treated as a date for comparison
+      const dateA = new Date(a.publishedAt).getTime();
+      const dateB = new Date(b.publishedAt).getTime();
+      return dateB - dateA;
+    });
+  } else if (sortBy === 'latest') {
+    newBlinks.sort((a, b) => {
+      const dateA = new Date(a.publishedAt).getTime();
+      const dateB = new Date(b.publishedAt).getTime();
+      return dateB - dateA;
+    });
   }
-  // Attempt to parse if it's a string; fallback to 0 if invalid.
-  const parsed = new Date(timestamp).getTime();
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-// Sort function for NewsItem objects
-function sortNewsItems(a: NewsItem, b: NewsItem): number {
-  const likesA = a.votes?.likes ?? 0;
-  const dislikesA = a.votes?.dislikes ?? 0;
-  const totalVotesA = likesA + dislikesA;
-  let interestScoreA = 0.0;
-  if (totalVotesA > 0) interestScoreA = likesA / totalVotesA;
-  const timestampA = getNumericTimestamp(a.timestamp);
-
-  const likesB = b.votes?.likes ?? 0;
-  const dislikesB = b.votes?.dislikes ?? 0;
-  const totalVotesB = likesB + dislikesB;
-  let interestScoreB = 0.0;
-  if (totalVotesB > 0) interestScoreB = likesB / totalVotesB;
-  const timestampB = getNumericTimestamp(b.timestamp);
-
-  // Primary sort: Interest Score (descending)
-  if (interestScoreA !== interestScoreB) {
-    return interestScoreB - interestScoreA; // Higher score comes first
-  }
-
-  // Secondary sort: Depends on whether interest score is 0%
-  if (interestScoreA === 0.0) { // Both are 0% interest (interestScoreB is also 0.0)
-    // Sort by Dislikes (ascending)
-    if (dislikesA !== dislikesB) {
-      return dislikesA - dislikesB; // Lower dislikes come first
-    }
-    // Tertiary sort (if dislikes are same for 0% interest): Timestamp (descending)
-    return timestampB - timestampA; // Higher timestamp comes first
-  } else { // Both have >0% interest and their interest scores were equal
-    // Sort by Likes (descending)
-    if (likesA !== likesB) {
-      return likesB - likesA; // Higher likes come first
-    }
-    // Tertiary sort (if likes are same for >0% interest): Timestamp (descending)
-    return timestampB - timestampA; // Higher timestamp comes first
-  }
-}
+  return newBlinks;
+};
 
 interface NewsState {
   news: NewsItem[];
@@ -107,7 +97,8 @@ export const useNewsStore = create<NewsState>((set, get) => ({
       // Assuming backend already sorts, but if client-side initial sort is ever needed,
       // it could be done here: data.sort(sortNewsItems);
       const transformedNews = data.map(transformBlinkToNewsItem);
-      set({ news: transformedNews, loading: false, error: null });
+      const sortedNews = sortBlinks(transformedNews, 'hot'); // Apply client-side sort
+      set({ news: sortedNews, loading: false, error: null });
     } catch (err: any) {
       console.error('[newsStore] Error in fetchNews catch block:', err.message);
       set({ news: [], loading: false, error: err.message || 'Error loading news. Please try again.' });
@@ -116,12 +107,11 @@ export const useNewsStore = create<NewsState>((set, get) => ({
 
   updateBlinkInList: (updatedBlink: NewsItem) => {
     set(state => {
-      const updatedNewsList = state.news.map(item =>
+      let newsListWithUpdate = state.news.map(item =>
         item.id === updatedBlink.id ? { ...item, ...updatedBlink } : item
       );
-      // Re-sort the updatedNewsList array
-      updatedNewsList.sort(sortNewsItems);
-      return { news: updatedNewsList };
+      newsListWithUpdate = sortBlinks(newsListWithUpdate, 'hot'); // sortBlinks returns a new sorted array
+      return { news: newsListWithUpdate };
     });
   },
 }));
