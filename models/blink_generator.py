@@ -658,6 +658,22 @@ Artículo Estructurado en Formato Markdown:'''
         else:
             logger.debug(f"Título inicial (opcionalmente bold) seguido por '\\n\\n' no encontrado/eliminado.")
 
+        # NEW: Remove title if it's at the beginning and followed by a single newline
+        # (handles optional bolding: **Title**\nBody or Title\nBody)
+        # This is checked if the double newline pattern did not match.
+        if num_subs_double_newline == 0: # Only check if the previous one didn't match
+            pattern_title_single_newline = re.compile(
+                r"^(?:\*\*)?" + escaped_title + r"(?:\*\*)?\s*\n", # Single newline
+                re.IGNORECASE
+            )
+            # Store original length to check if substitution happened for logging, though subn returns this info.
+            # original_length_before_single_newline_check = len(content)
+            content, num_subs_single_newline = pattern_title_single_newline.subn("", content, count=1)
+            if num_subs_single_newline > 0:
+                logger.debug(f"Título inicial (opcionalmente bold) seguido por '\\n' eliminado. (Primeros 100 chars: '{content[:100]}')")
+            else:
+                logger.debug(f"Título inicial (opcionalmente bold) seguido por '\\n' no encontrado/eliminado.")
+
         # 1. Eliminar título repetido al inicio, si está seguido por "==="
         # Patrón: Opcional "**" + título escapado + opcional "**" +
         #          una o más newlines y espacios opcionales alrededor de ellas +
@@ -674,6 +690,18 @@ Artículo Estructurado en Formato Markdown:'''
             logger.debug(f"Título con separador '===' eliminado. (Primeros 100 chars: '{content[:100]}')")
         else:
             logger.debug(f"Título con separador '===' no encontrado/eliminado. (Primeros 100 chars: '{content[:100]}')")
+
+        # NEW: Remove "Presentación del Artículo" heading
+        # This can be optionally bolded and followed by one or more newlines.
+        pattern_presentacion = re.compile(
+            r"^(?:\*\*)?Presentación del Artículo(?:\*\*)?\s*[\n]+", # Matches the heading and following newlines
+            re.IGNORECASE | re.MULTILINE
+        )
+        content, num_subs_presentacion = pattern_presentacion.subn("", content, count=1) # Remove it completely
+        if num_subs_presentacion > 0:
+            logger.debug(f"'Presentación del Artículo' heading eliminado. (Primeros 100 chars: '{content[:100]}')")
+        else:
+            logger.debug(f"'Presentación del Artículo' heading no encontrado/eliminado.")
 
         # 2. Transformar "Conclusiones Clave" de Setext H1 a ATX H2
         # Busca "Conclusiones Clave" en una línea, seguida por "===" en la siguiente.
