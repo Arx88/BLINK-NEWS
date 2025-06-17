@@ -1,0 +1,27 @@
+{
+  "id": "046be9d20086aa5c5a63a5c1159c077c",
+  "title": "La Junta de Andalucía ha tenido una idea para que sus funcionarios sean más eficientes: lanzar JuntaGPT",
+  "points": [
+    "La Junta de Andalucía ha lanzado JuntaGPT, un asistente de IA para sus funcionarios.",
+    "Es la primera herramienta de IA generativa desarrollada específicamente para una administración autonómica española.",
+    "Los funcionarios podrán utilizarla para redactar correos, resumir documentos y resolver consultas normativas usando lenguaje natural.",
+    "La herramienta promete dar respuestas en menos de 300 milisegundos.",
+    "El sistema funciona únicamente de forma interna y no está destinado a los ciudadanos."
+  ],
+  "image": "https://i.blogs.es/cfc7b4/1750072254995juntagptest/840_560.jpeg",
+  "sources": [
+    "Xataka"
+  ],
+  "urls": [
+    "https://www.xataka.com/robotica-e-ia/andalucia-lanza-juntagpt-sus-funcionarios-usaran-ia-para-enviar-sus-mails"
+  ],
+  "timestamp": "2025-06-17T11:54:34.840212",
+  "content": "**La Junta de Andalucía ha tenido una idea para que sus funcionarios sean más eficientes: lanzar JuntaGPT**\n\nLa Junta de Andalucía acaba de lanzar JuntaGPT, un asistente de IA exclusivo para sus 240.000 funcionarios que busca disparar la eficiencia y recortar los plazos de su administración pública. Es la primera herramienta de IA generativa desarrollada específicamente para una administración autonómica española. Los funcionarios podrán utilizarla para redactar correos, resumir documentos y resolver consultas normativas usando lenguaje natural.\n\nLa JuntaGPT ya está parcialmente operativa y durante los próximos meses se irá implantando en todas las consejerías de forma progresiva. Andalucía quiere posicionarse como líder en digitalización autonómica en lugar de anclarse en la evaluación de riesgos.\n\n<custom_quote>\n\n> Los datos nunca salen de la red administrativa andaluza.\n\n</custom_quote>\n\nEl sistema promete dar respuestas en menos de 300 milisegundos. Entre sus funciones están la redacción de correos, el resumen de documentos y la resolución de consultas normativas usando lenguaje natural. El consejero Antonio Sanz ha dado dos cifras muy ambiciosas: los ciudadanos seguirán interactuando con funcionarios, quienes tendrán acceso a esta herramienta para procesar más rápido la información.\n\n<custom_conclusions>\n\n## Conclusiones Clave\n\n*   La Junta de Andalucía busca mejorar la eficiencia en su administración pública mediante el uso de tecnología IA.\n\n*   El asistente de IA, llamado JuntaGPT, está diseñado para ayudar a los funcionarios andaluces a redactar correos, resumir documentos y resolver consultas normativas.\n\n*   La herramienta se basa en un superordenador llamado Hércules y utiliza el modelo Gemma 3, que es libre y abierto.\n\n*   El objetivo de la JuntaGPT es proporcionar respuestas rápidas, con tiempos de respuesta de menos de 300 milisegundos.\n\n*   La herramienta promete mejorar la eficiencia en la administración pública y posicionar a Andalucía como líder en digitalización autonómica.\n\n</custom_conclusions>",
+  "categories": [
+    "tecnología"
+  ],
+  "votes": {
+    "likes": 0,
+    "dislikes": 0
+  }
+}

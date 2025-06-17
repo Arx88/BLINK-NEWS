@@ -1,0 +1,27 @@
+{
+  "id": "207f1b54cb5267865132fbfea0b208c7",
+  "title": "China está entrenando su IA en maletas llenas de discos duros: así están burlando el veto de EEUU a los chips avanzados",
+  "points": [
+    "Los ingenieros chinos llevaron maletas con discos duros a Malasia para entrenar modelos de IA.",
+    "Se alquilaron 300 servidores en Malasia equipados con los últimos chips de IA de NVIDIA.",
+    "El resultado fue varios cientos de GB de datos que incluían los parámetros del modelo de IA.",
+    "La empresa china creó una subsidiaria en Kuala Lumpur para evitar sospechas y potenciales investigaciones.",
+    "Malasia es uno de los países que más está acelerando la creación de centros de datos, con importaciones de chips de IA por valor de 3.400 millones de dólares desde Taiwán en marzo y abril."
+  ],
+  "image": "https://i.blogs.es/8f9ef6/china-discos/840_560.jpeg",
+  "sources": [
+    "Xataka"
+  ],
+  "urls": [
+    "https://www.xataka.com/robotica-e-ia/china-esta-entrenando-su-ia-maletas-llenas-discos-duros-asi-estan-burlando-veto-ee-uu-a-chips-avanzados"
+  ],
+  "timestamp": "2025-06-17T11:55:43.907350",
+  "content": "**China está entrenando su IA en maletas llenas de discos duros: así están burlando el veto de EEUU a los chips avanzados**\n\nCuatro ingenieros chinos volaron a Malasia en marzo, cada uno llevaba una maleta llena de discos duros que contenían 80 TB con todo tipo de datos. Este equipaje sorprendente no era nada extraño para ellos porque les permitía entrenar modelos de IA esquivando las medidas y el veto de EEUU. Un plan alucinante en el que los ingenieros llevaron esos discos duros a un centro de datos de Malasia donde habían alquilado 300 servidores con los últimos chips de IA de NVIDIA, lo que les permitió entrenar su modelo de IA de forma mucho más potente. Luego volvieron con los discos duros en una sola maleta y el resultado fue varios cientos de GB de datos que incluían los parámetros de su modelo de IA, es decir, los elementos básicos para guiar el comportamiento de ese modelo.\n\nLas empresas chinas de IA llevan años luchando contra las medidas impuestas por Estados Unidos para evitar la exportación de chips y tecnologías avanzadas de IA. En los últimos meses se han visto cómo los Huawei Ascend 910D plantean ya competencia a NVIDIA, y mucho antes incluso lo hacía China en conseguir esas GPUs especializadas en el mercado negro o a través de terceros países.\n\nLa montaña no va a Mahoma: dadas estas restricciones, otra vía para poder competir en el desarrollo de modelos de IA está en acceder a esos chips avanzados es no intentar conseguir esas tarjetas para enviarlas a China, sino viajar a países donde hay servidores que se pueden alquilar con ese tipo de GPUs. Es lo que según WSJ hicieron estos ingenieros, que de hecho prepararon la operación durante meses llevando discos duros de acá para allá.\n\n<custom_quote>\n\n> Pasaron más de dos meses puliendo los conjuntos de datos para el entrenamiento y preparando el proceso porque sabían que una vez en Malasia ajustar dichos componentes sería complicado.\n\n>\n\n> — Fuente: WSJ\n\n</custom_quote>\n\nPara evitar sospechas, la empresa china creó una subsidiaria en Kuala Lumpur e incluyó a tres ciudadanos malayos como sus responsables, y un holding offshore como matriz, según documentos del registro mercantil. Todo para evitar una potencial investigación que impidiera ejecutar el plan.\n\nLa técnica usada por esos ingenieros es sorprendente y podría estar siendo usada por otras empresas chinas, apuntan en el diario. Sobre todo porque en los últimos tiempos han comenzado a aumentar el número y capacidad de los centros de datos en el sudeste asiático. Según la empresa Jones Lang Lasalle, en Singapur, Malasia, Tailandia e Indonesia ya existen centros de datos con una capacidad combinada de 2 MW, equivalente a la de los centros de datos existentes en Londres y Frankfurt.\n\nMalasia está acelerando esa creación de centros de datos: el país importó chips de IA por valor de 3.400 millones de dólares desde Taiwán en marzo y abril, una cantidad que supera la que se gastó en todo 2024. Actividades como las que realizaron los ingenieros chinos son una preocupación para el Gobierno de EEUU, que trata de evitar por todos los medios que China tenga acceso a su tecnología avanzada de chips de IA.\n\n<custom_conclusions>\n\n## Conclusiones Clave\n\n*   Las empresas chinas están encontrando formas de burlar las medidas impuestas por Estados Unidos para evitar la exportación de chips y tecnologías avanzadas de IA.\n\n*   El uso de discos duros transportados en maletas es una estrategia sorprendente utilizada por ingenieros chinos para entrenar modelos de IA en países con acceso a servidores equipados con los últimos chips de IA de NVIDIA.\n\n*   La creación de centros de datos en el sudeste asiático, como Malasia, está acelerando y podría estar siendo utilizado para evitar las restricciones impuestas por EEUU.\n\n*   Las actividades de ingenieros chinos aluden a una preocupación mayor sobre la capacidad de China acceder a tecnología avanzada de chips de IA.\n\n</custom_conclusions>",
+  "categories": [
+    "tecnología"
+  ],
+  "votes": {
+    "likes": 0,
+    "dislikes": 0
+  }
+}

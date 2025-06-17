@@ -1,0 +1,27 @@
+{
+  "id": "c6b34a61730ec1d8d854b9edbc4ef8fc",
+  "title": "NVIDIA domina de forma imperial en IA. Y el problema de AMD es que está, pero de momento no lo parece",
+  "content": "### NVIDIA domina de forma imperial en IA. Y el problema de AMD es que está, pero de momento no lo parece\n\nLa empresa AMD ha presentado su renovada hoja de ruta para el desarrollo de GPUs y procesadores para servidores en centros de datos, con modelos prometedores para competir con NVIDIA en el mercado de la IA. Sin embargo, según datos de IDC, NVIDIA lidera el mercado de los chips de IA con un 85,2% de cuota de mercado, mientras que AMD solo tiene un 14,3%. Otras fuentes como Jon Peddie Research indican que la cuota de NVIDIA en este segmento es del 92%.\n\nAMD ha presentado su familia de GPUs Instinct MI350 con dos variantes, MI350X y MI355X, que según el fabricante son cuatro veces superiores en rendimiento general respecto a la generación anterior. Estas GPUs también tienen un ancho de banda de memoria de 8 TB/s y cuentan con 288 GB de memoria HBM3E.\n\nLa empresa ha anunciado planes para lanzar su nueva familia de aceleradoras de IA, Instinct MI400, en 2026, que llegarán con hasta 432 GB de memoria HBM4, 19,6 TB/s de ancho de banda de esa memoria y un rendimiento de 40 PFLOPS en precisión FP4. Estas GPUs se venderán en los futuros racks con infraestructura \"Helios\", que podrán albergar hasta 72 MI400 con hasta 260 TB/s de ancho de banda total.\n\nAdemás, AMD ha presentado su EPYC Venice, un procesador para servidores en centros de datos que llegará en 2026 y estará basado en la arquitectura Zen 6. Una de las variantes tendrá 256 núcleos y ofrecerá hasta un 70% más de rendimiento respecto a la generación anterior.\n\nAMD también ha anunciado su competencia con NVIDIA en el mercado de los racks para servidores en centros de datos, con su \"Helios\" destinado a competir con el GB200 NVL72 de NVIDIA y su sucesor, Oberon. Los rendimientos y prestaciones de estos futuros racks son absolutamente mareantes.\n\nLa empresa ha prometido igualar a NVIDIA en varios apartados, pero también asegura que la superará de forma notable (un 50% más) en cantidad y ancho de banda de memoria, algo crucial para el entrenamiento e inferencia IA. Sin embargo, a finales de 2027, NVIDIA prepara la arquitectura Rubin Ultra, que promete racks con hasta 5 exaFLOPS en precisión FP8, tres veces más que Helios u Oberon.\n\nLa hoja de ruta de AMD va más allá, y ya tienen preparado el desarrollo de su nueva generación de chips para servidores EPYC Verano, que reemplazarán a los EPYC Venice. Estas CPUs irán emparejadas con las futuras Instinct MI500X y se espera que ambos tipos de chip aprovechen el nodo A16 de TSMC (1,6 nm), que comenzará a usarse a finales de 2026.\n\nTodos estos anuncios demuestran que AMD no quiere ni mucho menos quedarse atrás en esa carrera por lograr situar sus soluciones en centros de datos en todo el mundo. La empresa Crusoe ha anunciado que gastaría 400 millones de dólares en chips de IA de AMD, y hasta Sam Altman, CEO de OpenAI, ha asegurado que usarán también chips de AMD en los centros de datos que utilizan.\n\nEl mensaje de AMD fue claro durante el evento: sus MI355 ofrecen mucha más eficiencia y son más baratos que los B200 y GB200 de NVIDIA con rendimientos comparables. Sin embargo, el mayor reto sigue siendo CUDA, el estándar de facto en la industria para desarrolladores de servicios y aplicaciones de IA. Las prestaciones de los chips de IA de AMD no son de hecho el problema de esta compañía.\n\n#### <custom_quote>\n\n> El mensaje de AMD fue claro durante el evento: sus MI355 ofrecen mucha más eficiencia y son más baratos que los B200 y GB200 de NVIDIA con rendimientos comparables.\n\n> — Un portavoz de AMD\n\n</custom_quote>\n\n## <custom_conclusions>\n\n### Conclusiones Clave\n\n*   AMD presenta una renovada hoja de ruta para el desarrollo de GPUs y procesadores para servidores en centros de datos, con modelos prometedores para competir con NVIDIA en el mercado de la IA.\n\n*   La empresa lidera el mercado de los chips de IA con un 85,2% de cuota de mercado, mientras que AMD solo tiene un 14,3%.\n\n*   AMD ha presentado su familia de GPUs Instinct MI350 y planes para lanzar su nueva familia de aceleradoras de IA, Instinct MI400.\n\n*   La empresa Crusoe ha anunciado que gastaría 400 millones de dólares en chips de IA de AMD, y hasta Sam Altman, CEO de OpenAI, ha asegurado que usarán también chips de AMD en los centros de datos que utilizan.\n\n</custom_conclusions>",
+  "points": [
+    "NVIDIA domina el mercado de los chips de IA con un 85,2% de cuota de mercado.",
+    "Las GPUs para IA de AMD son solo el principio y siguen su evolución.",
+    "Las AMD Instinct MI350 son cuatro veces superiores en rendimiento general respecto a la generación anterior.",
+    "La nueva familia de aceleradoras de IA de AMD, las Instinct MI400, llegarán con hasta 432 GB de memoria HBM4 y un rendimiento de 40 PFLOPS en precisión FP4.",
+    "AMD no solo habló de GPUs: también tiene en pleno desarrollo sus futuros procesadores para servidores en centros de datos."
+  ],
+  "image": "https://i.blogs.es/1ed2ad/amd/840_560.jpeg",
+  "sources": [
+    "Xataka"
+  ],
+  "urls": [
+    "https://www.xataka.com/robotica-e-ia/nvidia-domina-forma-imperial-ia-problema-amd-que-esta-momento-no-parece"
+  ],
+  "date": "17 de June 2025",
+  "votes": {
+    "likes": 0,
+    "dislikes": 0
+  },
+  "categories": [
+    "tecnología"
+  ]
+}

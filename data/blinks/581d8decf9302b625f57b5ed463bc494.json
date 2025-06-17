@@ -1,0 +1,27 @@
+{
+  "id": "581d8decf9302b625f57b5ed463bc494",
+  "title": "Amazon está en una lista negra junto a otras 331 webs bloqueadas por orden judicial. No es tan grave como parece",
+  "points": [
+    "La página web del Ministerio de Cultura ha hecho público el listado de páginas webs advertidas en España por supuesta vulneración de los derechos de propiedad intelectual.",
+    "El listado es distinto al de aquellas páginas bloqueadas por la reciente sentencia de LaLiga.",
+    "La propia web de los servicios AWS de Amazon se encuentra en este listado, aunque no está siendo apuntada a Amazon como infractora.",
+    "Los AWS de Amazon aparecen porque los infractores habitualmente se valen de sus servicios.",
+    "Buena parte de las direcciones del listado están tumbadas de forma permanente o han sobrevivido con un cambio de dominio."
+  ],
+  "image": "https://i.blogs.es/6d1ad8/bloqueos/840_560.jpeg",
+  "sources": [
+    "Xataka"
+  ],
+  "urls": [
+    "https://www.xataka.com/legislacion-y-derechos/espana-lleva-diez-anos-bloqueando-webs-orden-judicial-gobierno-acaba-hacer-publica-lista"
+  ],
+  "timestamp": "2025-06-17T11:55:15.247206",
+  "content": "**Amazon está en una lista negra junto a otras 331 webs bloqueadas por orden judicial. No es tan grave como parece**\n\nLa página web del Ministerio de Cultura ha publicado un listado de páginas webs advertidas en España por supuesta vulneración de los derechos de propiedad intelectual. Este listado es distinto al de aquellas páginas bloqueadas por la reciente sentencia de LaLiga, y entre ellas se encuentra la propia web de los servicios AWS de Amazon. Aunque el mensaje que impide el acceso a algunas de estas webs es el conocido \"esta dirección IP ha sido bloqueada en cumplimiento de lo dispuesto en la Sentencia de 18 de diciembre de 2024\", algunos operadores han negado haber bloqueado la IP de AWS, y no hay un culpable claro.\n\nEl punto clave es que las direcciones de Amazon suelen verse afectadas por escenarios que no guardan relación directa con sus webs. La Sección Segunda del Ministerio de Cultura tiene como objetivo compartir la vulneración de la propiedad intelectual en procesos administrativos previos a recursos judiciales, y si no se puede identificar con precisión el infractor final, se apunta al proveedor para solicitar cooperación.\n\nMuchas de las webs que el Ministerio de Cultura considera infractoras utilizan servicios de hosting en AWS, y aquí entra en juego una de las claves de la Sección Segunda. Aunque estas direcciones siguen plenamente operativas, muchas de ellas están tumbadas de forma permanente o han sobrevivido con un cambio de dominio.\n\nDel mismo modo, este listado no recoge aquellos dominios web bloqueados de forma arbitraria los días de partido, lo que afecta a los españoles y cómo navegan por internet.\n\n<custom_quote>\n\n> El punto clave es que las direcciones de Amazon suelen verse afectadas por escenarios que no guardan relación directa con sus webs.\n\n</custom_quote>\n\n<custom_conclusions>\n\n## Conclusiones Clave\n\n*   La lista de páginas bloqueadas incluye a la web de AWS, pero esto no implica un error grave de Amazon.\n\n*   Las direcciones de Amazon se ven afectadas por escenarios que no están directamente relacionados con sus servicios.\n\n*   El Ministerio de Cultura considera vulneraciones de propiedad intelectual en procesos administrativos previos a recursos judiciales, y apunta al proveedor para solicitar cooperación.\n\n*   Muchas de las webs consideradas infractoras utilizan servicios de hosting en AWS y han sido afectadas por cambios o bloqueos no directamente relacionados con Amazon.\n\n</custom_conclusions>",
+  "categories": [
+    "tecnología"
+  ],
+  "votes": {
+    "likes": 0,
+    "dislikes": 0
+  }
+}

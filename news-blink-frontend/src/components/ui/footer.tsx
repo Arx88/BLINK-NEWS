@@ -122,7 +122,7 @@ export const Footer = () => {
         {/* Bottom Section */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between items-center">
           <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
-            © 2024 BLINK. Todos los derechos reservados.
+            © 2025 BLINK. Todos los derechos reservados.
           </p>
           <div className="flex space-x-6 mt-4 md:mt-0">
             <a href="#" className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-colors text-sm`}>Privacidad</a>

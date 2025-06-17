@@ -1,0 +1,27 @@
+{
+  "id": "83384b65a5c1c6e744b0cb1b1493129e",
+  "title": "Esta IA de Meta es capaz de traducir lo que dices en 100 idiomas diferentes",
+  "points": [
+    "SeamlessM4T puede traducir hasta 101 idiomas.",
+    "La herramienta tiene como mayor virtud su capacidad para entender idiomas de los que no hay muchos datos en la red.",
+    "SeamlessM4T puede reducir el sonido de fondo y entiende hasta 36 idiomas directamente cuando se trata de voz a voz.",
+    "El sistema ofrece un rendimiento un 20% superior al resto de los mejores sistemas anteriores basados en la traducción mediante el empleo de inteligencia artificial.",
+    "SeamlessM4T es open source, pero no se permite su uso comercial."
+  ],
+  "image": "https://s2.abcstatics.com/abc/www/multimedia/tecnologia/2025/01/15/ia-U16055263824kCC-1024x512@diario_abc.jpg",
+  "sources": [
+    "ABC Tecnología"
+  ],
+  "urls": [
+    "https://www.abc.es/tecnologia/ia-meta-capaz-traducir-dices-100-idiomas-20250115170632-nt.html"
+  ],
+  "timestamp": "2025-06-17T11:54:02.472008",
+  "content": "**Esta IA de Meta es capaz de traducir lo que dices en 100 idiomas diferentes**\n\nUn equipo de Meta ha desarrollado una herramienta de inteligencia artificial llamada SeamlessM4T, que puede traducir hasta 101 idiomas y reducir el sonido de fondo. Esta herramienta ha sido presentada en la revista 'Nature' y se considera un gran avance en el campo de la traducción mediante el uso de IA. De acuerdo con los investigadores, SeamlessM4T puede entender idiomas de los que no hay muchos datos en la red, como el suajili o el zulu, y ofrece resultados 20% superiores a los mejores sistemas anteriores basados en la traducción mediante inteligencia artificial.\n\nEl motor del ingenio fue capacitado con un conjunto de datos que contenía 4.500 horas de audio multilingüe procedente de todos los rincones de la red, y se esforzó por comprender los patrones de los distintos idiomas. Aunque la herramienta puede traducir directamente la voz del usuario a 36 idiomas, solo tiene acceso a datos de texto para 96 idiomas.\n\nLos investigadores han tenido cuidado al desarrollar esta herramienta para evitar incrementar la toxicidad de los textos o incluir sesgos de género. Por ejemplo, se examinó si el modelo sobrerrepresentaba el masculino o el femenino al traducir frases neutrales.\n\nLa comunidad científica puede acceder a esta herramienta de forma gratuita y utilizarla para mejorar sus proyectos, siempre que no sea utilizada comercialmente. Los expertos consideran que este avance es un gran paso hacia la creación de herramientas de traducción más precisas e inclusivas.\n\n<custom_quote>\n\n> Esta herramienta puede entender idiomas de los que no hay muchos datos en la red, como el suajili o el zulu.\n\n> — Equipo de Meta\n\n</custom_quote>\n\n<custom_conclusions>\n\n## Conclusiones Clave\n\n*   La herramienta SeamlessM4T representa un avance significativo en traducción mediante IA, ya que puede entender idiomas con pocos datos y ofrece resultados superiores a los sistemas anteriores.\n\n*   El equipo de Meta ha tenido cuidado al desarrollar la herramienta para evitar incrementar la toxicidad o incluir sesgos en los textos traducidos.\n\n*   La comunidad científica puede acceder a la herramienta de forma gratuita, abriendo oportunidades para mejorar proyectos y avanzar en el campo de la traducción IA.\n\n</custom_conclusions>",
+  "categories": [
+    "tecnología"
+  ],
+  "votes": {
+    "likes": 0,
+    "dislikes": 0
+  }
+}

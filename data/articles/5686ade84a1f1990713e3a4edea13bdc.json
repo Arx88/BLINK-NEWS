@@ -1,0 +1,27 @@
+{
+  "id": "5686ade84a1f1990713e3a4edea13bdc",
+  "title": "Tu PC podría estar en peligro: millones de procesadores AMD Ryzen tienen un fallo grave que compromete tu seguridad",
+  "content": "**Tu PC podría estar en peligro: millones de procesadores AMD Ryzen tienen un fallo grave que compromete tu seguridad**\n\nMillones de usuarios con ordenadores equipados con procesadores Ryzen desde la serie 3000 hasta la 9000 están en riesgo debido a una vulnerabilidad crítica en el módulo TPM. Según AMD, esta vulnerabilidad podría permitir que un hacker accediera a archivos cifrados, robara la identidad del usuario o incluso instalara una versión de Windows modificada sin su conocimiento.\n\n<custom_quote>\n\n> La vulnerabilidad CVE-2025-2884 es muy grave y podría tener consecuencias graves para la seguridad de los usuarios.\n\n> — Investigador de Seguridad\n\n</custom_quote>\n\nLa única solución para los usuarios afectados es actualizar el firmware de la BIOS directamente con el fabricante, lo cual puede ser un proceso delicado que podría bloquear el ordenador si no se hace correctamente. Los procesadores afectados incluyen desde la serie 3000 hasta la 9000 y AMD ha publicado una lista exhaustiva con todos los modelos que incluyen esta vulnerabilidad y su correspondiente solución.\n\n<custom_conclusions>\n\n## Conclusiones Clave\n\n*   La vulnerabilidad CVE-2025-2884 es crítica y puede comprometer la seguridad de ordenadores equipados con procesadores Ryzen.\n\n*   Los afectados deben actualizar el firmware de la BIOS para corregir esta vulnerabilidad, pero este proceso puede ser complicado.\n\n*   Es importante revisar la lista publicada por AMD para determinar si tu modelo está incluido y seguir las instrucciones adecuadas para evitar problemas durante la actualización.\n\n</custom_conclusions>",
+  "points": [
+    "El fallo crítico afecta a procesadores Ryzen desde la serie 3000 a la 9000.",
+    "Un hacker podría vulnerar tu PC para acceder a archivos cifrados, robar tu identidad o instalar una versión de Windows modificada sin que te des cuenta.",
+    "El Trusted Computing Group (TCG) alertó a AMD sobre una vulnerabilidad en el código de implementación de referencia de TPM 2.0.",
+    "Un atacante podría activar la vulnerabilidad del Ryzen a través de aplicaciones en modo usuario enviando comandos maliciosos a un TPM.",
+    "La única solución es actualizar el firmware de la BIOS directamente con el fabricante."
+  ],
+  "image": "https://i0.wp.com/imgs.hipertextual.com/wp-content/uploads/2022/05/AMD-Ryzen-2.png?fit=5120%2C2880&quality=70&strip=all&ssl=1",
+  "sources": [
+    "Hipertextual"
+  ],
+  "urls": [
+    "https://hipertextual.com/2025/06/vulnerabilidad-ryzen-tpm-como-solucionarla"
+  ],
+  "date": "17 de June 2025",
+  "votes": {
+    "likes": 0,
+    "dislikes": 0
+  },
+  "categories": [
+    "tecnología"
+  ]
+}
