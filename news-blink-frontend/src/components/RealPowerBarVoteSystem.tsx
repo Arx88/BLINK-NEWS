@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { voteOnArticle, NewsItem } from '@/utils/api'; // Imported NewsItem
+import { voteOnArticle, NewsItem, transformBlinkToNewsItem } from '@/utils/api'; // Imported NewsItem and transformBlinkToNewsItem
 import { useNewsStore } from '../store/newsStore'; // Corrected import path
 
 interface RealPowerBarVoteSystemProps {
@@ -64,12 +64,13 @@ export const RealPowerBarVoteSystem = ({
       const updatedArticleData = await voteOnArticle(articleId, voteType);
 
       if (updatedArticleData) {
-        // Confirm state with server response
-        setLikes(updatedArticleData.votes?.likes || 0);
-        setDislikes(updatedArticleData.votes?.dislikes || 0);
+        const finalUpdatedBlink = transformBlinkToNewsItem(updatedArticleData);
+        // Confirm state with server response using transformed data
+        setLikes(finalUpdatedBlink.votes?.likes || 0);
+        setDislikes(finalUpdatedBlink.votes?.dislikes || 0);
         // setUserVote is already optimistically set. Could re-set if server could deny vote type.
         setUserVote(voteType); // Confirm user's current vote status based on successful action
-        updateBlinkInList(updatedArticleData);
+        updateBlinkInList(finalUpdatedBlink);
       } else {
         // API call failed or returned null, revert optimistic update
         console.error('Vote API call failed. Reverting optimistic update.');
