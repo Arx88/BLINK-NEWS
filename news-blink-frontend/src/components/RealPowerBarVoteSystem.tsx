@@ -24,7 +24,8 @@ export const RealPowerBarVoteSystem = ({
   const total = likes + dislikes;
   const likePercentage = total > 0 ? (likes / total) * 100 : 50;
 
-  const handleVote = async (voteType: 'like' | 'dislike') => {
+  const handleVote = async (voteType: 'like' | 'dislike', event: React.MouseEvent) => {
+    event.stopPropagation();
     if (userVote === voteType || isVoting) return;
 
     setIsVoting(true);
@@ -85,7 +86,7 @@ export const RealPowerBarVoteSystem = ({
       {/* Vote Buttons */}
       <div className="flex items-center justify-between gap-6">
         <button
-          onClick={() => handleVote('like')}
+          onClick={(e) => handleVote('like', e)}
           disabled={isVoting}
           className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
             userVote === 'like' 
@@ -100,7 +101,7 @@ export const RealPowerBarVoteSystem = ({
         </button>
         
         <button
-          onClick={() => handleVote('dislike')}
+          onClick={(e) => handleVote('dislike', e)}
           disabled={isVoting}
           className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
             userVote === 'dislike' 
