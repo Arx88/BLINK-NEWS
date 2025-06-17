@@ -220,6 +220,11 @@ def collect_and_process_news(app):
                         if determined_category in allowed_publish_categories: # Re-check for safety or rely on not continuing
                              print(f"DEBUG_API_ROUTE: Blink '{blink.get('title', 'N/A')}' con categoría '{determined_category}' SÍ ESTÁ en allowed_categories. Procediendo a guardar.")
 
+                        # Preserve existing votes
+                        existing_blink_data = news_model.get_blink(blink['id'])
+                        if existing_blink_data and 'votes' in existing_blink_data:
+                            blink['votes'] = existing_blink_data.get('votes', {'likes': 0, 'dislikes': 0})
+
                         print(f"DEBUG_API_ROUTE: Intentando guardar BLINK. ID: {blink['id']}, Título: {blink['title']}, Categorías: {blink.get('categories')}")
                         news_model.save_blink(blink['id'], blink)
                         print(f"DEBUG_API_ROUTE: BLINK GUARDADO EXITOSAMENTE. ID: {blink['id']}")
