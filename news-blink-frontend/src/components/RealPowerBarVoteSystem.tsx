@@ -30,44 +30,59 @@ export const RealPowerBarVoteSystem = ({
 
   const handleVote = async (voteType: 'like' | 'dislike', event: React.MouseEvent) => {
     event.stopPropagation();
+    // Restore original guard: if it's the current vote, or if already voting, do nothing.
     if (userVote === voteType || isVoting) return;
 
+    // Store pre-vote state
+    const prevLikes = likes;
+    const prevDislikes = dislikes;
+    const prevUserVote = userVote;
+
     setIsVoting(true);
+
+    // Optimistic UI Update
+    // This block now only executes if voteType is different from userVote due to the guard above.
+    let newLikes = prevLikes;
+    let newDislikes = prevDislikes;
+
+    if (voteType === 'like') {
+      newLikes = prevLikes + 1;
+      if (prevUserVote === 'dislike') { // If previously disliked, remove the dislike
+        newDislikes = prevDislikes - 1;
+      }
+    } else { // voteType === 'dislike'
+      newDislikes = prevDislikes + 1;
+      if (prevUserVote === 'like') { // If previously liked, remove the like
+        newLikes = prevLikes - 1;
+      }
+    }
+    setLikes(newLikes);
+    setDislikes(newDislikes);
+    setUserVote(voteType);
+
     try {
       const updatedArticleData = await voteOnArticle(articleId, voteType);
 
       if (updatedArticleData) {
-        // Update local state based on the accurate data from the server
+        // Confirm state with server response
         setLikes(updatedArticleData.votes?.likes || 0);
         setDislikes(updatedArticleData.votes?.dislikes || 0);
-        setUserVote(voteType); // Set user vote only on successful API response
-
-        // Call the store action with the updated item
+        // setUserVote is already optimistically set. Could re-set if server could deny vote type.
+        setUserVote(voteType); // Confirm user's current vote status based on successful action
         updateBlinkInList(updatedArticleData);
-
       } else {
-        // Handle the case where voteOnArticle returns null (error occurred)
-        // Optionally, revert optimistic updates or show an error to the user
-        console.error('Vote failed, API returned null.');
+        // API call failed or returned null, revert optimistic update
+        console.error('Vote API call failed. Reverting optimistic update.');
+        setLikes(prevLikes);
+        setDislikes(prevDislikes);
+        setUserVote(prevUserVote);
       }
-
-      // Original optimistic update logic (can be removed or kept as fallback depending on UX preference)
-      // For now, relying on server response to set final state.
-      // if (voteType === 'like') {
-      //   setLikes(prev => prev + 1);
-      //   if (userVote === 'dislike') {
-      //     setDislikes(prev => prev - 1);
-      //   }
-      // } else {
-      //   setDislikes(prev => prev + 1);
-      //   if (userVote === 'like') {
-      //     setLikes(prev => prev - 1);
-      //   }
-      // }
-      // setUserVote(voteType); // Moved this to be conditional on successful API response
-
-    } catch (error) { // This catch is for network errors or if voteOnArticle throws, though it's set to return null now
-      console.error('Error during voting process:', error);
+    } catch (error) {
+      console.error('Error during voting process, reverting optimistic update:', error);
+      // Revert optimistic update on any unexpected error
+      setLikes(prevLikes);
+      setDislikes(prevDislikes);
+      setUserVote(prevUserVote);
     } finally {
       setIsVoting(false);
     }

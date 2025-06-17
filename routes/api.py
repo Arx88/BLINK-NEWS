@@ -93,15 +93,20 @@ def vote_on_blink(blink_id):
     if vote_type not in ['like', 'dislike']:
         return jsonify({'error': 'Invalid voteType. Must be "like" or "dislike"'}), 400
 
+    current_app.logger.info(f"Vote request received for blink_id: {blink_id}, voteType: {vote_type}")
+
     # Construct the file path for the blink
     blink_file_path = os.path.join(news_model.blinks_dir, f"{blink_id}.json")
 
     if not os.path.exists(blink_file_path):
+        current_app.logger.error(f"Blink file not found for blink_id: {blink_id} at path: {blink_file_path}")
         return jsonify({'error': 'Blink not found'}), 404
 
     try:
+        current_app.logger.info(f"Attempting to read/write file: {blink_file_path}")
         with open(blink_file_path, 'r+', encoding='utf-8') as f:
             blink_data = json.load(f)
+            current_app.logger.info(f"Data loaded for {blink_id}: {blink_data}")
 
             # Initialize votes if not present
             if 'votes' not in blink_data:
@@ -113,14 +118,17 @@ def vote_on_blink(blink_id):
                 blink_data['votes']['dislikes'] = blink_data['votes'].get('dislikes', 0) + 1
 
             # Write updated data back
+            current_app.logger.info(f"Attempting to write data for {blink_id} to blink file: {blink_data}")
             f.seek(0)
             json.dump(blink_data, f, ensure_ascii=False, indent=2)
             f.truncate()
+            current_app.logger.info(f"Successfully wrote data for {blink_id} to blink file.")
 
         # Also update the corresponding article file if it exists
         # This part mimics the behavior of news_model.update_vote
         article_file_path = os.path.join(news_model.articles_dir, f"{blink_id}.json")
         if os.path.exists(article_file_path):
+            current_app.logger.info(f"Attempting to update votes in corresponding article file: {article_file_path} for blink_id: {blink_id}")
             try:
                 with open(article_file_path, 'r+', encoding='utf-8') as f_article:
                     article_data = json.load(f_article)
@@ -128,14 +136,15 @@ def vote_on_blink(blink_id):
                     f_article.seek(0)
                     json.dump(article_data, f_article, ensure_ascii=False, indent=2)
                     f_article.truncate()
+                    current_app.logger.info(f"Successfully updated votes in article file for blink_id: {blink_id}")
             except Exception as e:
                 # Log this error, but the primary operation on blink was successful
-                current_app.logger.error(f"Error updating votes in corresponding article {blink_id}: {e}")
-
+                current_app.logger.error(f"Error updating votes in corresponding article {article_file_path} for blink_id {blink_id}: {e}")
 
         return jsonify({"message": "Vote recorded", "data": blink_data}), 200
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        current_app.logger.error(f"Invalid JSON data in blink file for {blink_id}: {e}")
         return jsonify({'error': 'Invalid JSON data in blink file'}), 500
     except IOError as e:
         current_app.logger.error(f"IOError during vote operation for {blink_id}: {e}")
