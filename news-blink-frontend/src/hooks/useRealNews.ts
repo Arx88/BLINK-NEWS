@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'; // Import useCallback
+import { transformBlinkToNewsItem } from '../../utils/api'; // Import the helper
 
 export interface NewsItem {
   id: string;
@@ -27,25 +28,9 @@ export const useRealNews = () => {
     setLoading(true);
     setError(null);
     
-    let apiCategory: string;
-    let apiCountry: string;
-
-    apiCountry = 'us';
-
-    switch (tab) {
-      case 'tendencias':
-        apiCategory = 'tecnología'; // Changed from 'technology'
-        break;
-      case 'rumores':
-        apiCategory = 'science'; // Remains 'science'
-        break;
-      case 'ultimas':
-      default:
-        apiCategory = 'tecnología'; // Changed from 'technology'
-        break;
-    }
-
-    const apiUrl = `/api/news?country=${apiCountry}&category=${apiCategory}`;
+    // The 'tab' parameter is kept in the function signature as it might be used by other logic (e.g. useNewsFilter)
+    // but it's no longer used for constructing the API URL here.
+    const apiUrl = '/api/blinks'; // Changed to the new endpoint
 
     try {
       const response = await fetch(apiUrl);
@@ -80,63 +65,26 @@ export const useRealNews = () => {
       }
       const data = await response.json();
 
-      // Handle specific "processing" status object response from API
-      if (!Array.isArray(data) && typeof data === 'object' && data !== null && data.status === 'processing') {
-        setNews([]);
-        setError((data as any).message || 'El backend está procesando noticias. Por favor, actualice en unos momentos.');
-        setLoading(false); // Processing isn't an error state for loading, but a message state
-        return; // Exit the function, news processing is pending
-      }
-
+      // The specific check for "data.status === 'processing'" is removed as /api/blinks
+      // is expected to return an array of blinks or an error directly.
+      // The generic !Array.isArray(data) check will handle cases where the response isn't an array.
       if (!Array.isArray(data)) {
         console.error('[useRealNews] API response is not an array:', data);
-        // Consider if data might be an object with an error message from the API
-        if (data && typeof data === 'object' && (data as any).error) { // Type assertion for data.error
+        if (data && typeof data === 'object' && (data as any).error) {
           throw new Error(`API returned an error: ${(data as any).error}`);
+        }
+        // Check if data might be the processing status object, though less likely now
+        if (data && typeof data === 'object' && (data as any).status === 'processing') {
+             setError((data as any).message || 'El backend está procesando noticias. Por favor, actualice en unos momentos.');
+             setNews([]);
+             // setLoading(false); // Already handled in finally, but ensure it's set if returning early
+             return; // Exit if it's a known non-array status object
         }
         throw new Error('Invalid data format from API. Expected an array.');
       }
 
-      const transformedNews = data.map((article: any, index: number) => {
-        let newPoints: string[];
-        if (Array.isArray(article.points) && article.points.length > 0 && article.points.every(p => typeof p === 'string')) {
-          newPoints = article.points;
-        } else if (typeof article.description === 'string' && article.description.trim() !== '') {
-          newPoints = [article.description.trim()];
-        } else {
-          newPoints = ['No summary points available.'];
-        }
-
-        // Determine category from article if available, else fallback
-        const category = article.category || (Array.isArray(article.categories) && article.categories.length > 0 ? article.categories[0] : apiCategory);
-
-        // Determine publishedAt from article.timestamp or article.publishedAt
-        let publishedAtDate = new Date().toISOString();
-        if (article.timestamp) {
-          if (typeof article.timestamp === 'number') {
-            publishedAtDate = new Date(article.timestamp * 1000).toISOString(); // Assuming Unix timestamp in seconds
-          } else if (typeof article.timestamp === 'string') {
-            publishedAtDate = new Date(article.timestamp).toISOString(); // Assuming ISO string or parsable date string
-          }
-        } else if (article.publishedAt) {
-          publishedAtDate = new Date(article.publishedAt).toISOString();
-        }
-
-        return {
-          id: article.id || `news-${index}`, // Prefer article.id, fallback for safety
-          title: article.title || 'No Title',
-          image: (typeof article.image === 'string' && article.image.trim() !== '') ? article.image.trim() : 'https://via.placeholder.com/800x600.png?text=No+Image',
-          points: newPoints,
-          category: category,
-          isHot: typeof article.isHot === 'boolean' ? article.isHot : false,
-          readTime: article.readTime || 'N/A', // Use article.readTime if available, else 'N/A'
-          publishedAt: publishedAtDate,
-          aiScore: typeof article.aiScore === 'number' ? article.aiScore : 50,
-          votes: article.votes || { likes: 0, dislikes: 0 }, // Use article.votes if available
-          sources: Array.isArray(article.sources) && article.sources.length > 0 ? article.sources : (article.source?.name ? [article.source.name] : ['N/A']),
-          content: article.content // Add content field, defaults to undefined if not on article
-        };
-      });
+      // Use the imported transformBlinkToNewsItem function
+      const transformedNews = data.map(transformBlinkToNewsItem);
       
       setNews(transformedNews);
     } catch (err: any) {

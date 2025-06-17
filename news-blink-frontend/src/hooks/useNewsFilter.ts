@@ -42,14 +42,12 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
         break;
     }
 
-    // Final sort by votes (except for "ultimas" tab)
-    if (activeTab !== 'ultimas') {
-      filtered = filtered.sort((a, b) => {
-        const aVotes = (a.votes?.likes || 0) - (a.votes?.dislikes || 0);
-        const bVotes = (b.votes?.likes || 0) - (b.votes?.dislikes || 0);
-        return bVotes - aVotes;
-      });
-    }
+    // The final sort by votes (likes - dislikes) that was here has been removed.
+    // The news items are now expected to be pre-sorted by likes (primary) and timestamp (secondary)
+    // from the backend when fetched via /api/blinks.
+    // The 'ultimas' tab still applies its own date-based sort.
+    // Other tabs ('tendencias', 'rumores') will rely on the backend's default sort order
+    // after their specific filtering logic is applied.
 
     return filtered;
   }, [categoryFilteredNews, activeTab]);

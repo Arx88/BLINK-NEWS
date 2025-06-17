@@ -17,7 +17,7 @@ export interface NewsItem {
 }
 
 // Helper function to transform backend blink data to NewsItem
-const transformBlinkToNewsItem = (blink: any): NewsItem => {
+export const transformBlinkToNewsItem = (blink: any): NewsItem => { // Added export
   let publishedAtDate = new Date().toISOString();
   if (blink.timestamp) {
     if (typeof blink.timestamp === 'number') {
