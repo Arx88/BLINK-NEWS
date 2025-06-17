@@ -69,7 +69,7 @@ export const fetchNews = async (/* tab: string = 'ultimas' // Tab parameter no l
   }
 };
 
-export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike'): Promise<void> => {
+export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike'): Promise<NewsItem | null> => {
   const apiUrl = `/api/blinks/${articleId}/vote`;
   const requestBody = { voteType };
 
@@ -83,20 +83,26 @@ export const voteOnArticle = async (articleId: string, voteType: 'like' | 'disli
     });
 
     if (!response.ok) {
-      // Log the error status and text for debugging
       const errorText = await response.text();
-      console.error(`Error voting on article ${articleId}: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      console.error(`Error voting on article ${articleId}: ${response.status} ${response.statusText}. Response: ${errorText}`);
+      // throw new Error(`API error: ${response.status} ${response.statusText}`); // No longer throwing, return null instead
+      return null;
     }
 
-    // Optionally, log success or handle successful response data if any
-    console.log(`Vote registered: ${voteType} for article ${articleId} successfully.`);
+    const responseData = await response.json();
+    if (responseData && responseData.data) {
+      console.log(`Vote registered: ${voteType} for article ${articleId} successfully. Response data received.`);
+      return transformBlinkToNewsItem(responseData.data);
+    } else {
+      console.error(`Error voting on article ${articleId}: Response data or responseData.data is missing.`);
+      return null;
+    }
 
-  } catch (error) {
+  } catch (error: any) { // Added : any to type error for accessing message property
     // Log network errors or errors from the fetch operation itself
-    console.error(`Network or other error voting on article ${articleId}:`, error);
-    // Re-throw the error so the caller can handle it if needed
-    throw error;
+    console.error(`Network or other error voting on article ${articleId}:`, error.message || error);
+    // Re-throw the error so the caller can handle it if needed // No longer re-throwing, return null instead
+    return null;
   }
 };
 

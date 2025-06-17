@@ -29,9 +29,22 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
       case 'tendencias':
-        // No specific client-side filtering or sorting here for 'tendencias'.
-        // It will use the data from categoryFilteredNews, which is already
-        // sorted by likes (primary) and timestamp (secondary) from the backend.
+        // Sort by likes (descending), then by timestamp (descending) if likes are equal.
+        // This ensures that if a vote changes, the client-side sorting reflects it immediately
+        // and maintains a consistent order similar to the backend's default.
+        filtered.sort((a, b) => {
+          const likesA = a.votes?.likes || 0;
+          const likesB = b.votes?.likes || 0;
+
+          if (likesB !== likesA) {
+            return likesB - likesA; // Primary sort: likes descending
+          }
+
+          // Secondary sort: publishedAt (timestamp) descending
+          const timestampA = new Date(a.publishedAt || 0).getTime();
+          const timestampB = new Date(b.publishedAt || 0).getTime();
+          return timestampB - timestampA;
+        });
         break;
       case 'rumores':
         filtered = filtered.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
