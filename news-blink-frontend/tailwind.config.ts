@@ -101,21 +101,6 @@ export default {
       typography: (theme) => ({
         DEFAULT: {
           css: {
-            // Blockquotes (Cita Destacada)
-            'blockquote': {
-              'font-style': 'italic',
-              'border-left-width': '0.25rem', // Ensure border width is set
-              'border-left-color': theme('colors.blue.600'),
-              'background-color': theme('colors.blue.50'),
-              'color': theme('colors.slate.700'),
-              'padding-top': '0.5em',
-              'padding-bottom': '0.5em',
-              'padding-left': '1em',
-              'padding-right': '1em',
-            },
-            'blockquote p:first-of-type::before': { content: 'none' },
-            'blockquote p:last-of-type::after': { content: 'none' },
-
             // For "Conclusiones Clave" List bullets
             'ul > li::before': {
               'background-color': theme('colors.customConclusionsBullet'),
@@ -124,19 +109,7 @@ export default {
         },
         dark: {
           css: {
-            'blockquote': {
-              'font-style': 'italic', // Ensure font-style is present for dark mode too
-              'border-left-width': '0.25rem',
-              'border-left-color': theme('colors.blue.500'),
-              'background-color': theme('colors.slate.800'),
-              'color': theme('colors.slate.300'),
-              'padding-top': '0.5em', // Consistent padding
-              'padding-bottom': '0.5em',
-              'padding-left': '1em',
-              'padding-right': '1em',
-            },
-            'blockquote p:first-of-type::before': { content: 'none' }, // Ensure quotes are off in dark
-            'blockquote p:last-of-type::after': { content: 'none' },   // Ensure quotes are off in dark
+            // For "Conclusiones Clave" List bullets
             'ul > li::before': {
               'background-color': theme('colors.customConclusionsBullet'),
             },
