@@ -109,11 +109,20 @@ export const useRealNews = () => {
     loadNews(tab);
   }, [loadNews]); // refreshNews depends on loadNews
 
+  const updateSingleNewsItem = useCallback((updatedItem: NewsItem) => {
+    setNews(prevNews =>
+      prevNews.map(item =>
+        item.id === updatedItem.id ? updatedItem : item
+      )
+    );
+  }, []); // setNews from useState is stable, so empty dependency array is fine.
+
   return {
     news,
     loading,
     error,
     loadNews,
-    refreshNews
+    refreshNews,
+    updateSingleNewsItem
   };
 };

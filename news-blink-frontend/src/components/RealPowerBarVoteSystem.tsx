@@ -2,18 +2,20 @@
 import { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { voteOnArticle } from '@/utils/api';
+import { voteOnArticle, NewsItem } from '@/utils/api'; // Imported NewsItem
 
 interface RealPowerBarVoteSystemProps {
   articleId: string;
   initialLikes?: number;
   initialDislikes?: number;
+  onVoteSuccess?: (updatedItem: NewsItem) => void; // Added new prop
 }
 
 export const RealPowerBarVoteSystem = ({ 
   articleId, 
   initialLikes = 0, 
-  initialDislikes = 0 
+  initialDislikes = 0,
+  onVoteSuccess // Destructured new prop
 }: RealPowerBarVoteSystemProps) => {
   const { isDarkMode } = useTheme();
   const [likes, setLikes] = useState(initialLikes);
@@ -30,24 +32,41 @@ export const RealPowerBarVoteSystem = ({
 
     setIsVoting(true);
     try {
-      // Call real API
-      await voteOnArticle(articleId, voteType);
+      const updatedArticleData = await voteOnArticle(articleId, voteType);
 
-      if (voteType === 'like') {
-        setLikes(prev => prev + 1);
-        if (userVote === 'dislike') {
-          setDislikes(prev => prev - 1);
+      if (updatedArticleData) {
+        // Update local state based on the accurate data from the server
+        setLikes(updatedArticleData.votes?.likes || 0);
+        setDislikes(updatedArticleData.votes?.dislikes || 0);
+        setUserVote(voteType); // Set user vote only on successful API response
+
+        // Call the callback with the updated item
+        if (onVoteSuccess) {
+          onVoteSuccess(updatedArticleData);
         }
       } else {
-        setDislikes(prev => prev + 1);
-        if (userVote === 'like') {
-          setLikes(prev => prev - 1);
-        }
+        // Handle the case where voteOnArticle returns null (error occurred)
+        // Optionally, revert optimistic updates or show an error to the user
+        console.error('Vote failed, API returned null.');
       }
 
-      setUserVote(voteType);
-    } catch (error) {
-      console.error('Error al votar:', error);
+      // Original optimistic update logic (can be removed or kept as fallback depending on UX preference)
+      // For now, relying on server response to set final state.
+      // if (voteType === 'like') {
+      //   setLikes(prev => prev + 1);
+      //   if (userVote === 'dislike') {
+      //     setDislikes(prev => prev - 1);
+      //   }
+      // } else {
+      //   setDislikes(prev => prev + 1);
+      //   if (userVote === 'like') {
+      //     setLikes(prev => prev - 1);
+      //   }
+      // }
+      // setUserVote(voteType); // Moved this to be conditional on successful API response
+
+    } catch (error) { // This catch is for network errors or if voteOnArticle throws, though it's set to return null now
+      console.error('Error during voting process:', error);
     } finally {
       setIsVoting(false);
     }
