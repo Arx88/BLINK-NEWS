@@ -28,6 +28,41 @@ blink_generator = BlinkGenerator()
 
 # Removed duplicated similarity function
 
+# Key function for sorting blinks, extracted for clarity and testability
+def _sort_blinks_key(blink):
+    votes = blink.get('votes', {})
+    try:
+        likes = int(votes.get('likes', 0))
+    except (ValueError, TypeError):
+        likes = 0
+    try:
+        dislikes = int(votes.get('dislikes', 0))
+    except (ValueError, TypeError):
+        dislikes = 0
+
+    total_votes = likes + dislikes
+    interest_score = 0.0
+
+    if total_votes > 0: # Calculate interest if there are any votes
+        interest_score = float(likes) / total_votes
+    # If total_votes is 0 (i.e., likes == 0 and dislikes == 0), interest_score remains 0.0
+
+    timestamp_val = blink.get('timestamp', 0) # Assuming timestamp is numerical
+
+    # The main sort call uses reverse=True
+    if interest_score == 0.0:
+        # For 0% interest (includes 0/0 votes and 0/N votes):
+        # 1. Interest score is 0.0 (neutral for primary sort when all are 0.0).
+        # 2. Dislikes (ascending, so key returns -dislikes due to reverse=True).
+        # 3. Timestamp (descending, so key returns timestamp_val due to reverse=True).
+        return (0.0, -dislikes, timestamp_val)
+    else:
+        # For >0% interest blinks:
+        # 1. Interest score (descending, so key returns interest_score).
+        # 2. Likes (descending, so key returns likes).
+        # 3. Timestamp (descending, so key returns timestamp_val).
+        return (interest_score, likes, timestamp_val)
+
 @api_bp.route('/news', methods=['GET'])
 def get_news():
     """API para obtener noticias en formato BLINK"""
@@ -189,35 +224,8 @@ def get_all_blinks_sorted():
             current_app.logger.error(f"IOError reading file {blink_file}: {e}")
             continue
 
-    # Sort the blinks
-    # Handle missing 'votes' or 'likes' by defaulting to 0
-    # Handle missing 'timestamp' by defaulting to a very old date (or empty string for type consistency if preferred)
-    def sort_key(blink):
-        votes = blink.get('votes', {})
-        # Explicitly cast to int, defaulting to 0 if key is missing or value is not convertible
-        try:
-            likes = int(votes.get('likes', 0))
-        except (ValueError, TypeError):
-            likes = 0
-        try:
-            dislikes = int(votes.get('dislikes', 0))
-        except (ValueError, TypeError):
-            dislikes = 0
-
-        total_votes = likes + dislikes
-        interest_score = 0.0
-        if total_votes > 0:
-            interest_score = float(likes) / total_votes # float() ensures float division
-
-        timestamp_val = blink.get('timestamp', 0) # Renamed to avoid conflict if any
-
-        # Sort by:
-        # 1. Interest score (higher is better)
-        # 2. Absolute likes (higher is better, for tie-breaking interest score)
-        # 3. Timestamp (newer is better, for tie-breaking both)
-        return (interest_score, likes, timestamp_val)
-
-    all_blinks_data.sort(key=sort_key, reverse=True)
+    # Sort the blinks using the extracted key function
+    all_blinks_data.sort(key=_sort_blinks_key, reverse=True)
 
     return jsonify(all_blinks_data)
 
