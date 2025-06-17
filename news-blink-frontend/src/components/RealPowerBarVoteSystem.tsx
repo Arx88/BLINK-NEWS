@@ -26,7 +26,7 @@ export const RealPowerBarVoteSystem = ({
   const [isVoting, setIsVoting] = useState(false);
 
   const total = likes + dislikes;
-  const likePercentage = total > 0 ? (likes / total) * 100 : 50;
+  const likePercentage = total > 0 ? (likes / total) * 100 : 0;
 
   const handleVote = async (voteType: 'like' | 'dislike', event: React.MouseEvent) => {
     event.stopPropagation();
