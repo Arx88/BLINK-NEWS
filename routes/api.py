@@ -193,12 +193,22 @@ def get_all_blinks_sorted():
     # Handle missing 'votes' or 'likes' by defaulting to 0
     # Handle missing 'timestamp' by defaulting to a very old date (or empty string for type consistency if preferred)
     def sort_key(blink):
-        likes = blink.get('votes', {}).get('likes', 0)
-        # Assuming timestamp is a string like '2023-10-20T12:00:00Z' or similar that can be string-compared
-        # Or if it's a Unix timestamp (number), direct comparison works.
-        # Default to 0 or an "early" string if missing, to ensure they go to the end if primary key is same.
-        timestamp = blink.get('timestamp', 0) # Assuming numeric/comparable or string 'YYYY-MM-DD...'
-        return (likes, timestamp)
+        votes = blink.get('votes', {})
+        likes = votes.get('likes', 0)
+        dislikes = votes.get('dislikes', 0)
+
+        total_votes = likes + dislikes
+        interest_score = 0.0
+        if total_votes > 0:
+            interest_score = likes / total_votes
+
+        timestamp = blink.get('timestamp', 0) # Keep existing timestamp logic
+
+        # Sort by:
+        # 1. Interest score (higher is better)
+        # 2. Absolute likes (higher is better, for tie-breaking interest score)
+        # 3. Timestamp (newer is better, for tie-breaking both)
+        return (interest_score, likes, timestamp)
 
     all_blinks_data.sort(key=sort_key, reverse=True)
 

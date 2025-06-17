@@ -29,18 +29,28 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
       case 'tendencias':
-        // Sort by likes (descending), then by timestamp (descending) if likes are equal.
-        // This ensures that if a vote changes, the client-side sorting reflects it immediately
-        // and maintains a consistent order similar to the backend's default.
         filtered.sort((a, b) => {
-          const likesA = a.votes?.likes || 0;
-          const likesB = b.votes?.likes || 0;
+          const votesA = a.votes || { likes: 0, dislikes: 0 };
+          const likesA = votesA.likes || 0;
+          const dislikesA = votesA.dislikes || 0;
+          const totalVotesA = likesA + dislikesA;
+          const scoreA = totalVotesA > 0 ? likesA / totalVotesA : 0.0;
 
-          if (likesB !== likesA) {
-            return likesB - likesA; // Primary sort: likes descending
+          const votesB = b.votes || { likes: 0, dislikes: 0 };
+          const likesB = votesB.likes || 0;
+          const dislikesB = votesB.dislikes || 0;
+          const totalVotesB = likesB + dislikesB;
+          const scoreB = totalVotesB > 0 ? likesB / totalVotesB : 0.0;
+
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA; // Primary: interest score descending
           }
 
-          // Secondary sort: publishedAt (timestamp) descending
+          if (likesB !== likesA) {
+            return likesB - likesA; // Secondary: absolute likes descending
+          }
+
+          // Tertiary: publishedAt (timestamp) descending
           const timestampA = new Date(a.publishedAt || 0).getTime();
           const timestampB = new Date(b.publishedAt || 0).getTime();
           return timestampB - timestampA;
