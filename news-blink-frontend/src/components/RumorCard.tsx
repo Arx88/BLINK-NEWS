@@ -73,7 +73,7 @@ export const RumorCard = memo(({ news, onCardClick }: RumorCardProps) => {
         </div>
         
         {/* Content section */}
-        <div className="p-5 flex-1 flex flex-col space-y-4 overflow-hidden"> {/* Added overflow-hidden */}
+        <div className="p-5 flex-1 flex flex-col space-y-4"> {/* Removed overflow-hidden */}
           <div>
             <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'} leading-tight mb-2`}>
               {news.title}
@@ -99,7 +99,7 @@ export const RumorCard = memo(({ news, onCardClick }: RumorCardProps) => {
           </div>
           
           {/* Rumor points */}
-          <div className="flex-1 space-y-2 overflow-y-auto"> {/* Added overflow-y-auto */}
+          <div className="flex-1 space-y-2"> {/* Removed overflow-y-auto */}
             {news.points.slice(0, 3).map((point: string, index: number) => (
               <div key={index} className="flex items-start space-x-2">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${isDarkMode 

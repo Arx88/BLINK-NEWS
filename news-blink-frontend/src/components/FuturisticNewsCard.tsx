@@ -102,8 +102,8 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
           </div>
           
           {/* Optimized bullets section */}
-          <div className="flex-1 flex flex-col justify-center mb-5 overflow-hidden"> {/* Added overflow-hidden */}
-            <div className="space-y-2 relative overflow-y-auto"> {/* Added overflow-y-auto */}
+          <div className="flex-1 flex flex-col justify-center mb-5"> {/* Removed overflow-hidden */}
+            <div className="space-y-2 relative"> {/* Removed overflow-y-auto */}
               {news.points.slice(0, 5).map((point: string, index: number) => {
                 const isActive = isHovered && currentBullet === index;
 
