@@ -1,6 +1,6 @@
 
 import { Badge } from '@/components/ui/badge';
-import { PowerBarVoteSystem } from './PowerBarVoteSystem';
+import { RealPowerBarVoteSystem } from './RealPowerBarVoteSystem';
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -158,7 +158,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
           
           {/* Vote system at bottom */}
           <div className="flex-shrink-0">
-            <PowerBarVoteSystem
+            <RealPowerBarVoteSystem
               articleId={news.id}
               initialLikes={news.votes?.likes || 0}
               initialDislikes={news.votes?.dislikes || 0}
