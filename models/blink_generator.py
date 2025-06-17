@@ -641,20 +641,36 @@ Artículo Estructurado en Formato Markdown:'''
         content = markdown_content
         logger.debug(f"Iniciando _polish_markdown_output para título: '{title}' (Primeros 100 chars de entrada: '{content[:100]}')")
 
-        # 1. Eliminar título repetido al inicio, si está seguido por "==="
         # El título puede tener caracteres especiales de regex, por lo que se escapa.
         escaped_title = re.escape(title)
+
+        # NEW: Remove title if it's at the beginning and followed by two newlines
+        # (handles optional bolding: **Title**\n\nBody or Title\n\nBody)
+        # This pattern must be applied before the '===' separator check.
+        pattern_title_double_newline = re.compile(
+            r"^(?:\*\*)?" + escaped_title + r"(?:\*\*)?\s*\n\n",
+            re.IGNORECASE
+        )
+        original_length_before_double_newline_check = len(content)
+        content, num_subs_double_newline = pattern_title_double_newline.subn("", content, count=1)
+        if num_subs_double_newline > 0:
+            logger.debug(f"Título inicial (opcionalmente bold) seguido por '\\n\\n' eliminado. (Primeros 100 chars: '{content[:100]}')")
+        else:
+            logger.debug(f"Título inicial (opcionalmente bold) seguido por '\\n\\n' no encontrado/eliminado.")
+
+        # 1. Eliminar título repetido al inicio, si está seguido por "==="
         # Patrón: Opcional "**" + título escapado + opcional "**" +
         #          una o más newlines y espacios opcionales alrededor de ellas +
         #          línea de === + cero o más newlines y espacios opcionales.
         # Usar count=1 para reemplazar solo la primera ocurrencia al inicio.
+        # This pattern is applied *after* the double newline check.
         pattern_title_separator = re.compile(
             r"^(?:\*\*)?" + escaped_title + r"(?:\*\*)?\s*[\r\n]+\s*={3,}\s*[\r\n]*",
             re.IGNORECASE # No se usa MULTILINE aquí porque ^ ya se refiere al inicio del string completo.
         )
-        original_length = len(content)
-        content = pattern_title_separator.sub("", content, count=1)
-        if len(content) != original_length:
+        original_length_before_separator_check = len(content) # Use a new variable for clarity
+        content, num_subs_separator = pattern_title_separator.subn("", content, count=1)
+        if num_subs_separator > 0:
             logger.debug(f"Título con separador '===' eliminado. (Primeros 100 chars: '{content[:100]}')")
         else:
             logger.debug(f"Título con separador '===' no encontrado/eliminado. (Primeros 100 chars: '{content[:100]}')")
