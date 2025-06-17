@@ -18,7 +18,7 @@ export const NewsGrid = ({ news, onCardClick }: NewsGridProps) => {
     >
       {news.map((item) => (
         <Flipped key={item.id} flipId={item.id}>
-          <div>
+          <div className="h-full flex flex-col">
             <FuturisticNewsCard
               // key prop is on the Flipped component now
               news={item}

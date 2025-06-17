@@ -18,7 +18,7 @@ export const RumorGrid = ({ news, onCardClick }: RumorGridProps) => {
     >
       {news.map((item) => (
         <Flipped key={item.id} flipId={item.id}>
-          <div>
+          <div className="h-full flex flex-col">
             <RumorCard
               // key prop is on the Flipped component now
               news={item}
