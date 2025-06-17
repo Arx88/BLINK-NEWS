@@ -1,6 +1,55 @@
 import { create } from 'zustand';
 import { NewsItem, transformBlinkToNewsItem } from '../utils/api'; // Assuming NewsItem is exported from api.ts
 
+// Helper function to get a numerical timestamp.
+function getNumericTimestamp(timestamp: string | number): number {
+  if (typeof timestamp === 'number') {
+    return timestamp;
+  }
+  // Attempt to parse if it's a string; fallback to 0 if invalid.
+  const parsed = new Date(timestamp).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+// Sort function for NewsItem objects
+function sortNewsItems(a: NewsItem, b: NewsItem): number {
+  const likesA = a.votes?.likes ?? 0;
+  const dislikesA = a.votes?.dislikes ?? 0;
+  const totalVotesA = likesA + dislikesA;
+  let interestScoreA = 0.0;
+  if (totalVotesA > 0) interestScoreA = likesA / totalVotesA;
+  const timestampA = getNumericTimestamp(a.timestamp);
+
+  const likesB = b.votes?.likes ?? 0;
+  const dislikesB = b.votes?.dislikes ?? 0;
+  const totalVotesB = likesB + dislikesB;
+  let interestScoreB = 0.0;
+  if (totalVotesB > 0) interestScoreB = likesB / totalVotesB;
+  const timestampB = getNumericTimestamp(b.timestamp);
+
+  // Primary sort: Interest Score (descending)
+  if (interestScoreA !== interestScoreB) {
+    return interestScoreB - interestScoreA; // Higher score comes first
+  }
+
+  // Secondary sort: Depends on whether interest score is 0%
+  if (interestScoreA === 0.0) { // Both are 0% interest (interestScoreB is also 0.0)
+    // Sort by Dislikes (ascending)
+    if (dislikesA !== dislikesB) {
+      return dislikesA - dislikesB; // Lower dislikes come first
+    }
+    // Tertiary sort (if dislikes are same for 0% interest): Timestamp (descending)
+    return timestampB - timestampA; // Higher timestamp comes first
+  } else { // Both have >0% interest and their interest scores were equal
+    // Sort by Likes (descending)
+    if (likesA !== likesB) {
+      return likesB - likesA; // Higher likes come first
+    }
+    // Tertiary sort (if likes are same for >0% interest): Timestamp (descending)
+    return timestampB - timestampA; // Higher timestamp comes first
+  }
+}
+
 interface NewsState {
   news: NewsItem[];
   loading: boolean;
@@ -17,7 +66,7 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   fetchNews: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch('/api/blinks'); // Fetches all blinks, sorted by likes by backend
+      const response = await fetch('/api/blinks'); // Fetches all blinks, sorted by backend
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[newsStore] API request failed. Status:', response.status, response.statusText, 'Response text:', errorText);
@@ -55,6 +104,8 @@ export const useNewsStore = create<NewsState>((set, get) => ({
         throw new Error('Invalid data format from API. Expected an array.');
       }
 
+      // Assuming backend already sorts, but if client-side initial sort is ever needed,
+      // it could be done here: data.sort(sortNewsItems);
       const transformedNews = data.map(transformBlinkToNewsItem);
       set({ news: transformedNews, loading: false, error: null });
     } catch (err: any) {
@@ -64,11 +115,14 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   },
 
   updateBlinkInList: (updatedBlink: NewsItem) => {
-    set(state => ({
-      news: state.news.map(item =>
-        item.id === updatedBlink.id ? updatedBlink : item
-      ),
-    }));
+    set(state => {
+      const updatedNewsList = state.news.map(item =>
+        item.id === updatedBlink.id ? { ...item, ...updatedBlink } : item
+      );
+      // Re-sort the updatedNewsList array
+      updatedNewsList.sort(sortNewsItems);
+      return { news: updatedNewsList };
+    });
   },
 }));
 
