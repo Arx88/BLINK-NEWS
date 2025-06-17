@@ -126,7 +126,7 @@ export const IntegratedNavigationBar = ({
                 <SelectItem 
                   key={category.value} 
                   value={category.value}
-                  className={`text-base py-3 px-4 rounded-lg margin-1 transition-all duration-200 ${isDarkMode 
+                  className={`text-base py-3 pl-8 pr-4 rounded-lg transition-all duration-200 ${isDarkMode
                     ? 'text-white hover:bg-gray-700 focus:bg-gray-700 data-[highlighted]:bg-gray-700' 
                     : 'text-gray-800 hover:bg-gray-100 focus:bg-gray-100 data-[highlighted]:bg-gray-100'}`}
                 >
