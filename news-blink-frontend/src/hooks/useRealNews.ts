@@ -39,7 +39,6 @@ export const useRealNews = () => {
     loading,
     error,
     loadNews,
-    refreshNews,
-    updateSingleNewsItem
+    refreshNews
   };
 };
