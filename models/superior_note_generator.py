@@ -10,6 +10,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import re
+from string import Template
 # from models.image_generator import ImageGenerator # <-- LÍNEA COMENTADA
 import ollama
 
@@ -273,7 +274,8 @@ NOTA SUPERIOR (solo texto, sin formato Markdown):"""
 
             effective_content = raw_note_content[:max_chars]
 
-            formatted_prompt = prompt_template.format(title=title, effective_plain_text_content=effective_content)
+            template = Template(prompt_template)
+            formatted_prompt = template.substitute(title=title, effective_plain_text_content=effective_content)
 
             print(f"Enviando a OLLAMA para formateo Markdown (modelo: {model_name}, temp: {temperature}):\n{formatted_prompt[:300]}...")
 
