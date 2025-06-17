@@ -142,6 +142,7 @@ El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
     *   Revisa el texto original para asegurar una buena fluidez y estructura de párrafos.
     *   Utiliza saltos de línea dobles para separar párrafos en Markdown.
     *   Si el texto original contiene subtítulos implícitos o secciones, puedes usar encabezados Markdown (por ejemplo, `## Subtítulo Relevante`) si mejora la legibilidad. No inventes subtítulos si no son evidentes en el texto.
+    *   IMPORTANTE: No repitas el título del artículo (que se te proporciona en la variable '{title}') al inicio del cuerpo del texto. El contenido debe comenzar directamente con la narrativa periodística.
 
 2.  **Cita Destacada:**
     *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
