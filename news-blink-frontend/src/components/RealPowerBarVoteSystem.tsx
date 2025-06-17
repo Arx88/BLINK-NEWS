@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { voteOnArticle, NewsItem } from '@/utils/api'; // Imported NewsItem
-import { useNewsStore } from '../../store/newsStore'; // Import the Zustand store
+import { useNewsStore } from '../store/newsStore'; // Corrected import path
 
 interface RealPowerBarVoteSystemProps {
   articleId: string;
