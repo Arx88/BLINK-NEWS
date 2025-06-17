@@ -31,14 +31,14 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
       case 'tendencias':
         filtered.sort((a, b) => {
           const votesA = a.votes || { likes: 0, dislikes: 0 };
-          const likesA = votesA.likes || 0;
-          const dislikesA = votesA.dislikes || 0;
+          const likesA = Number(votesA.likes || 0);
+          const dislikesA = Number(votesA.dislikes || 0);
           const totalVotesA = likesA + dislikesA;
           const scoreA = totalVotesA > 0 ? likesA / totalVotesA : 0.0;
 
           const votesB = b.votes || { likes: 0, dislikes: 0 };
-          const likesB = votesB.likes || 0;
-          const dislikesB = votesB.dislikes || 0;
+          const likesB = Number(votesB.likes || 0);
+          const dislikesB = Number(votesB.dislikes || 0);
           const totalVotesB = likesB + dislikesB;
           const scoreB = totalVotesB > 0 ? likesB / totalVotesB : 0.0;
 
