@@ -3,21 +3,23 @@ import { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { voteOnArticle, NewsItem } from '@/utils/api'; // Imported NewsItem
+import { useNewsStore } from '../../store/newsStore'; // Import the Zustand store
 
 interface RealPowerBarVoteSystemProps {
   articleId: string;
   initialLikes?: number;
   initialDislikes?: number;
-  onVoteSuccess?: (updatedItem: NewsItem) => void; // Added new prop
+  // onVoteSuccess prop is removed
 }
 
 export const RealPowerBarVoteSystem = ({ 
   articleId, 
   initialLikes = 0, 
-  initialDislikes = 0,
-  onVoteSuccess // Destructured new prop
+  initialDislikes = 0
+  // onVoteSuccess is removed from destructuring
 }: RealPowerBarVoteSystemProps) => {
   const { isDarkMode } = useTheme();
+  const updateBlinkInList = useNewsStore(state => state.updateBlinkInList); // Get action from store
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
   const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(null);
@@ -40,10 +42,9 @@ export const RealPowerBarVoteSystem = ({
         setDislikes(updatedArticleData.votes?.dislikes || 0);
         setUserVote(voteType); // Set user vote only on successful API response
 
-        // Call the callback with the updated item
-        if (onVoteSuccess) {
-          onVoteSuccess(updatedArticleData);
-        }
+        // Call the store action with the updated item
+        updateBlinkInList(updatedArticleData);
+
       } else {
         // Handle the case where voteOnArticle returns null (error occurred)
         // Optionally, revert optimistic updates or show an error to the user
