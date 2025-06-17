@@ -639,60 +639,97 @@ Artículo Estructurado en Formato Markdown:'''
         de formato antes de que se considere final.
         """
         content = markdown_content
-        logger.debug(f"Iniciando _polish_markdown_output para título: {title}")
+        logger.debug(f"Iniciando _polish_markdown_output para título: '{title}' (Primeros 100 chars de entrada: '{content[:100]}')")
 
-        # 1. Eliminar título repetido al inicio, posiblemente con separador "==="
+        # 1. Eliminar título repetido al inicio, si está seguido por "==="
         # El título puede tener caracteres especiales de regex, por lo que se escapa.
-        # Patrón: Opcional "**" + título escapado + opcional "**" + opcionales \s*\n + línea de === + opcional \s*\n
         escaped_title = re.escape(title)
+        # Patrón: Opcional "**" + título escapado + opcional "**" +
+        #          una o más newlines y espacios opcionales alrededor de ellas +
+        #          línea de === + cero o más newlines y espacios opcionales.
+        # Usar count=1 para reemplazar solo la primera ocurrencia al inicio.
         pattern_title_separator = re.compile(
-            r"^(?:\*\*)?" + escaped_title + r"(?:\*\*)?\s*[\r\n]+\s*={3,}\s*[\r\n]+",
-            re.IGNORECASE
+            r"^(?:\*\*)?" + escaped_title + r"(?:\*\*)?\s*[\r\n]+\s*={3,}\s*[\r\n]*",
+            re.IGNORECASE # No se usa MULTILINE aquí porque ^ ya se refiere al inicio del string completo.
         )
-        content = pattern_title_separator.sub("", content)
-        logger.debug(f"Contenido después de eliminar título con separador '===' (primeros 200 chars): {content[:200]}")
+        original_length = len(content)
+        content = pattern_title_separator.sub("", content, count=1)
+        if len(content) != original_length:
+            logger.debug(f"Título con separador '===' eliminado. (Primeros 100 chars: '{content[:100]}')")
+        else:
+            logger.debug(f"Título con separador '===' no encontrado/eliminado. (Primeros 100 chars: '{content[:100]}')")
 
-        # 2. Corregir duplicados de "Conclusiones Clave" y asegurar formato de encabezado
-        # Caso A: "Conclusiones Clave\nConclusiones Clave\n" -> "## Conclusiones Clave\n"
-        content = content.replace("Conclusiones Clave\nConclusiones Clave\n", "## Conclusiones Clave\n")
-        content = content.replace("Conclusiones Clave\r\nConclusiones Clave\r\n", "## Conclusiones Clave\r\n") # Windows newlines
-
-        # Caso B: "Conclusiones Clave" (texto plano) seguido por "## Conclusiones Clave" (encabezado)
-        # Eliminar el texto plano si ya existe el encabezado correcto después.
-        # Esto busca "Conclusiones Clave" (opcionalmente en negrita) + espacios/newlines + "## Conclusiones Clave"
-        # y elimina la primera parte.
-        pattern_plain_then_header_conclusion = re.compile(
-            r"^(?:\*\*)?Conclusiones Clave(?:\*\*)?\s*[\r\n]+\s*(?=## Conclusiones Clave)",
+        # 2. Transformar "Conclusiones Clave" de Setext H1 a ATX H2
+        # Busca "Conclusiones Clave" en una línea, seguida por "===" en la siguiente.
+        pattern_conclusiones_setext = re.compile(
+            r"^(Conclusiones Clave)\s*[\r\n]+\s*={3,}\s*[\r\n]*",
             re.IGNORECASE | re.MULTILINE
         )
-        content = pattern_plain_then_header_conclusion.sub("", content)
-        logger.debug(f"Contenido después de corregir duplicados de 'Conclusiones Clave' (primeros 200 chars): {content[:200]}")
+        original_length = len(content)
+        content = pattern_conclusiones_setext.sub("## Conclusiones Clave\n", content)
+        if len(content) != original_length:
+            logger.debug(f"'Conclusiones Clave' Setext H1 transformado a ATX H2. (Primeros 100 chars: '{content[:100]}')")
 
+        # 3. Corregir duplicados de "Conclusiones Clave" y asegurar formato de encabezado
+        # Caso A: "Conclusiones Clave\n## Conclusiones Clave\n" (texto plano antes de ATX)
+        # Esto es más específico que el Caso B y debe ir primero.
+        pattern_plain_then_correct_header = re.compile(
+            r"^(?:\*\*)?Conclusiones Clave(?:\*\*)?\s*[\r\n]+\s*(## Conclusiones Clave)",
+            re.IGNORECASE | re.MULTILINE
+        )
+        original_length = len(content)
+        content = pattern_plain_then_correct_header.sub(r"\1", content) # Mantiene el encabezado ATX correcto
+        if len(content) != original_length:
+            logger.debug(f"Texto plano 'Conclusiones Clave' antes de ATX H2 eliminado. (Primeros 100 chars: '{content[:100]}')")
 
-        # 3. Eliminar líneas separadoras huérfanas ("====" o "----")
-        #    que no estén actuando como cabeceras Setext válidas.
+        # Caso B: Dos instancias de "Conclusiones Clave" en texto plano, separadas por nueva línea.
+        # Esto podría ser "Conclusiones Clave\nConclusiones Clave" que no fue capturado por Setext H1.
+        # Se convierte a un solo encabezado ATX H2.
+        # Esta regla es más general y debe ir después de las transformaciones a ATX H2.
+        # Usar \s*[\r\n]+\s* para flexibilidad con espacios y múltiples líneas vacías.
+        pattern_double_plain_conclusion = re.compile(
+            r"^(?:\*\*)?Conclusiones Clave(?:\*\*)?\s*[\r\n]+\s*(?:\*\*)?Conclusiones Clave(?:\*\*)?\s*[\r\n]+",
+            re.IGNORECASE | re.MULTILINE
+        )
+        original_length = len(content)
+        # Solo reemplaza si no hay ya un "## Conclusiones Clave" inmediatamente después, para evitar sobre-corrección.
+        # Esta condición es difícil de poner en el regex de forma eficiente sin lookarounds complejos.
+        # Por ahora, se asume que si esto ocurre, es un error a corregir a "## Conclusiones Clave".
+        if pattern_double_plain_conclusion.search(content):
+             # Antes de reemplazar, verificar si el área que sigue NO es ya un "## Conclusiones Clave"
+            match = pattern_double_plain_conclusion.search(content)
+            if match:
+                # Si lo que sigue al match NO es "## Conclusiones Clave"
+                following_text_start = match.end()
+                if not content[following_text_start:].strip().startswith("## Conclusiones Clave"):
+                    content = pattern_double_plain_conclusion.sub("## Conclusiones Clave\n", content, count=1) # count=1 para evitar loops si el patrón es muy voraz
+                    logger.debug(f"Duplicado de texto plano 'Conclusiones Clave' transformado a ATX H2. (Primeros 100 chars: '{content[:100]}')")
+
+        # 4. Eliminar líneas separadoras huérfanas ("====" o "----")
         lines = content.splitlines()
         polished_lines = []
-        for i, line in enumerate(lines):
-            is_separator_line = re.fullmatch(r"={3,}|-{3,}", line.strip())
+        for i, line_text in enumerate(lines):
+            stripped_line = line_text.strip()
+            is_separator_line = re.fullmatch(r"={3,}|-{3,}", stripped_line)
             if is_separator_line:
-                # Para ser una cabecera Setext válida, la línea anterior debe existir y no estar vacía,
-                # y no ser ella misma otro separador.
                 if i > 0 and lines[i-1].strip() and not re.fullmatch(r"={3,}|-{3,}", lines[i-1].strip()):
-                    polished_lines.append(line) # Es una cabecera Setext válida, mantenerla
+                    polished_lines.append(line_text)
                 else:
-                    logger.debug(f"Eliminando línea separadora huérfana: '{line}'")
-                    pass # Es huérfana, no añadirla
+                    logger.debug(f"Eliminando línea separadora huérfana: '{line_text}'")
             else:
-                polished_lines.append(line)
+                polished_lines.append(line_text)
         content = "\n".join(polished_lines)
-        logger.debug(f"Contenido después de eliminar separadores huérfanos (primeros 200 chars): {content[:200]}")
 
-        # Asegurar un solo salto de línea al final si el contenido no está vacío
+        # Asegurar un solo salto de línea al final si el contenido no está vacío y no tiene ya uno.
+        if content.strip() and not content.endswith("\n"):
+            content += "\n"
+        # Remover múltiples saltos de línea al final, dejando solo uno si hay contenido.
         if content.strip():
-            content = content.strip() + "\n"
+             content = re.sub(r"[\r\n]+$", "\n", content)
+        else: # Si el contenido es solo whitespace (o vacío) después de las operaciones
+            content = "" # Devolver string vacío
 
-        logger.debug(f"_polish_markdown_output finalizado para título: {title} (primeros 200 chars): {content[:200]}")
+        logger.debug(f"_polish_markdown_output finalizado para título: '{title}' (Primeros 100 chars de salida: '{content[:100]}')")
         return content
 
     def generate_blink_from_news_group(self, news_group):
