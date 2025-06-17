@@ -125,12 +125,19 @@ Respuesta:"""
                 "model_name": "qwen3:32b", # Default model, can be overridden by config.json
                 "input_max_chars": 15000, # Max input characters for base text generation
                 "temperature": 0.5,
-                "prompt_template": """A partir del siguiente texto de varias noticias con el título "{title}", genera un único texto base coherente y conciso que sirva como cuerpo principal para un resumen tipo Blink. El texto debe ser fluido y estar bien escrito, pero NO DEBE INCLUIR NINGÚN FORMATO MARKDOWN (como encabezados, citas, o listas). Debe ser texto plano listo para ser formateado posteriormente.
+                "prompt_template": """A partir del siguiente texto de varias noticias (cuyo título general es "{title}" y se proporciona solo para tu contexto), genera un único texto base coherente y conciso. Este texto base servirá como cuerpo principal para un resumen tipo Blink.
+
+Reglas para el Texto Base:
+-   Debe ser fluido y estar bien escrito.
+-   **IMPORTANTE: NO incluyas el título "{title}" en el texto base que generes.** El texto base debe comenzar directamente con la narrativa periodística.
+-   NO DEBE INCLUIR NINGÚN FORMATO MARKDOWN (como encabezados, negritas, itálicas, citas, o listas).
+-   NO intentes identificar, separar o formatear citas destacadas. Simplemente extrae y redacta el contenido periodístico principal.
+-   Debe ser solo texto plano, listo para ser formateado en un paso posterior.
 
 Texto de las noticias:
 {input_text_truncated}
 
-Texto base para Blink (solo texto plano):"""
+Texto base para Blink (solo texto plano, sin el título "{title}" al inicio, sin formato Markdown, sin secciones de citas):"""
             },
             "format_main_content": {
                 "model_name": "qwen3:32b", "input_max_chars": 20000, "temperature": 0.6, # Max input for the formatter
@@ -145,7 +152,7 @@ El artículo en Markdown DEBE incluir los siguientes elementos en este orden:
     *   IMPORTANTE: No repitas el título del artículo (que se te proporciona en la variable '{title}') al inicio del cuerpo del texto. El contenido debe comenzar directamente con la narrativa periodística.
 
 2.  **Cita Destacada:**
-    *   Identifica una frase o declaración impactante y relevante del texto original que pueda servir como cita.
+    *   Identifica una **cita textual directa** del texto original que sea impactante y relevante. Idealmente, esta cita debería estar **atribuida explícitamente a una persona o fuente específica mencionada en el texto, o aparecer claramente entrecomillada en el texto original.** Si no se encuentra una cita textual clara que cumpla estos criterios, es preferible omitir la sección de Cita Destacada.
     *   Formatea esta cita como un blockquote en Markdown (usando `>`).
     *   Si es posible atribuir la cita a una persona o fuente mencionada en el texto, añade la atribución después del blockquote en una línea separada, por ejemplo:
         `> Esta es la cita impactante.`
