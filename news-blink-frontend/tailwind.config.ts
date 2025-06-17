@@ -65,11 +65,7 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				},
-        customQuoteBg: '#060D19',
-        customQuoteText: '#89B9EE',
-        customConclusionsBg: '#090C11',
-        customConclusionsBullet: '#3B82F6'
+				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -97,26 +93,8 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out'
-			},
-      typography: (theme) => ({
-        DEFAULT: {
-          css: {
-            // For "Conclusiones Clave" List bullets
-            'ul > li::before': {
-              'background-color': theme('colors.customConclusionsBullet'),
-            },
-          },
-        },
-        dark: {
-          css: {
-            // For "Conclusiones Clave" List bullets
-            'ul > li::before': {
-              'background-color': theme('colors.customConclusionsBullet'),
-            },
-          }
-        }
-      }),
+			}
 		}
 	},
-	plugins: [require("tailwindcss-animate"), require('@tailwindcss/typography')],
+	plugins: [require("tailwindcss-animate")],
 } satisfies Config;
