@@ -50,7 +50,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
       onClick={handleCardClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="cursor-pointer h-auto min-h-[600px] flex flex-col"
+      className="cursor-pointer h-[600px] flex flex-col overflow-hidden" // Changed className
     >
       <div className={`relative h-full flex flex-col ${isDarkMode 
         ? 'bg-gray-900' 

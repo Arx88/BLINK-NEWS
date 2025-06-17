@@ -28,7 +28,7 @@ export const RumorCard = memo(({ news, onCardClick }: RumorCardProps) => {
   return (
     <div 
       onClick={handleCardClick}
-      className="cursor-pointer h-auto"
+      className="cursor-pointer h-[600px] flex flex-col overflow-hidden" // Changed className
     >
       <div className={`relative h-full flex flex-col ${isDarkMode 
         ? 'bg-slate-900/80' 
