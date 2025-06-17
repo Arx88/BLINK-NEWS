@@ -14,9 +14,9 @@ interface ContentSegment {
 
 function parseArticleContent(text: string): ContentSegment[] {
   const segments: ContentSegment[] = [];
-  const regex = /(<custom_quote>(?:.|
-)*?<\/custom_quote>|<custom_conclusions>(?:.|
-)*?<\/custom_conclusions>)/gs;
+  // Corrected Regex: Use .*? with the s flag (dotall) to match any character including newlines.
+  const regex = /(<custom_quote>.*?<\/custom_quote>|<custom_conclusions>.*?<\/custom_conclusions>)/gs;
+
   let lastIndex = 0;
   let match;
   while ((match = regex.exec(text)) !== null) {
