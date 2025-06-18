@@ -1,0 +1,2 @@
+2025-06-18 00:40:05,905 - models.blink_generator - INFO - File logger setup complete. Logging to: /app/LOG/blink_run_20250618_004005.log
+2025-06-18 00:40:05,911 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json

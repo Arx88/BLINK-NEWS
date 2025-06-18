@@ -54,8 +54,8 @@ def _sort_blinks_key(blink):
         # For 0% interest (includes 0/0 votes and 0/N votes):
         # 1. Interest score is 0.0 (neutral for primary sort when all are 0.0).
         # 2. Dislikes (ascending, so key returns -dislikes due to reverse=True).
-        # 3. Timestamp (descending, so key returns timestamp_val due to reverse=True).
-        return (0.0, -dislikes, timestamp_val)
+        # 3. Timestamp (ascending, so key returns -timestamp_val due to reverse=True).
+        return (0.0, -dislikes, -timestamp_val)
     else:
         # For >0% interest blinks:
         # 1. Interest score (descending, so key returns interest_score).

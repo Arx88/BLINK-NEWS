@@ -10,11 +10,12 @@ class TestApiSorting(unittest.TestCase):
     def test_blink_with_zero_likes_and_zero_dislikes(self):
         """
         Test Case 1: Blink with 0 likes and 0 dislikes.
-        Expected output from sort_key: (0.0, 0, timestamp).
+        Expected output from sort_key: (0.0, 0, -timestamp).
         -dislikes for 0 dislikes is 0.
+        Timestamp is negated for 0% interest blinks.
         """
         blink = {'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': 100}
-        expected_key_output = (0.0, 0, 100)
+        expected_key_output = (0.0, 0, -100) # Timestamp is negated
         self.assertEqual(sort_key_under_test(blink), expected_key_output)
 
     def test_blinks_zero_interest_sorted_by_dislikes_ascending(self):
@@ -27,41 +28,52 @@ class TestApiSorting(unittest.TestCase):
 
         # sort_key_under_test(blink_A) -> (0.0, -10, 100)
         # sort_key_under_test(blink_B) -> (0.0, -5, 200)
-        # sort_key_under_test(blink_C) -> (0.0, 0, 300)
+        # sort_key_under_test(blink_A) -> (0.0, -10, -100) # Timestamps are negated
+        # sort_key_under_test(blink_B) -> (0.0, -5, -200)  # Timestamps are negated
+        # sort_key_under_test(blink_C) -> (0.0, 0, -300)   # Timestamps are negated
 
         blinks = [blink_A, blink_B, blink_C]
         blinks.sort(key=sort_key_under_test, reverse=True)
 
-        # Expected order: C, B, A
-        # C: (0.0, 0, 300)
-        # B: (0.0, -5, 200)  -> 0 > -5, so C comes before B
-        # A: (0.0, -10, 100) -> -5 > -10, so B comes before A
+        # Expected order: C, B, A (dislikes ascending, then timestamp ascending)
+        # C: (0.0, 0, -300)
+        # B: (0.0, -5, -200)  -> 0 > -5, so C before B
+        # A: (0.0, -10, -100) -> -5 > -10, so B before A
+        # Within same dislikes, -timestamp means older items (smaller original ts) come first.
+        # Example: if C1 had ts 300 and C2 had ts 350, both 0 dislikes.
+        # C1 key: (0.0, 0, -300), C2 key: (0.0, 0, -350)
+        # Sorted reverse: C1 (-300) comes before C2 (-350) because -300 > -350. This means 300 before 350 (ascending).
         expected_order_ids = ['C', 'B', 'A']
         self.assertEqual([b['id'] for b in blinks], expected_order_ids)
 
-    def test_blinks_zero_interest_same_dislikes_sorted_by_timestamp_descending(self):
+    def test_blinks_zero_interest_same_dislikes_sorted_by_timestamp_ascending(self):
         """
-        Test Case 3: Blinks with 0% interest and same dislikes, sorted by timestamp (descending).
+        Test Case 3: Blinks with 0% interest and same dislikes, sorted by timestamp (ascending).
+        Timestamp is ascending because the key returns -timestamp and sort is reverse=True.
         """
         blink_D = {'id': 'D', 'votes': {'likes': 0, 'dislikes': 5}, 'timestamp': 100} # Interest 0%
         blink_E = {'id': 'E', 'votes': {'likes': 0, 'dislikes': 5}, 'timestamp': 300} # Interest 0%
         blink_F = {'id': 'F', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': 200} # Interest 0%, 0 votes
         blink_G = {'id': 'G', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': 400} # Interest 0%, 0 votes
 
-        # sort_key_under_test(blink_D) -> (0.0, -5, 100)
-        # sort_key_under_test(blink_E) -> (0.0, -5, 300)
-        # sort_key_under_test(blink_F) -> (0.0, 0, 200)
-        # sort_key_under_test(blink_G) -> (0.0, 0, 400)
+        # sort_key_under_test(blink_D) -> (0.0, -5, -100)
+        # sort_key_under_test(blink_E) -> (0.0, -5, -300)
+        # sort_key_under_test(blink_F) -> (0.0, 0, -200)
+        # sort_key_under_test(blink_G) -> (0.0, 0, -400)
 
-        blinks = [blink_D, blink_E, blink_F, blink_G]
+        blinks = [blink_D, blink_E, blink_F, blink_G] # Original order for test stability
         blinks.sort(key=sort_key_under_test, reverse=True)
 
-        # Expected order: G, F, E, D
-        # G (0.0, 0, 400)
-        # F (0.0, 0, 200)   -> G vs F: G by timestamp
-        # E (0.0, -5, 300)  -> F vs E: F by dislikes (0 > -5)
-        # D (0.0, -5, 100)  -> E vs D: E by timestamp
-        expected_order_ids = ['G', 'F', 'E', 'D']
+        # Expected order: F, G, D, E
+        # Grouped by dislikes (ascending due to -dislikes and reverse=True): (0,0) then (5,5)
+        # F (0.0, 0, -200)
+        # G (0.0, 0, -400)
+        #   Within 0 dislikes: F then G because -200 > -400 (meaning timestamp 200 before 400 - ascending)
+        # D (0.0, -5, -100)
+        # E (0.0, -5, -300)
+        #   Within 5 dislikes: D then E because -100 > -300 (meaning timestamp 100 before 300 - ascending)
+        # Overall: F, G (0 dislikes group), then D, E (-5 dislikes group, which comes after 0 due to -5 vs 0)
+        expected_order_ids = ['F', 'G', 'D', 'E']
         self.assertEqual([b['id'] for b in blinks], expected_order_ids)
 
     def test_blinks_with_different_interest_scores(self):
@@ -74,7 +86,7 @@ class TestApiSorting(unittest.TestCase):
 
         # sort_key_under_test(blink_H) -> (0.5, 10, 100)
         # sort_key_under_test(blink_I) -> (1.0, 20, 200)
-        # sort_key_under_test(blink_J) -> (0.0, 0, 300)
+        # sort_key_under_test(blink_J) -> (0.0, 0, -300) # Timestamp is negated
 
         blinks = [blink_H, blink_I, blink_J]
         blinks.sort(key=sort_key_under_test, reverse=True)
