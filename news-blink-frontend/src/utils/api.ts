@@ -18,35 +18,53 @@ export interface NewsItem {
 
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => { // Added export
-  let publishedAtDate = new Date().toISOString();
-  if (blink.timestamp) {
-    if (typeof blink.timestamp === 'number') {
-      publishedAtDate = new Date(blink.timestamp * 1000).toISOString();
-    } else if (typeof blink.timestamp === 'string') {
-      const parsedDate = new Date(blink.timestamp);
-      if (!isNaN(parsedDate.getTime())) {
-        publishedAtDate = parsedDate.toISOString();
-      }
-    }
-  } else if (blink.publishedAt) { // Fallback for some existing mock data structure if any
-    const parsedDate = new Date(blink.publishedAt);
-    if (!isNaN(parsedDate.getTime())) {
-      publishedAtDate = parsedDate.toISOString();
-    }
+  const rawVotes = blink.votes;
+  let finalVotes = { likes: 0, dislikes: 0 };
+
+  if (rawVotes && typeof rawVotes === 'object') {
+    const parsedLikes = parseInt(String(rawVotes.likes), 10);
+    const parsedDislikes = parseInt(String(rawVotes.dislikes), 10);
+
+    finalVotes = {
+      likes: !isNaN(parsedLikes) ? parsedLikes : 0,
+      dislikes: !isNaN(parsedDislikes) ? parsedDislikes : 0,
+    };
   }
+  // If rawVotes is null, undefined, or not an object,
+  // finalVotes remains { likes: 0, dislikes: 0 } as initialized.
+  // This also handles cases where rawVotes.likes or rawVotes.dislikes might be missing.
 
   return {
     id: blink.id || '',
     title: blink.title || 'No Title Provided',
-    image: blink.image || 'https://via.placeholder.com/800x600.png?text=No+Image', // Default image
+    image: blink.image || 'https://via.placeholder.com/800x600.png?text=No+Image',
     points: Array.isArray(blink.points) ? blink.points : [],
     category: (Array.isArray(blink.categories) && blink.categories.length > 0 ? blink.categories[0] : blink.category) || 'general',
-    isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false, // Default isHot to false
-    readTime: blink.readTime || 'N/A', // Default readTime
-    publishedAt: publishedAtDate,
-    aiScore: typeof blink.aiScore === 'number' ? blink.aiScore : 50, // Default aiScore
-    votes: blink.votes || { likes: 0, dislikes: 0 },
-    sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []), // Use sources, fallback to urls
+    isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false,
+    readTime: blink.readTime || 'N/A',
+    // publishedAt calculation
+    publishedAt: (() => {
+        let publishedAtDate = new Date().toISOString();
+        if (blink.timestamp) {
+            if (typeof blink.timestamp === 'number') {
+                publishedAtDate = new Date(blink.timestamp * 1000).toISOString();
+            } else if (typeof blink.timestamp === 'string') {
+                const parsedDate = new Date(blink.timestamp);
+                if (!isNaN(parsedDate.getTime())) {
+                    publishedAtDate = parsedDate.toISOString();
+                }
+            }
+        } else if (blink.publishedAt) {
+            const parsedDate = new Date(blink.publishedAt);
+            if (!isNaN(parsedDate.getTime())) {
+                publishedAtDate = parsedDate.toISOString();
+            }
+        }
+        return publishedAtDate;
+    })(),
+    aiScore: typeof blink.aiScore === 'number' ? blink.aiScore : 50,
+    votes: finalVotes, // Use the sanitized finalVotes
+    sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []),
     content: blink.content || '',
   };
 };
