@@ -24,7 +24,7 @@ const Index = () => {
     clearFilters
   } = useNewsFilter(news, 'tendencias'); // Changed 'ultimas' to 'tendencias'
 
-  const [heroNews, setHeroNews] = useState(null);
+  const heroNews = filteredNews.length > 0 ? filteredNews[0] : null;
 
   // REMOVED:
   // useEffect(() => {
@@ -37,11 +37,7 @@ const Index = () => {
     }
   }, [activeTab, loadNews]); // loadNews is from useRealNews
 
-  useEffect(() => {
-    if (filteredNews.length > 0) {
-      setHeroNews(filteredNews[0]);
-    }
-  }, [filteredNews]);
+  // useEffect for setHeroNews removed
 
   const handleRefresh = () => {
     refreshNews(activeTab);

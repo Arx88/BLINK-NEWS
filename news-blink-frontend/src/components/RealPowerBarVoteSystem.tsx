@@ -7,25 +7,24 @@ import { useNewsStore } from '../store/newsStore'; // Corrected import path
 
 interface RealPowerBarVoteSystemProps {
   articleId: string;
-  initialLikes?: number;
-  initialDislikes?: number;
+  likes?: number; // Renamed from initialLikes
+  dislikes?: number; // Renamed from initialDislikes
   // onVoteSuccess prop is removed
 }
 
 export const RealPowerBarVoteSystem = ({ 
   articleId, 
-  initialLikes = 0, 
-  initialDislikes = 0
+  likes = 0, // Use renamed prop, default to 0
+  dislikes = 0 // Use renamed prop, default to 0
   // onVoteSuccess is removed from destructuring
 }: RealPowerBarVoteSystemProps) => {
   const { isDarkMode } = useTheme();
   const updateBlinkInList = useNewsStore(state => state.updateBlinkInList); // Get action from store
-  const [likes, setLikes] = useState(initialLikes);
-  const [dislikes, setDislikes] = useState(initialDislikes);
+  // Local state for likes and dislikes removed
   const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
 
-  const total = likes + dislikes;
+  const total = likes + dislikes; // Now uses props
   const likePercentage = total > 0 ? (likes / total) * 100 : 0;
 
   const handleVote = async (voteType: 'like' | 'dislike', event: React.MouseEvent) => {
@@ -33,31 +32,13 @@ export const RealPowerBarVoteSystem = ({
     // Restore original guard: if it's the current vote, or if already voting, do nothing.
     if (userVote === voteType || isVoting) return;
 
-    // Store pre-vote state
-    const prevLikes = likes;
-    const prevDislikes = dislikes;
+    // Store pre-vote state for userVote only
     const prevUserVote = userVote;
 
     setIsVoting(true);
 
-    // Optimistic UI Update
-    // This block now only executes if voteType is different from userVote due to the guard above.
-    let newLikes = prevLikes;
-    let newDislikes = prevDislikes;
-
-    if (voteType === 'like') {
-      newLikes = prevLikes + 1;
-      if (prevUserVote === 'dislike') { // If previously disliked, remove the dislike
-        newDislikes = prevDislikes - 1;
-      }
-    } else { // voteType === 'dislike'
-      newDislikes = prevDislikes + 1;
-      if (prevUserVote === 'like') { // If previously liked, remove the like
-        newLikes = prevLikes - 1;
-      }
-    }
-    setLikes(newLikes);
-    setDislikes(newDislikes);
+    // Optimistic UI Update for userVote only
+    // Actual like/dislike counts will come from props updated by the store
     setUserVote(voteType);
 
     try {
@@ -65,24 +46,19 @@ export const RealPowerBarVoteSystem = ({
 
       if (updatedArticleData) {
         const finalUpdatedBlink = transformBlinkToNewsItem(updatedArticleData);
-        // Confirm state with server response using transformed data
-        setLikes(finalUpdatedBlink.votes?.likes || 0);
-        setDislikes(finalUpdatedBlink.votes?.dislikes || 0);
-        // setUserVote is already optimistically set. Could re-set if server could deny vote type.
-        setUserVote(voteType); // Confirm user's current vote status based on successful action
+        // The component now relies on props for likes/dislikes.
+        // The store update will trigger a re-render with new props.
         updateBlinkInList(finalUpdatedBlink);
+        // setUserVote is already optimistically set. Could re-set if server could deny vote type.
+        // For now, assume optimistic userVote is fine.
       } else {
-        // API call failed or returned null, revert optimistic update
-        console.error('Vote API call failed. Reverting optimistic update.');
-        setLikes(prevLikes);
-        setDislikes(prevDislikes);
+        // API call failed or returned null, revert optimistic userVote update
+        console.error('Vote API call failed. Reverting optimistic userVote update.');
         setUserVote(prevUserVote);
       }
     } catch (error) {
-      console.error('Error during voting process, reverting optimistic update:', error);
-      // Revert optimistic update on any unexpected error
-      setLikes(prevLikes);
-      setDislikes(prevDislikes);
+      console.error('Error during voting process, reverting optimistic userVote update:', error);
+      // Revert optimistic userVote update on any unexpected error
       setUserVote(prevUserVote);
     } finally {
       setIsVoting(false);
