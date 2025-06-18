@@ -7,6 +7,7 @@ from datetime import datetime
 import threading
 import time
 import hashlib
+import logging # Added for dedicated logger
 # SequenceMatcher import removed as it's no longer directly used here
 
 from models.scraper import NewsScraper
@@ -32,12 +33,13 @@ blink_generator = BlinkGenerator()
 def _sort_blinks_key(blink):
     votes = blink.get('votes', {})
     blink_id = blink.get('id', 'unknown_id') # Get blink ID for logging, default if not found
+    warnings_logger = logging.getLogger('blink_sorting_warnings') # Get the dedicated logger
 
     raw_likes = votes.get('likes', 0)
     try:
         likes = int(raw_likes)
     except (ValueError, TypeError) as e:
-        current_app.logger.warning(
+        warnings_logger.warning(
             f"Blink {blink_id}: Failed to convert 'likes' value '{raw_likes}' to int. Defaulting to 0. Error: {e}"
         )
         likes = 0
@@ -46,7 +48,7 @@ def _sort_blinks_key(blink):
     try:
         dislikes = int(raw_dislikes)
     except (ValueError, TypeError) as e:
-        current_app.logger.warning(
+        warnings_logger.warning(
             f"Blink {blink_id}: Failed to convert 'dislikes' value '{raw_dislikes}' to int. Defaulting to 0. Error: {e}"
         )
         dislikes = 0
