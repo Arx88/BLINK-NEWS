@@ -17,27 +17,41 @@ export const RealPowerBarVoteSystem = ({
   dislikes = 0,
   currentUserVoteStatus // New prop
 }: RealPowerBarVoteSystemProps) => {
-  console.log(`[RealPowerBarVoteSystem] RENDER articleId: ${articleId}, Props: likes=${likes}, dislikes=${dislikes}, currentUserVoteStatus=${currentUserVoteStatus}`); // Diagnostic log
+  console.log(`[DEBUG RealPowerBarVoteSystem] RENDER articleId: ${articleId}, Props: (L:${likes}, D:${dislikes}, UserVoteProp:${currentUserVoteStatus}), Initialized userVoteState: ${currentUserVoteStatus || null}`);
   const { isDarkMode } = useTheme();
   const updateBlinkInList = useNewsStore(state => state.updateBlinkInList);
 
-  const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(currentUserVoteStatus || null); // New
+    // --- TEMPORARY SIMULATION FOR TESTING ---
+    // IMPORTANT: User should replace these IDs with actual IDs from their test data for effective simulation
+    let simulatedUserVoteStatus: 'like' | 'dislike' | null = null;
+    if (articleId === "ID_OF_ARTICLE_TO_TEST_AS_LIKED") {
+      simulatedUserVoteStatus = 'like';
+    } else if (articleId === "ID_OF_ARTICLE_TO_TEST_AS_DISLIKED") {
+      simulatedUserVoteStatus = 'dislike';
+    }
+    // For other articleIds, it will remain null, simulating no previous vote.
+    const finalInitialUserVote = currentUserVoteStatus !== undefined ? currentUserVoteStatus : simulatedUserVoteStatus;
+    // --- END TEMPORARY SIMULATION ---
+
+  const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(finalInitialUserVote);
   const [isVoting, setIsVoting] = useState(false);
   const [optimisticLikes, setOptimisticLikes] = useState(likes);
   const [optimisticDislikes, setOptimisticDislikes] = useState(dislikes);
 
   useEffect(() => {
+    console.log(`[DEBUG RealPowerBarVoteSystem] Syncing optimistic L/D with props. L:${likes}, D:${dislikes} for article ${articleId}`);
     setOptimisticLikes(likes);
     setOptimisticDislikes(dislikes);
-  }, [likes, dislikes]);
+  }, [likes, dislikes, articleId]); // articleId ensures reset when component is reused for different article
 
   useEffect(() => {
-    setUserVote(currentUserVoteStatus || null);
-  }, [currentUserVoteStatus, articleId]);
+    setUserVote(finalInitialUserVote);
+  }, [finalInitialUserVote, articleId]);
 
   useEffect(() => {
-    console.log(`[RealPowerBarVoteSystem] EFFECT Props/State Change for articleId: ${articleId} - Props: (L:${likes}, D:${dislikes}, CurrentUserVote:${currentUserVoteStatus}) - State: (userVote:${userVote}, optimL:${optimisticLikes}, optimD:${optimisticDislikes})`);
-  }, [articleId, likes, dislikes, currentUserVoteStatus, userVote, optimisticLikes, optimisticDislikes]);
+    // This log helps see how props and key states change together.
+    console.log(`[DEBUG RealPowerBarVoteSystem] EFFECT Props/State Change for articleId: ${articleId} - Props: (L:${likes}, D:${dislikes}, CurrentUserVoteProp:${currentUserVoteStatus}) - InternalState: (userVote:${userVote}, optimL:${optimisticLikes}, optimD:${optimisticDislikes}, isVoting:${isVoting})`);
+  }, [articleId, likes, dislikes, currentUserVoteStatus, userVote, optimisticLikes, optimisticDislikes, isVoting]);
 
   const totalOptimistic = optimisticLikes + optimisticDislikes;
   const likePercentageOptimistic = totalOptimistic > 0 ? (optimisticLikes / totalOptimistic) * 100 : 0;
@@ -45,12 +59,10 @@ export const RealPowerBarVoteSystem = ({
   // Modify the handleVote function:
   const handleVote = async (newVoteType: 'like' | 'dislike', event: React.MouseEvent) => {
     event.stopPropagation();
-    console.log(`[RealPowerBarVoteSystem] handleVote: articleId=${articleId}, newVoteType=${newVoteType}`);
-    console.log(`[RealPowerBarVoteSystem] Current props: (L:${likes}, D:${dislikes}, UserVoteProp:${currentUserVoteStatus})`);
-    console.log(`[RealPowerBarVoteSystem] Current state: (userVoteState:${userVote}, optimL:${optimisticLikes}, optimD:${optimisticDislikes}, isVoting:${isVoting})`);
+    console.log(`[DEBUG RealPowerBarVoteSystem] handleVote FIRED. Article: ${articleId}, VoteTypeClicked: ${newVoteType}, CurrentInternalUserVote: ${userVote}, Props (L:${likes}, D:${dislikes}), OptimisticState (L:${optimisticLikes}, D:${optimisticDislikes})`);
 
     if (isVoting) {
-      console.log(`[RealPowerBarVoteSystem] Vote attempt blocked: isVoting=${isVoting}`);
+      console.log(`[DEBUG RealPowerBarVoteSystem] Blocked: already voting.`);
       return;
     }
 
@@ -95,7 +107,7 @@ export const RealPowerBarVoteSystem = ({
     nextOptimisticLikes = Math.max(0, nextOptimisticLikes);
     nextOptimisticDislikes = Math.max(0, nextOptimisticDislikes);
 
-    console.log(`[RealPowerBarVoteSystem] Optimistic update calculation: nextUserVoteState=${nextUserVoteState}, nextOptimL=${nextOptimisticLikes}, nextOptimD=${nextOptimisticDislikes}`);
+    console.log(`[DEBUG RealPowerBarVoteSystem] Optimistic update calculation: nextUserVoteState=${nextUserVoteState}, nextOptimL=${nextOptimisticLikes}, nextOptimD=${nextOptimisticDislikes}`);
 
     // Apply optimistic updates to UI
     setUserVote(nextUserVoteState);
@@ -115,27 +127,29 @@ export const RealPowerBarVoteSystem = ({
                                            // The backend will then determine the final state.
                                            // The optimistic UI is what we are primarily fixing here.
 
-      const updatedArticleData = await voteOnArticle(articleId, newVoteType); // API is called with the button just clicked.
-                                                                         // The backend determines final counts.
+      console.log(`[DEBUG RealPowerBarVoteSystem] Calling API: voteOnArticle(${articleId}, ${newVoteType})`);
+      const updatedArticleData = await voteOnArticle(articleId, newVoteType); // API uses the clicked type
+
       if (updatedArticleData) {
+        console.log(`[DEBUG RealPowerBarVoteSystem] API Success. Response:`, updatedArticleData);
         const finalUpdatedBlink = transformBlinkToNewsItem(updatedArticleData);
         updateBlinkInList(finalUpdatedBlink);
         // Props will update via store, which will trigger useEffect to sync optimisticLikes/Dislikes.
-        // setUserVote might also be updated by the currentUserVoteStatus prop changing.
-        console.log(`[RealPowerBarVoteSystem] API call successful. Store updated. Props will sync optimistic counts.`);
+        // The userVote state will also be updated via its useEffect if currentUserVoteStatus changes.
       } else {
-        console.error('[RealPowerBarVoteSystem] Vote API call failed or returned null data. Reverting optimistic UI.');
+        console.error('[DEBUG RealPowerBarVoteSystem] API Error: No data. Reverting optimistic UI.');
         setUserVote(previousUserVoteState);
-        setOptimisticLikes(previousOptimisticLikes);
-        setOptimisticDislikes(previousOptimisticDislikes);
+        setOptimisticLikes(previousOptimisticLikesForRevert);
+        setOptimisticDislikes(previousOptimisticDislikesForRevert);
       }
     } catch (error) {
-      console.error(`[RealPowerBarVoteSystem] Error during voting:`, error);
+      console.error(`[DEBUG RealPowerBarVoteSystem] API Exception. Reverting optimistic UI:`, error);
       setUserVote(previousUserVoteState);
-      setOptimisticLikes(previousOptimisticLikes);
-      setOptimisticDislikes(previousOptimisticDislikes);
+      setOptimisticLikes(previousOptimisticLikesForRevert);
+      setOptimisticDislikes(previousOptimisticDislikesForRevert);
     } finally {
       setIsVoting(false);
+      console.log(`[DEBUG RealPowerBarVoteSystem] handleVote FINISHED. isVoting: false`);
     }
   };
 
