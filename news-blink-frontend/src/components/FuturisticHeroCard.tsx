@@ -10,6 +10,11 @@ interface FuturisticHeroCardProps {
 }
 
 export const FuturisticHeroCard = memo(({ news, onCardClick }: FuturisticHeroCardProps) => {
+  if (news) { // 'news' is the prop name in FuturisticHeroCard
+    console.log(`[FuturisticHeroCard.tsx] Received news prop: ID=${news.id}, Likes=${news.votes?.likes}, Dislikes=${news.votes?.dislikes}`);
+  } else {
+    console.log('[FuturisticHeroCard.tsx] Received news prop is null');
+  }
   const { isDarkMode } = useTheme();
   const [currentBullet, setCurrentBullet] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
