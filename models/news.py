@@ -232,6 +232,90 @@ class News:
         app_logger.debug(f"calculate_interest_percentage for ID {blink_data.get('id', 'N/A')}: L={likes}, D={dislikes}, Total={total_votes}, NetDiff={net_vote_difference}, C={confidence_factor_c} -> Interest={interest:.2f}%")
         return interest
 
+    def _compare_blinks(self, blink_a, blink_b):
+        # Helper to parse 'publishedAt' safely
+        def parse_datetime(published_at_str):
+            try:
+                # Attempt to parse ISO format, common in JSON. Handle 'Z' for UTC.
+                dt = datetime.fromisoformat(published_at_str.replace('Z', '+00:00'))
+                # Ensure datetime is timezone-aware, defaulting to UTC if naive.
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except (ValueError, AttributeError, TypeError): # TypeError if not string, AttributeError if methods like .replace fail
+                app_logger.warning(f"Could not parse datetime string '{published_at_str}'. Using fallback minimum date.", exc_info=True)
+                return datetime.min.replace(tzinfo=timezone.utc)
+
+        # Retrieve interestPercentage, default to 0.0 if missing
+        interest_a = blink_a.get('interestPercentage', 0.0)
+        interest_b = blink_b.get('interestPercentage', 0.0)
+
+        # Compare interestPercentage (descending)
+        if interest_a > interest_b:
+            # app_logger.debug(f"Sort: {blink_a.get('id')} ({interest_a}%) > {blink_b.get('id')} ({interest_b}%) by interest.")
+            return -1
+        if interest_a < interest_b:
+            # app_logger.debug(f"Sort: {blink_a.get('id')} ({interest_a}%) < {blink_b.get('id')} ({interest_b}%) by interest.")
+            return 1
+
+        # app_logger.debug(f"Sort: Interest tied for {blink_a.get('id')} and {blink_b.get('id')} ({interest_a}%). Proceeding to tie-breakers.")
+
+        # If interestPercentage is tied, parse publishedAt dates
+        # These are parsed early as they are used in multiple rules or as a final tie-breaker
+        date_a = parse_datetime(blink_a.get('publishedAt'))
+        date_b = parse_datetime(blink_b.get('publishedAt'))
+
+        # Ensure votes structure and default likes/dislikes
+        votes_a = blink_a.get('votes', {})
+        likes_a = votes_a.get('likes', 0)
+        dislikes_a = votes_a.get('dislikes', 0)
+
+        votes_b = blink_b.get('votes', {})
+        likes_b = votes_b.get('likes', 0)
+        dislikes_b = votes_b.get('dislikes', 0)
+
+        # Regla A (Noticias sin votos)
+        # A blink qualifies if it has 0 interest (already established by tie), 0 likes, and 0 dislikes.
+        is_rule_a_candidate_a = (likes_a == 0 and dislikes_a == 0) # interest_a == 0.0 is implicit due to tie
+        is_rule_a_candidate_b = (likes_b == 0 and dislikes_b == 0) # interest_b == 0.0 is implicit
+
+        if interest_a == 0.0: # This check ensures Rule A is only applied when common interest is truly zero
+            if is_rule_a_candidate_a and not is_rule_a_candidate_b:
+                # app_logger.debug(f"Sort Rule A: {blink_a.get('id')} (no votes) vs {blink_b.get('id')} (has votes/activity). A comes first.")
+                return -1 # A qualifies for Rule A and B doesn't (B might have votes but still 0 interest)
+            if not is_rule_a_candidate_a and is_rule_a_candidate_b:
+                # app_logger.debug(f"Sort Rule A: {blink_a.get('id')} (has votes/activity) vs {blink_b.get('id')} (no votes). B comes first.")
+                return 1  # B qualifies for Rule A and A doesn't
+            if is_rule_a_candidate_a and is_rule_a_candidate_b:
+                # Both qualify for Rule A (0 interest, 0 likes, 0 dislikes), sort by publishedAt (descending)
+                # app_logger.debug(f"Sort Rule A (Both): {blink_a.get('id')} vs {blink_b.get('id')}. Comparing dates: {date_a} vs {date_b}.")
+                if date_a > date_b: return -1
+                if date_a < date_b: return 1
+                # app_logger.debug(f"Sort Rule A (Both): Dates tied for {blink_a.get('id')} and {blink_b.get('id')}. Proceeding.")
+                # Fall through to default date comparison if dates are identical, though unlikely for different blinks
+
+        # Regla B (Noticias con 0 positivos y varios negativos)
+        # This rule applies if items are tied by interestPercentage (which they are at this point).
+        # A blink qualifies if it has 0 likes and >0 dislikes.
+        is_rule_b_candidate_a = (likes_a == 0 and dislikes_a > 0)
+        is_rule_b_candidate_b = (likes_b == 0 and dislikes_b > 0)
+
+        if is_rule_b_candidate_a and is_rule_b_candidate_b:
+            # Both qualify for Rule B, compare dislikes (ascending - fewer dislikes is better)
+            # app_logger.debug(f"Sort Rule B (Both): {blink_a.get('id')} ({dislikes_a} dislikes) vs {blink_b.get('id')} ({dislikes_b} dislikes). Comparing dislikes.")
+            if dislikes_a < dislikes_b: return -1
+            if dislikes_a > dislikes_b: return 1
+            # app_logger.debug(f"Sort Rule B (Both): Dislikes tied for {blink_a.get('id')} and {blink_b.get('id')}. Proceeding to date tie-breaker.")
+            # If dislikes are also tied, fall through to default date comparison
+
+        # Default Tie-Breaker: Compare by publishedAt (descending)
+        # app_logger.debug(f"Sort Default Tie-Break: {blink_a.get('id')} vs {blink_b.get('id')}. Comparing dates: {date_a} vs {date_b}.")
+        if date_a > date_b: return -1
+        if date_a < date_b: return 1
+
+        # app_logger.debug(f"Sort Ultimate Tie: {blink_a.get('id')} vs {blink_b.get('id')}. IDs: {blink_a.get('id')} vs {blink_b.get('id')}. Considered equal.")
+        return 0
+
     def get_all_blinks(self, user_id=None):
         app_logger.info(f"get_all_blinks called. user_id='{user_id}'")
         blinks_processed = []
@@ -260,19 +344,20 @@ class News:
                     app_logger.warning(f"Missing 'publishedAt' for blink_id='{blink.get('id')}' in file {filename}. Using fallback date.")
                     blink['publishedAt'] = datetime(1970, 1, 1, tzinfo=timezone.utc).isoformat()
 
-                # Remove interestPercentage calculation
-                # blink['interestPercentage'] = self.calculate_interest_percentage(blink)
+                # Calculate and store interestPercentage
+                blink['interestPercentage'] = self.calculate_interest_percentage(blink, confidence_factor_c=5)
 
                 if user_id:
                     blink['currentUserVoteStatus'] = self._get_user_vote_status(blink, user_id) # Uses like/dislike now
                 else:
                     blink['currentUserVoteStatus'] = None
                 blinks_processed.append(blink)
-                # Updated log to remove interest and reflect L/D votes
-                app_logger.debug(f"Processed blink_id='{blink.get('id')}': UserVote='{blink['currentUserVoteStatus']}', Votes(L/D): {current_votes.get('likes',0)}/{current_votes.get('dislikes',0)}")
+                # Updated log to include interest and reflect L/D votes
+                app_logger.debug(f"Processed blink_id='{blink.get('id')}': UserVote='{blink['currentUserVoteStatus']}', Votes(L/D): {current_votes.get('likes',0)}/{current_votes.get('dislikes',0)}, Interest: {blink.get('interestPercentage', 'N/A')}")
             except Exception as e:
                 app_logger.error(f"Error processing blink file {filename} in get_all_blinks loop: {e}", exc_info=True)
 
-        app_logger.info(f"Successfully processed and loaded {len(blinks_processed)} blinks. Sorting removed from this method.")
-        # Return blinks_processed directly without sorting
+        app_logger.info(f"Sorting {len(blinks_processed)} blinks based on dynamic interest and rules.")
+        blinks_processed.sort(key=cmp_to_key(self._compare_blinks))
+        app_logger.info(f"Successfully processed, loaded and sorted {len(blinks_processed)} blinks.")
         return blinks_processed
