@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; // useState will be unused for heroNews but might be used by other parts if any, useEffect is used by loadNews
 import { Header } from '@/components/Header';
 import { Newsletter } from '@/components/Newsletter';
 import { Footer } from '@/components/ui/footer';
@@ -22,22 +21,16 @@ const Index = () => {
     activeTab,
     setActiveTab,
     clearFilters
-  } = useNewsFilter(news, 'tendencias'); // Changed 'ultimas' to 'tendencias'
+  } = useNewsFilter(news, 'tendencias');
 
+  // heroNews is derived directly from filteredNews
   const heroNews = filteredNews.length > 0 ? filteredNews[0] : null;
 
-  // REMOVED:
-  // useEffect(() => {
-  //   loadNews('ultimas');
-  // }, []);
-
   useEffect(() => {
-    if (activeTab) { // Ensure activeTab is truthy before loading
+    if (activeTab) {
       loadNews(activeTab);
     }
-  }, [activeTab, loadNews]); // loadNews is from useRealNews
-
-  // useEffect for setHeroNews removed
+  }, [activeTab, loadNews]);
 
   const handleRefresh = () => {
     refreshNews(activeTab);
