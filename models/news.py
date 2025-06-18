@@ -253,30 +253,91 @@ class News:
         app_logger.info(f"Successfully processed {len(blinks_processed)} blinks. Now sorting.")
 
         def compare_blinks(b1, b2):
-            if b1['interestPercentage'] > b2['interestPercentage']: return -1
-            if b1['interestPercentage'] < b2['interestPercentage']: return 1
+            # Intensive logging for b1 and b2 details
+            b1_id = b1.get('id', 'N/A')
+            b2_id = b2.get('id', 'N/A')
+            app_logger.debug(f"compare_blinks: Comparing b1 (ID: {b1_id}, Interest: {b1['interestPercentage']:.2f}%, Votes P/N: {b1['votes'].get('positive',0)}/{b1['votes'].get('negative',0)}, Date: {b1['publishedAt']}) "
+                             f"with b2 (ID: {b2_id}, Interest: {b2['interestPercentage']:.2f}%, Votes P/N: {b2['votes'].get('positive',0)}/{b2['votes'].get('negative',0)}, Date: {b2['publishedAt']})")
+
+            # 1. Primary sort: interestPercentage (DESC)
+            if b1['interestPercentage'] > b2['interestPercentage']:
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): b1 interest > b2 interest. Result: -1 (b1 first)")
+                return -1
+            if b1['interestPercentage'] < b2['interestPercentage']:
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): b1 interest < b2 interest. Result: 1 (b2 first)")
+                return 1
+
+            # At this point, interestPercentage is tied.
+            app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): interestPercentage is TIED ({b1['interestPercentage']:.2f}%). Applying tie-breaking rules.")
 
             b1_positive = b1['votes'].get('positive', 0)
             b1_negative = b1['votes'].get('negative', 0)
             b2_positive = b2['votes'].get('positive', 0)
             b2_negative = b2['votes'].get('negative', 0)
 
-            try: b1_date = datetime.fromisoformat(b1['publishedAt'].replace('Z', '+00:00'))
-            except ValueError: b1_date = datetime(1970, 1, 1, tzinfo=timezone.utc)
-            try: b2_date = datetime.fromisoformat(b2['publishedAt'].replace('Z', '+00:00'))
-            except ValueError: b2_date = datetime(1970, 1, 1, tzinfo=timezone.utc)
+            try:
+                b1_date = datetime.fromisoformat(b1['publishedAt'].replace('Z', '+00:00'))
+            except ValueError:
+                app_logger.warning(f"compare_blinks ({b1_id}): ValueError parsing b1 publishedAt '{b1['publishedAt']}'. Using fallback date.")
+                b1_date = datetime(1970, 1, 1, tzinfo=timezone.utc)
+            try:
+                b2_date = datetime.fromisoformat(b2['publishedAt'].replace('Z', '+00:00'))
+            except ValueError:
+                app_logger.warning(f"compare_blinks ({b2_id}): ValueError parsing b2 publishedAt '{b2['publishedAt']}'. Using fallback date.")
+                b2_date = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
-            is_b1_no_votes = b1['interestPercentage'] == 0.0 and b1_positive == 0 and b1_negative == 0
-            is_b2_no_votes = b2['interestPercentage'] == 0.0 and b2_positive == 0 and b2_negative == 0
-            if is_b1_no_votes and is_b2_no_votes: return (b2_date > b1_date) - (b2_date < b1_date)
+            # Rule A: interestPercentage == 0.0 AND positiveVotes == 0 AND negativeVotes == 0 for both
+            # This implies interestPercentage is 0.0 for both as we are in the tie section.
+            is_b1_rule_a_criteria = b1['interestPercentage'] == 0.0 and b1_positive == 0 and b1_negative == 0
+            is_b2_rule_a_criteria = b2['interestPercentage'] == 0.0 and b2_positive == 0 and b2_negative == 0
 
-            is_b1_rule_b = b1_positive == 0 and b1_negative > 0
-            is_b2_rule_b = b2_positive == 0 and b2_negative > 0
-            if is_b1_rule_b and is_b2_rule_b: return (b1_negative > b2_negative) - (b1_negative < b2_negative)
-            if is_b1_rule_b: return 1
-            if is_b2_rule_b: return -1
+            if is_b1_rule_a_criteria and is_b2_rule_a_criteria:
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): Both match Rule A criteria (0 interest, 0 positive, 0 negative). Sorting by publishedAt DESC.")
+                if b1_date > b2_date: return -1 # b1 is newer, comes first
+                if b1_date < b2_date: return 1  # b2 is newer, comes first
+                return 0 # Should be rare with full timestamps
 
-            return (b2_date > b1_date) - (b2_date < b1_date)
+            # Handling cases where one is Rule A and the other isn't (and interest is tied at 0.0)
+            # If b1 is Rule A and b2 is not (but b2 also has 0.0% interest, e.g. from 0 pos / X neg, or N pos / M neg that balances to 0.0%),
+            # Rule A item (no votes) should come after.
+            if is_b1_rule_a_criteria and not is_b2_rule_a_criteria: # b1 is 0/0/0, b2 has some votes but still 0% interest (e.g. 0 pos / X neg, or balanced votes)
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): b1 matches Rule A (0/0/0), b2 does not but has same 0% interest. b1 comes after. Result: 1")
+                return 1
+            if not is_b1_rule_a_criteria and is_b2_rule_a_criteria: # b2 is 0/0/0, b1 has some votes but still 0% interest
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): b2 matches Rule A (0/0/0), b1 does not but has same 0% interest. b2 comes after. Result: -1")
+                return -1
+
+            # Rule B: Tied interest (and not Rule A), AND positiveVotes == 0 AND negativeVotes > 0 for both
+            is_b1_rule_b_criteria = b1_positive == 0 and b1_negative > 0
+            is_b2_rule_b_criteria = b2_positive == 0 and b2_negative > 0
+
+            if is_b1_rule_b_criteria and is_b2_rule_b_criteria:
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): Both match Rule B criteria (0 positive, >0 negative). Sorting by negativeVotes ASC.")
+                if b1_negative < b2_negative: return -1 # b1 has fewer negative votes, comes first
+                if b1_negative > b2_negative: return 1  # b2 has fewer negative votes, comes first
+                # If negative votes are also tied, fall through to date sort
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): Rule B, negative votes also tied ({b1_negative}). Fall to date sort.")
+
+
+            # Handling cases where one is Rule B and the other isn't (and interest is tied, and neither is Rule A)
+            # A non-Rule B item (e.g. has positive votes, or 0 neg votes but not Rule A) ranks higher than a Rule B item if interest is tied.
+            if is_b1_rule_b_criteria and not is_b2_rule_b_criteria:
+                # b1 is (0 pos, >0 neg). b2 is not (could be >0 pos, or 0 pos/0 neg which means Rule A - handled above).
+                # If b2 has positive votes, it's not Rule B. If interests are tied (e.g. at 0%), a (0, >0) item should come after an item with positive votes or 0/0 votes.
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): b1 is Rule B, b2 is not. b1 comes after. Result: 1")
+                return 1
+            if not is_b1_rule_b_criteria and is_b2_rule_b_criteria:
+                # b2 is (0 pos, >0 neg). b1 is not.
+                app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): b2 is Rule B, b1 is not. b2 comes after. Result: -1")
+                return -1
+
+            # Default tie-breaker: publishedAt (DESC) for any other ties not covered by A or B
+            app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): Default tie-breaker: sorting by publishedAt DESC.")
+            if b1_date > b2_date: return -1
+            if b1_date < b2_date: return 1
+
+            app_logger.debug(f"compare_blinks ({b1_id} vs {b2_id}): All criteria tied. Result: 0")
+            return 0
 
         sorted_blinks = sorted(blinks_processed, key=cmp_to_key(compare_blinks))
         app_logger.info(f"Sorting complete. Returning {len(sorted_blinks)} blinks.")
