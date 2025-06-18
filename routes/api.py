@@ -137,6 +137,7 @@ def vote_on_blink(blink_id):
     Records a vote (like or dislike) for a specific blink.
     Accepts blink_id from URL path and voteType from JSON body.
     """
+    warnings_logger = logging.getLogger('blink_sorting_warnings') # Get the dedicated logger
     data = request.get_json()
     if not data or 'voteType' not in data:
         return jsonify({'error': 'Missing voteType in request body'}), 400
@@ -183,11 +184,13 @@ def vote_on_blink(blink_id):
             blink_data['votes']['dislikes'] = max(0, new_dislikes)
 
             # Write updated data back
-            current_app.logger.info(f"Attempting to write data for {blink_id} to blink file: {blink_data}")
+            # current_app.logger.info(f"Attempting to write data for {blink_id} to blink file: {blink_data}") # Replaced by warnings_logger below
+            warnings_logger.info(f"[vote_on_blink] Attempting to write to file {blink_file_path}. Data being written for ID {blink_id}: {blink_data}")
             f.seek(0)
             json.dump(blink_data, f, ensure_ascii=False, indent=2)
             f.truncate()
-            current_app.logger.info(f"Successfully wrote data for {blink_id} to blink file.")
+            # current_app.logger.info(f"Successfully wrote data for {blink_id} to blink file.") # Replaced by warnings_logger below
+            warnings_logger.info(f"[vote_on_blink] Successfully wrote and truncated file {blink_file_path} for ID {blink_id}.")
 
         # Also update the corresponding article file if it exists
         # This part mimics the behavior of news_model.update_vote
@@ -210,12 +213,15 @@ def vote_on_blink(blink_id):
 
     except json.JSONDecodeError as e:
         current_app.logger.error(f"Invalid JSON data in blink file for {blink_id}: {e}")
+        warnings_logger.error(f"[vote_on_blink] JSONDecodeError for ID {blink_id} in file {blink_file_path}: {e}")
         return jsonify({'error': 'Invalid JSON data in blink file'}), 500
     except IOError as e:
         current_app.logger.error(f"IOError during vote operation for {blink_id}: {e}")
+        warnings_logger.error(f"[vote_on_blink] IOError for ID {blink_id} in file {blink_file_path}: {e}")
         return jsonify({'error': 'File operation failed'}), 500
     except Exception as e:
         current_app.logger.error(f"Unexpected error during vote operation for {blink_id}: {e}")
+        warnings_logger.error(f"[vote_on_blink] Unexpected Exception for ID {blink_id} in file {blink_file_path}: {e}")
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @api_bp.route('/blinks/<blink_id>', methods=['GET'])
