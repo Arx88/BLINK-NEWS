@@ -81,8 +81,9 @@ def get_blink_route(article_id):
         # If 'interestPercentage' is still desired on this specific endpoint, it can be calculated here.
         # For now, assuming it's not added as per overall plan to move calcs to frontend.
         # If it IS needed: blink['interestPercentage'] = news_manager.calculate_interest_percentage(blink)
+        blink['interestPercentage'] = news_manager_instance.calculate_interest_percentage(blink)
 
-        app_logger.info(f"Successfully retrieved blink via get_blink_route: article_id='{article_id}', UserVote='{blink.get('currentUserVoteStatus')}', Votes={blink.get('votes')}.")
+        app_logger.info(f"Successfully retrieved blink via get_blink_route: article_id='{article_id}', UserVote='{blink.get('currentUserVoteStatus')}', Votes={blink.get('votes')}, Interest={blink.get('interestPercentage'):.2f}%.")
         return jsonify(blink)
     except Exception as e:
         app_logger.error(f"Error in /blinks/{article_id} route for userId='{user_id}'. Error: {e}", exc_info=True)
