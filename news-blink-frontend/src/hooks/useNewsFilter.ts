@@ -1,6 +1,22 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
+function calculateInterestScore(likes: number, dislikes: number): number {
+  const total = likes + dislikes;
+  if (total === 0) {
+    return 0; // Or a very small number to rank below items with some interaction
+  }
+  // Wilson Score Interval for confidence interval of a Bernoulli parameter
+  const z = 1.96; // 1.96 for 95% confidence
+  const phat = likes / total;
+  try {
+    const score = (phat + z * z / (2 * total) - z * Math.sqrt((phat * (1 - phat) + z * z / (4 * total)) / total)) / (1 + z * z / total);
+    return isNaN(score) ? 0 : score;
+  } catch (e) { // Catch potential Math.sqrt errors with negative inputs if phat*(1-phat) is extremely small and negative due to precision
+    return 0;
+  }
+}
+
 export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => { // Keep the signature allowing initialActiveTab
   console.log(`[useNewsFilter] Hook execution. Input 'news' array length: ${news.length}`);
   if (news.length > 0 && typeof news.slice === 'function') {
@@ -62,7 +78,20 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
       case 'tendencias':
-        // No custom sort needed here, as categoryFilteredNews is already sorted by newsStore's sortBlinks
+        // Remove the old sort or ensure this new sort replaces it.
+        filtered.sort((a, b) => {
+          const interestScoreA = calculateInterestScore(a.votes?.likes || 0, a.votes?.dislikes || 0);
+          const interestScoreB = calculateInterestScore(b.votes?.likes || 0, b.votes?.dislikes || 0);
+
+          if (interestScoreB !== interestScoreA) {
+            return interestScoreB - interestScoreA; // Higher interest score comes first
+          }
+
+          // If interest scores are equal, fall back to recency (newer first)
+          const timestampA = new Date(a.publishedAt || 0).getTime();
+          const timestampB = new Date(b.publishedAt || 0).getTime();
+          return timestampB - timestampA;
+        });
         break;
       case 'rumores':
         filtered = filtered.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
