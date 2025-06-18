@@ -21,13 +21,20 @@ export const RealPowerBarVoteSystem = ({
 
   const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [optimisticLikes, setOptimisticLikes] = useState(likes);
+  const [optimisticDislikes, setOptimisticDislikes] = useState(dislikes);
 
   useEffect(() => {
-    console.log(`[RealPowerBarVoteSystem] EFFECT Props updated or userVote changed for articleId: ${articleId} - Likes: ${likes}, Dislikes: ${dislikes}, UserVote: ${userVote}`);
-  }, [articleId, likes, dislikes, userVote]);
+    setOptimisticLikes(likes);
+    setOptimisticDislikes(dislikes);
+  }, [likes, dislikes]);
 
-  const total = likes + dislikes;
-  const likePercentage = total > 0 ? (likes / total) * 100 : 0;
+  useEffect(() => {
+    console.log(`[RealPowerBarVoteSystem] EFFECT Props updated or userVote changed for articleId: ${articleId} - Likes: ${likes}, Dislikes: ${dislikes}, UserVote: ${userVote}, OptimisticLikes: ${optimisticLikes}, OptimisticDislikes: ${optimisticDislikes}`);
+  }, [articleId, likes, dislikes, userVote, optimisticLikes, optimisticDislikes]);
+
+  const totalOptimistic = optimisticLikes + optimisticDislikes;
+  const likePercentageOptimistic = totalOptimistic > 0 ? (optimisticLikes / totalOptimistic) * 100 : 0;
 
   const handleVote = async (voteType: 'like' | 'dislike', event: React.MouseEvent) => {
     event.stopPropagation();
@@ -58,7 +65,9 @@ export const RealPowerBarVoteSystem = ({
     console.log(`[RealPowerBarVoteSystem] Calculated optimistic update: likes=${logOptimisticLikes}, dislikes=${logOptimisticDislikes}. (User's previous vote: ${userVote}, current action: ${voteType})`);
 
     setIsVoting(true);
-    setUserVote(voteType); // Optimistic UI for user's own action
+    setUserVote(voteType);
+    setOptimisticLikes(logOptimisticLikes); // Update optimistic state
+    setOptimisticDislikes(logOptimisticDislikes); // Update optimistic state
 
     try {
       const updatedArticleData = await voteOnArticle(articleId, voteType);
@@ -68,14 +77,18 @@ export const RealPowerBarVoteSystem = ({
         const finalUpdatedBlink = transformBlinkToNewsItem(updatedArticleData);
         console.log(`[RealPowerBarVoteSystem] Transformed data for store update: ID=${finalUpdatedBlink.id}, Likes=${finalUpdatedBlink.votes?.likes}, Dislikes=${finalUpdatedBlink.votes?.dislikes}`);
         updateBlinkInList(finalUpdatedBlink);
-        // setUserVote already optimistically set.
+        // On success, props will update, and useEffect will sync optimisticLikes/Dislikes.
       } else {
-        console.error('[RealPowerBarVoteSystem] Vote API call failed or returned null data. Reverting optimistic userVote update.');
-        setUserVote(prevUserVote); // Revert userVote if API call failed
+        console.error('[RealPowerBarVoteSystem] Vote API call failed or returned null data. Reverting optimistic updates.');
+        setUserVote(prevUserVote);
+        setOptimisticLikes(likes); // Revert to prop values
+        setOptimisticDislikes(dislikes); // Revert to prop values
       }
     } catch (error) {
       console.error(`[RealPowerBarVoteSystem] Error during voting process in handleVote for articleId: ${articleId}:`, error);
-      setUserVote(prevUserVote); // Revert userVote on error
+      setUserVote(prevUserVote);
+      setOptimisticLikes(likes); // Revert to prop values
+      setOptimisticDislikes(dislikes); // Revert to prop values
     } finally {
       setIsVoting(false);
       console.log(`[RealPowerBarVoteSystem] handleVote finally block. isVoting set to false for articleId: ${articleId}`);
@@ -91,7 +104,7 @@ export const RealPowerBarVoteSystem = ({
             INTERÉS
           </span>
           <span className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            {Math.round(likePercentage)}%
+            {Math.round(likePercentageOptimistic)}%
           </span>
         </div>
         
@@ -100,7 +113,7 @@ export const RealPowerBarVoteSystem = ({
           
           <div 
             className="relative h-full bg-green-500 transition-all duration-700 ease-out shadow-lg"
-            style={{ width: `${likePercentage}%` }}
+            style={{ width: `${likePercentageOptimistic}%` }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
             <div className="absolute inset-0 shadow-lg shadow-green-500/40" />
@@ -126,7 +139,7 @@ export const RealPowerBarVoteSystem = ({
           }`}
         >
           <ThumbsUp className={`w-5 h-5 transition-all duration-300 ${userVote === 'like' ? 'scale-110' : 'group-hover:scale-105'}`} />
-          <span className="text-lg font-bold">{likes.toLocaleString()}</span>
+          <span className="text-lg font-bold">{optimisticLikes.toLocaleString()}</span>
         </button>
         
         <button
@@ -141,7 +154,7 @@ export const RealPowerBarVoteSystem = ({
           }`}
         >
           <ThumbsDown className={`w-5 h-5 transition-all duration-300 ${userVote === 'dislike' ? 'scale-110' : 'group-hover:scale-105'}`} />
-          <span className="text-lg font-bold">{dislikes.toLocaleString()}</span>
+          <span className="text-lg font-bold">{optimisticDislikes.toLocaleString()}</span>
         </button>
       </div>
     </div>
