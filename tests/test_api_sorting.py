@@ -120,5 +120,74 @@ class TestApiSorting(unittest.TestCase):
         expected_order_ids = ['M', 'K', 'L']
         self.assertEqual([b['id'] for b in blinks], expected_order_ids)
 
+    def test_string_numerical_timestamps_conversion(self):
+        """
+        Test Case 6: Blinks with string-formatted numerical timestamps are correctly converted and sorted.
+        Especially for 0% interest where timestamp is negated.
+        """
+        blink_S1 = {'id': 'S1', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': "100"} # 0% interest
+        blink_S2 = {'id': 'S2', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': "50"}  # 0% interest
+        blink_S3 = {'id': 'S3', 'votes': {'likes': 1, 'dislikes': 1}, 'timestamp': "200"} # 0.5% interest
+
+        # Expected keys after float conversion and negation for 0% interest:
+        # sort_key_under_test(blink_S1) -> (0.0, 0, -100.0)
+        # sort_key_under_test(blink_S2) -> (0.0, 0, -50.0)
+        # sort_key_under_test(blink_S3) -> (0.5, 1, 200.0)
+
+        blinks = [blink_S1, blink_S2, blink_S3]
+        blinks.sort(key=sort_key_under_test, reverse=True)
+
+        # Expected order: S3 (by interest), then S2 (older), then S1 (newer)
+        # S3: (0.5, 1, 200.0)
+        # S2: (0.0, 0, -50.0)  (older, -50.0 > -100.0)
+        # S1: (0.0, 0, -100.0)
+        expected_order_ids = ['S3', 'S2', 'S1']
+        self.assertEqual([b['id'] for b in blinks], expected_order_ids)
+
+        # Also check key output directly for one case
+        self.assertEqual(sort_key_under_test(blink_S1), (0.0, 0, -100.0))
+        self.assertEqual(sort_key_under_test(blink_S2), (0.0, 0, -50.0))
+        self.assertEqual(sort_key_under_test(blink_S3), (0.5, 1, 200.0))
+
+    def test_invalid_or_missing_timestamps_default_to_zero(self):
+        """
+        Test Case 7: Blinks with non-numeric string or missing timestamps default to 0.0
+        and are sorted predictably.
+        """
+        blink_INV1 = {'id': 'INV1', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': "invalid_date"} # 0% interest
+        blink_INV2 = {'id': 'INV2', 'votes': {'likes': 0, 'dislikes': 0}} # Missing timestamp, 0% interest
+        blink_INV3 = {'id': 'INV3', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': "10"} # Valid string ts
+        blink_INV4 = {'id': 'INV4', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': -10} # Valid negative ts
+
+        # Expected keys after float conversion and potential defaulting:
+        # sort_key_under_test(blink_INV1) -> (0.0, 0, -0.0) -> (0.0, 0, 0.0)
+        # sort_key_under_test(blink_INV2) -> (0.0, 0, -0.0) -> (0.0, 0, 0.0) (default for missing is 0, then float(0))
+        # sort_key_under_test(blink_INV3) -> (0.0, 0, -10.0)
+        # sort_key_under_test(blink_INV4) -> (0.0, 0, 10.0) (since -(-10) = 10)
+
+        # Check key output directly
+        self.assertEqual(sort_key_under_test(blink_INV1), (0.0, 0, -0.0)) # or (0.0, 0, 0.0)
+        self.assertEqual(sort_key_under_test(blink_INV2), (0.0, 0, -0.0)) # or (0.0, 0, 0.0)
+        self.assertEqual(sort_key_under_test(blink_INV3), (0.0, 0, -10.0))
+        self.assertEqual(sort_key_under_test(blink_INV4), (0.0, 0, 10.0))
+
+
+        blinks = [blink_INV1, blink_INV2, blink_INV3, blink_INV4]
+        blinks.sort(key=sort_key_under_test, reverse=True)
+
+        # Expected order: INV4, then INV1/INV2 (tie, order among them can be unstable), then INV3
+        # INV4: (0.0, 0, 10.0)  (most positive -timestamp)
+        # INV1: (0.0, 0, -0.0)
+        # INV2: (0.0, 0, -0.0)
+        # INV3: (0.0, 0, -10.0) (most negative -timestamp)
+
+        # We can only reliably check parts of the order due to INV1/INV2 tie
+        self.assertEqual(blinks[0]['id'], 'INV4')
+        self.assertEqual(blinks[3]['id'], 'INV3')
+        # Check that INV1 and INV2 are in the middle
+        self.assertIn(blinks[1]['id'], ['INV1', 'INV2'])
+        self.assertIn(blinks[2]['id'], ['INV1', 'INV2'])
+        self.assertNotEqual(blinks[1]['id'], blinks[2]['id'])
+
 if __name__ == '__main__':
     unittest.main()

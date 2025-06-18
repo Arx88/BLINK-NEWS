@@ -47,7 +47,11 @@ def _sort_blinks_key(blink):
         interest_score = float(likes) / total_votes
     # If total_votes is 0 (i.e., likes == 0 and dislikes == 0), interest_score remains 0.0
 
-    timestamp_val = blink.get('timestamp', 0) # Assuming timestamp is numerical
+    raw_timestamp = blink.get('timestamp', 0)
+    try:
+        timestamp_val = float(raw_timestamp)
+    except (ValueError, TypeError):
+        timestamp_val = 0.0
 
     # The main sort call uses reverse=True
     if interest_score == 0.0:
