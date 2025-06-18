@@ -1,79 +1,89 @@
+// Helper function to get or generate a simple userId
+const getUserId = (): string => {
+  let userId = localStorage.getItem('blinkUserId');
+  if (!userId) {
+    userId = `user_${Math.random().toString(36).substring(2, 15)}`;
+    localStorage.setItem('blinkUserId', userId);
+  }
+  return userId;
+};
+
 export interface NewsItem {
   id: string;
   title: string;
   image: string;
   points: string[];
   category: string;
-  isHot: boolean;
+  isHot: boolean; // This might be determined by frontend or backend based on sorting
   readTime: string;
-  publishedAt: string;
-  aiScore: number;
+  publishedAt: string; // Should be ISO string
+  aiScore?: number; // Kept if backend still provides it, though not used in new sorting
   votes?: {
-    likes: number;
-    dislikes: number;
+    positive: number; // Changed from likes
+    negative: number; // Changed from dislikes
   };
   sources?: string[];
   content?: string;
+  // New fields from backend
+  interestPercentage?: number;
+  currentUserVoteStatus?: 'positive' | 'negative' | null;
 }
 
 // Helper function to transform backend blink data to NewsItem
-export const transformBlinkToNewsItem = (blink: any): NewsItem => { // Added export
-  console.log(`[utils/api.ts] transformBlinkToNewsItem - Input blink data:`, blink);
-  const rawVotes = blink.votes;
-  let finalVotes = { likes: 0, dislikes: 0 };
+export const transformBlinkToNewsItem = (blink: any): NewsItem => {
+  // console.log(`[utils/api.ts] transformBlinkToNewsItem - Input blink data:`, blink);
 
-  if (rawVotes && typeof rawVotes === 'object') {
-    const parsedLikes = parseInt(String(rawVotes.likes), 10);
-    const parsedDislikes = parseInt(String(rawVotes.dislikes), 10);
-
+  let finalVotes = { positive: 0, negative: 0 };
+  if (blink.votes && typeof blink.votes === 'object') {
+    const parsedPositive = parseInt(String(blink.votes.positive), 10);
+    const parsedNegative = parseInt(String(blink.votes.negative), 10);
     finalVotes = {
-      likes: !isNaN(parsedLikes) ? parsedLikes : 0,
-      dislikes: !isNaN(parsedDislikes) ? parsedDislikes : 0,
+      positive: !isNaN(parsedPositive) ? parsedPositive : 0,
+      negative: !isNaN(parsedNegative) ? parsedNegative : 0,
     };
   }
-  // If rawVotes is null, undefined, or not an object,
-  // finalVotes remains { likes: 0, dislikes: 0 } as initialized.
-  // This also handles cases where rawVotes.likes or rawVotes.dislikes might be missing.
-  console.log(`[utils/api.ts] transformBlinkToNewsItem - Calculated finalVotes:`, finalVotes);
+
+  let publishedAtDate = new Date().toISOString(); // Default to now
+  if (blink.publishedAt) {
+      const parsedDate = new Date(blink.publishedAt);
+      if (!isNaN(parsedDate.getTime())) {
+          publishedAtDate = parsedDate.toISOString();
+      }
+  } else if (blink.timestamp) { // Fallback to timestamp if publishedAt is missing
+      if (typeof blink.timestamp === 'number') {
+          publishedAtDate = new Date(blink.timestamp * 1000).toISOString();
+      } else if (typeof blink.timestamp === 'string') {
+          const parsedTsDate = new Date(blink.timestamp);
+          if (!isNaN(parsedTsDate.getTime())) {
+              publishedAtDate = parsedTsDate.toISOString();
+          }
+      }
+  }
 
   return {
-    id: blink.id || '',
+    id: blink.id || String(blink._id) || '', // Handle MongoDB _id if present
     title: blink.title || 'No Title Provided',
-    image: blink.image || 'https://via.placeholder.com/800x600.png?text=No+Image',
+    image: blink.image || '/placeholder.svg', // Use a local placeholder
     points: Array.isArray(blink.points) ? blink.points : [],
     category: (Array.isArray(blink.categories) && blink.categories.length > 0 ? blink.categories[0] : blink.category) || 'general',
-    isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false,
+    isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false, // Or derive from interestPercentage later
     readTime: blink.readTime || 'N/A',
-    // publishedAt calculation
-    publishedAt: (() => {
-        let publishedAtDate = new Date().toISOString();
-        if (blink.timestamp) {
-            if (typeof blink.timestamp === 'number') {
-                publishedAtDate = new Date(blink.timestamp * 1000).toISOString();
-            } else if (typeof blink.timestamp === 'string') {
-                const parsedDate = new Date(blink.timestamp);
-                if (!isNaN(parsedDate.getTime())) {
-                    publishedAtDate = parsedDate.toISOString();
-                }
-            }
-        } else if (blink.publishedAt) {
-            const parsedDate = new Date(blink.publishedAt);
-            if (!isNaN(parsedDate.getTime())) {
-                publishedAtDate = parsedDate.toISOString();
-            }
-        }
-        return publishedAtDate;
-    })(),
-    aiScore: typeof blink.aiScore === 'number' ? blink.aiScore : 50,
-    votes: finalVotes, // Use the sanitized finalVotes
+    publishedAt: publishedAtDate,
+    aiScore: typeof blink.aiScore === 'number' ? blink.aiScore : undefined,
+    votes: finalVotes,
     sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []),
     content: blink.content || '',
+    // New fields
+    interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : 0,
+    currentUserVoteStatus: blink.currentUserVoteStatus === 'positive' || blink.currentUserVoteStatus === 'negative' ? blink.currentUserVoteStatus : null,
   };
 };
 
-export const fetchNews = async (/* tab: string = 'ultimas' // Tab parameter no longer used */): Promise<NewsItem[]> => {
+export const fetchNews = async (): Promise<NewsItem[]> => {
+  const userId = getUserId();
   try {
-    const response = await fetch('/api/blinks');
+    // Backend now handles sorting and provides interestPercentage & currentUserVoteStatus
+    const response = await fetch(`/api/blinks?userId=${encodeURIComponent(userId)}`);
     if (!response.ok) {
       console.error(`API error fetching news: ${response.status} ${response.statusText}`);
       throw new Error(`API error: ${response.status} ${response.statusText}`);
@@ -82,17 +92,35 @@ export const fetchNews = async (/* tab: string = 'ultimas' // Tab parameter no l
     if (Array.isArray(blinks)) {
       return blinks.map(transformBlinkToNewsItem);
     }
-    return []; // Return empty array if data is not an array
+    return [];
   } catch (error) {
     console.error('Error fetching news:', error);
-    throw error; // Re-throw to allow caller to handle
+    throw error;
   }
 };
 
-export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike'): Promise<NewsItem | null> => {
-  console.log(`[utils/api.ts] voteOnArticle called - articleId: ${articleId}, voteType: ${voteType}`);
+export const fetchArticleById = async (id: string): Promise<NewsItem | null> => {
+  const userId = getUserId();
+  try {
+    const response = await fetch(`/api/blinks/${id}?userId=${encodeURIComponent(userId)}`);
+    if (!response.ok) {
+      if (response.status === 404) return null; // Not found
+      console.error(`API error fetching article ${id}: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    const blink = await response.json();
+    return transformBlinkToNewsItem(blink);
+  } catch (error) {
+    console.error(`Error fetching article ${id} from API:`, error);
+    return null;
+  }
+};
+
+export const voteOnArticle = async (articleId: string, voteType: 'positive' | 'negative'): Promise<NewsItem | null> => {
+  const userId = getUserId();
   const apiUrl = `/api/blinks/${articleId}/vote`;
-  const requestBody = { voteType };
+  // Backend now expects 'positive' or 'negative' as voteType
+  const requestBody = { userId, voteType };
 
   try {
     const response = await fetch(apiUrl, {
@@ -106,99 +134,75 @@ export const voteOnArticle = async (articleId: string, voteType: 'like' | 'disli
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[utils/api.ts] Error voting on article ${articleId}: ${response.status} ${response.statusText}. Response: ${errorText}`);
-      // throw new Error(`API error: ${response.status} ${response.statusText}`); // No longer throwing, return null instead
       return null;
     }
 
-    const responseData = await response.json();
-    console.log(`[utils/api.ts] voteOnArticle - Raw responseData from API:`, responseData); // Log raw response
-
-    if (responseData && responseData.data) {
-      console.log(`[utils/api.ts] voteOnArticle - Data before transform (responseData.data):`, responseData.data);
-      const transformedBlink = transformBlinkToNewsItem(responseData.data);
-      console.log(`[utils/api.ts] voteOnArticle - Data AFTER transform (transformedBlink):`, transformedBlink);
-      return transformedBlink;
+    const responseData = await response.json(); // Backend returns the full updated blink
+    if (responseData) {
+      return transformBlinkToNewsItem(responseData); // Transform it for the frontend
     } else {
-      console.error(`[utils/api.ts] voteOnArticle - Error: Response data or responseData.data is missing. Raw response:`, responseData);
+      console.error(`[utils/api.ts] voteOnArticle - Error: Response data is missing. Raw response:`, responseData);
       return null;
     }
-
-  } catch (error: any) { // Added : any to type error for accessing message property
-    // Log network errors or errors from the fetch operation itself
+  } catch (error: any) {
     console.error(`[utils/api.ts] Network or other error voting on article ${articleId}:`, error.message || error);
-    // Re-throw the error so the caller can handle it if needed // No longer re-throwing, return null instead
     return null;
   }
 };
 
-export const fetchArticleById = async (id: string): Promise<NewsItem | null> => {
-  // All IDs are now fetched from the API. The distinction for numeric/mock IDs is removed.
-  try {
-    const response = await fetch(`/api/blinks/${id}`); // Changed endpoint
-    if (!response.ok) {
-      console.error(`API error fetching article ${id}: ${response.status} ${response.statusText}`);
-      // If API returns 404 or other error, return null
-      return null;
+// searchNewsByTopic might need to be updated or removed if mockData is no longer aligned or available
+// For now, keeping it as is, as it was out of scope for the main issue.
+// If mockData.ts is removed or causes issues, this part needs attention.
+// Assuming mockNews and mockData might be stale or non-existent.
+// To prevent errors, if mockNews is not found, it will return empty.
+
+let mockNewsCache: NewsItem[] | null = null;
+
+const getMockNews = async (): Promise<NewsItem[]> => {
+    if (mockNewsCache) return mockNewsCache;
+    try {
+        const mockDataModule = await import('./mockData'); // Dynamically import
+        if (mockDataModule && Array.isArray(mockDataModule.mockNews)) {
+             mockNewsCache = mockDataModule.mockNews.map(item => ({
+                ...transformBlinkToNewsItem(item), // Ensure mock items also get transformed if needed
+                // Override with mock specific data if transformBlinkToNewsItem defaults too much
+                id: item.id || String(item._id) || Math.random().toString(36).substring(7),
+                title: item.title || 'Mock Title',
+                image: item.image || '/placeholder.svg',
+                points: item.points || ['Mock point 1', 'Mock point 2'],
+                category: item.category || 'mock',
+                isHot: item.isHot || false,
+                readTime: item.readTime || '5 min',
+                publishedAt: item.publishedAt || new Date().toISOString(),
+                votes: item.votes ? { positive: item.votes.likes || 0, negative: item.votes.dislikes || 0 } : { positive: 0, negative: 0 },
+                interestPercentage: item.interestPercentage || 0,
+                currentUserVoteStatus: item.currentUserVoteStatus || null,
+            }));
+            return mockNewsCache;
+        }
+        return [];
+    } catch (e) {
+        console.warn("mockData.ts not found or mockNews not available, searchNewsByTopic will return empty results.", e);
+        return [];
     }
-    const blink = await response.json(); // This is the raw blink object from API
-    return transformBlinkToNewsItem(blink); // Use the helper for transformation
-  } catch (error) {
-    console.error(`Error fetching article ${id} from API:`, error);
-    return null; // Network error or JSON parse error
-  }
 };
-
-// searchNewsByTopic still uses mockNews. If mockData.ts is not available, this will fail.
-// For this subtask, we are only focusing on fetchNews and fetchArticleById.
-// If mockNews is confirmed unavailable, searchNewsByTopic would also need adjustment or removal.
-// Assuming mockNews can still be imported for searchNewsByTopic for now.
-// If not, the import { mockNews } from './mockData'; at the top should also be removed.
-// Based on "Let's simplify: ...remove the numeric ID/mockNews path.",
-// it's implied mockNews is no longer used by the modified functions.
-// If searchNewsByTopic is out of scope for modification, its mockNews usage remains.
-// To be safe and ensure no errors if mockData.ts is gone, I will remove mockNews import if it's only used by searchNewsByTopic.
-// The prompt states "The mockNews import and usage should be removed from fetchNews. It can remain for the numeric ID part of fetchArticleById."
-// Then "Let's simplify: for this subtask, update fetchNews to call /api/blinks. Update fetchArticleById to call /api/blinks/${id} for hash IDs and remove the numeric ID/mockNews path."
-// This means mockNews is no longer used by fetchArticleById. If searchNewsByTopic is the *only* remaining user, and mockData.ts is potentially gone, that's an issue.
-// I will assume for now that `mockData.ts` and `mockNews` are available for `searchNewsByTopic` if it's not being modified.
-// If the `import { mockNews } from './mockData';` line itself causes an error due to missing file, it has to be removed.
-// The subtask does not ask to modify searchNewsByTopic. So, I will leave the import for it.
-// If it's confirmed mockData.ts is not available, then that import line should be removed, and searchNewsByTopic would break.
-// For now, the changes are constrained to fetchNews and fetchArticleById.
-
-// If mockData.ts is truly gone, the following import will cause issues.
-// For now, assuming it's fine for searchNewsByTopic as per instructions not to change it.
-import { mockNews } from './mockData';
 
 
 export const searchNewsByTopic = async (topic: string): Promise<NewsItem[]> => {
-  // This function is NOT modified in this subtask and continues to use mockNews.
-  // If mockData.ts is unavailable, this function will break.
-  await new Promise(resolve => setTimeout(resolve, 300));
+  const mockNews = await getMockNews();
+  if (!mockNews.length) return [];
+
+  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate delay
   
   if (!topic.trim()) return [];
   
   const lowercaseTopic = topic.toLowerCase();
+  // Search on transformed and potentially richer mockNews items
   const results = mockNews.filter(item =>
     item.title.toLowerCase().includes(lowercaseTopic) ||
-    item.points.some(point => point.toLowerCase().includes(lowercaseTopic)) ||
+    (item.points && item.points.some(point => point.toLowerCase().includes(lowercaseTopic))) ||
     item.category.toLowerCase().includes(lowercaseTopic)
   );
   
-  // Ensure all news items have required properties
-  return results.map(item => ({
-    // Re-applying a minimal version of transformBlinkToNewsItem here for consistency
-    id: item.id || '',
-    title: item.title || 'No Title Provided',
-    image: item.image || 'https://via.placeholder.com/800x600.png?text=No+Image',
-    points: Array.isArray(item.points) ? item.points : [],
-    category: item.category || 'general', // mockNews items have single category
-    isHot: typeof item.isHot === 'boolean' ? item.isHot : false,
-    readTime: item.readTime || 'N/A',
-    publishedAt: item.publishedAt || new Date().toISOString(), // mockNews items have publishedAt
-    aiScore: typeof item.aiScore === 'number' ? item.aiScore : 50,
-    votes: item.votes || { likes: 0, dislikes: 0 },
-    sources: Array.isArray(item.sources) ? item.sources : [],
-    content: item.content || '',
-  }));
+  return results;
 };
