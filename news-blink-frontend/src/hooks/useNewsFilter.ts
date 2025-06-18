@@ -1,30 +1,29 @@
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { NewsItem } from '../utils/api'; // Import NewsItem
 
-function calculateInterestScore(likes: number, dislikes: number): number {
-  const total = likes + dislikes;
-  if (total === 0) {
-    return 0; // Or a very small number to rank below items with some interaction
-  }
-  // Wilson Score Interval for confidence interval of a Bernoulli parameter
-  const z = 1.96; // 1.96 for 95% confidence
-  const phat = likes / total;
-  try {
-    const score = (phat + z * z / (2 * total) - z * Math.sqrt((phat * (1 - phat) + z * z / (4 * total)) / total)) / (1 + z * z / total);
-    return isNaN(score) ? 0 : score;
-  } catch (e) { // Catch potential Math.sqrt errors with negative inputs if phat*(1-phat) is extremely small and negative due to precision
+const CONFIDENCE_FACTOR = 5;
+
+const calculateInterest = (newsItem: NewsItem): number => {
+  const likes = newsItem.votes?.likes ?? 0;
+  const dislikes = newsItem.votes?.dislikes ?? 0;
+  const totalVotes = likes + dislikes;
+  const netVotes = likes - dislikes;
+
+  if (totalVotes === 0) {
     return 0;
   }
-}
+  // Using the formula: (net_vote_difference / (total_votes + confidence_factor_c)) * 100.0
+  return (netVotes / (totalVotes + CONFIDENCE_FACTOR)) * 100;
+};
 
-export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => { // Keep the signature allowing initialActiveTab
+export const useNewsFilter = (news: NewsItem[], initialActiveTab: string = 'tendencias') => {
   console.log(`[useNewsFilter] Hook execution. Input 'news' array length: ${news.length}`);
   if (news.length > 0 && typeof news.slice === 'function') {
-    console.log(`[useNewsFilter] Input 'news' (first 3 items with votes):`, news.slice(0, 3).map(item => ({id: item.id, votes: item.votes, aiScore: item.aiScore, publishedAt: item.publishedAt })));
+    console.log(`[useNewsFilter] Input 'news' (first 3 items with votes):`, news.slice(0, 3).map(item => ({id: item.id, votes: item.votes, publishedAt: item.publishedAt })));
   }
   const [activeTab, setActiveTab] = useState(initialActiveTab);
 
-  const [filteredNews, setFilteredNews] = useState<any[]>([]);
+  const [filteredNews, setFilteredNews] = useState<NewsItem[]>([]); // Use NewsItem[]
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -74,47 +73,45 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     if (categoryFilteredNews.length > 0 && typeof categoryFilteredNews.slice === 'function') {
         console.log(`[useNewsFilter] tabFilteredNews - input 'categoryFilteredNews' (first 3 with votes, aiScore, publishedAt):`, categoryFilteredNews.slice(0,3).map(item => ({id: item.id, votes: item.votes, aiScore: item.aiScore, publishedAt: item.publishedAt })));
     }
-    let filtered = [...categoryFilteredNews];
-    // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
-    switch (activeTab) {
-      case 'tendencias':
-        // Remove the old sort or ensure this new sort replaces it.
-        filtered.sort((a, b) => {
-          const interestScoreA = calculateInterestScore(a.votes?.likes || 0, a.votes?.dislikes || 0);
-          const interestScoreB = calculateInterestScore(b.votes?.likes || 0, b.votes?.dislikes || 0);
+    let sortedNews = [...categoryFilteredNews]; // Use a new variable for clarity if preferred, or just 'filtered'
 
-          if (interestScoreB !== interestScoreA) {
-            return interestScoreB - interestScoreA; // Higher interest score comes first
-          }
+    console.log(`[useNewsFilter] tabFilteredNews processing for tab: ${activeTab}`);
 
-          // If interest scores are equal, fall back to recency (newer first)
-          const timestampA = new Date(a.publishedAt || 0).getTime();
-          const timestampB = new Date(b.publishedAt || 0).getTime();
-          return timestampB - timestampA;
-        });
-        break;
-      case 'rumores':
-        filtered = filtered.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
-        break;
-      case 'ultimas':
-        // Sort by date for recent news
-        filtered = filtered.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-        break;
-      default:
-        break;
+    if (activeTab === 'tendencias') {
+      sortedNews = [...categoryFilteredNews].sort((a, b) => {
+        const interestA = calculateInterest(a); // Use new function
+        const interestB = calculateInterest(b); // Use new function
+
+        if (interestA !== interestB) {
+          return interestB - interestA; // Sort by interest DESC
+        }
+
+        // Tie-breaker: Sort by publication date DESC
+        const dateA = new Date(a.publishedAt).getTime();
+        const dateB = new Date(b.publishedAt).getTime();
+        return dateB - dateA;
+      });
+    } else if (activeTab === 'recientes') { // Changed 'ultimas' to 'recientes'
+      sortedNews = [...categoryFilteredNews].sort(
+        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      );
+    } else if (activeTab === 'rumores') { // Kept 'rumores' logic if it exists, adjust as needed
+      // Assuming 'rumores' might have specific filtering, then default sort or its own.
+      // For this example, let's assume it might filter and then use default (filesystem) order or date.
+      // If 'rumores' also needs interest sort, that would be specified.
+      // The original code filtered by category RUMORES OR aiScore < 90 for 'rumores'.
+      // This seems like a filter, not a sort. Sorting for 'rumores' is not specified beyond this.
+      // Let's assume after filtering, it falls back to date sort like 'recientes' for consistency if no other sort is specified.
+      sortedNews = categoryFilteredNews.filter(item => item.category?.toUpperCase() === 'RUMORES' || (item.aiScore ?? 100) < 90)
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()); // Example: sort rumors by date too
     }
+    // Add other tab conditions if they exist. If no specific sort for a tab, it uses categoryFilteredNews as is.
 
-    // The final sort by votes (likes - dislikes) that was here has been removed.
-    // The news items are now expected to be pre-sorted by likes (primary) and timestamp (secondary)
-    // from the backend when fetched via /api/blinks.
-    // The 'ultimas' tab still applies its own date-based sort.
-    // Other tabs ('tendencias', 'rumores') will rely on the backend's default sort order
-    // after their specific filtering logic is applied.
-    console.log(`[useNewsFilter] tabFilteredNews - after tab logic, result length: ${filtered.length}`);
-    if (filtered.length > 0 && typeof filtered.slice === 'function') {
-        console.log(`[useNewsFilter] tabFilteredNews - result (first 3 with votes, aiScore, publishedAt):`, filtered.slice(0,3).map(item => ({id: item.id, votes: item.votes, aiScore: item.aiScore, publishedAt: item.publishedAt })));
+    console.log(`[useNewsFilter] tabFilteredNews - after tab logic for '${activeTab}', result length: ${sortedNews.length}`);
+    if (sortedNews.length > 0 && typeof sortedNews.slice === 'function') {
+        console.log(`[useNewsFilter] tabFilteredNews - result (first 3 with votes, publishedAt):`, sortedNews.slice(0,3).map(item => ({id: item.id, votes: item.votes, interest: calculateInterest(item) , publishedAt: item.publishedAt })));
     }
-    return filtered;
+    return sortedNews;
   }, [categoryFilteredNews, activeTab]);
 
   useEffect(() => {

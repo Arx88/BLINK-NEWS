@@ -14,32 +14,31 @@ export interface NewsItem {
   image: string;
   points: string[];
   category: string;
-  isHot: boolean; // This might be determined by frontend or backend based on sorting
+  isHot: boolean;
   readTime: string;
-  publishedAt: string; // Should be ISO string
-  aiScore?: number; // Kept if backend still provides it, though not used in new sorting
+  publishedAt: string;
+  aiScore?: number;
   votes?: {
-    positive: number; // Changed from likes
-    negative: number; // Changed from dislikes
+    likes: number; // Ensure this naming
+    dislikes: number; // Ensure this naming
   };
   sources?: string[];
   content?: string;
-  // New fields from backend
-  interestPercentage?: number;
-  currentUserVoteStatus?: 'positive' | 'negative' | null;
+  interestPercentage?: number; // Retained, but not set by get_all_blinks or get_blink from backend model layer
+  currentUserVoteStatus?: 'like' | 'dislike' | null; // Update this type
 }
 
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => {
   // console.log(`[utils/api.ts] transformBlinkToNewsItem - Input blink data:`, blink);
 
-  let finalVotes = { positive: 0, negative: 0 };
+  let finalVotes = { likes: 0, dislikes: 0 }; // Use likes/dislikes
   if (blink.votes && typeof blink.votes === 'object') {
-    const parsedPositive = parseInt(String(blink.votes.positive), 10);
-    const parsedNegative = parseInt(String(blink.votes.negative), 10);
+    const parsedLikes = parseInt(String(blink.votes.likes), 10); // Use blink.votes.likes
+    const parsedDislikes = parseInt(String(blink.votes.dislikes), 10); // Use blink.votes.dislikes
     finalVotes = {
-      positive: !isNaN(parsedPositive) ? parsedPositive : 0,
-      negative: !isNaN(parsedNegative) ? parsedNegative : 0,
+      likes: !isNaN(parsedLikes) ? parsedLikes : 0,
+      dislikes: !isNaN(parsedDislikes) ? parsedDislikes : 0,
     };
   }
 
@@ -73,9 +72,10 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     votes: finalVotes,
     sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []),
     content: blink.content || '',
-    // New fields
-    interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : 0,
-    currentUserVoteStatus: blink.currentUserVoteStatus === 'positive' || blink.currentUserVoteStatus === 'negative' ? blink.currentUserVoteStatus : null,
+    // interestPercentage is not set by backend's get_all_blinks / get_blink anymore.
+    // Frontend will calculate or it will be undefined. Defaulting to undefined if not present.
+    interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : undefined,
+    currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null, // Ensure correct assignment
   };
 };
 
@@ -116,11 +116,11 @@ export const fetchArticleById = async (id: string): Promise<NewsItem | null> => 
   }
 };
 
-export const voteOnArticle = async (articleId: string, voteType: 'positive' | 'negative'): Promise<NewsItem | null> => {
+export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike', previousVote: 'like' | 'dislike' | null): Promise<NewsItem | null> => {
   const userId = getUserId();
   const apiUrl = `/api/blinks/${articleId}/vote`;
-  // Backend now expects 'positive' or 'negative' as voteType
-  const requestBody = { userId, voteType };
+  // Backend now expects 'like' or 'dislike' as voteType, and previousVote
+  const requestBody = { userId, voteType, previousVote };
 
   try {
     const response = await fetch(apiUrl, {

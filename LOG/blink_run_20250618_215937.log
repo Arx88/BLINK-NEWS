@@ -1,0 +1,13 @@
+2025-06-18 21:59:37,746 - models.blink_generator - INFO - File logger setup complete. Logging to: /app/LOG/blink_run_20250618_215937.log
+2025-06-18 21:59:37,754 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:37,796 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:37,853 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:37,903 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:37,953 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,004 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,054 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,102 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,151 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,200 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,250 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
+2025-06-18 21:59:38,300 - models.blink_generator - INFO - Successfully loaded ai_task_configs from /app/models/../config.json
