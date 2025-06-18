@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useNewsStore } from '@/store/newsStore';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,29 +14,48 @@ import { ArticleContent } from '@/components/ArticleContent';
 export default function BlinkDetail() {
   const { id } = useParams<{ id: string }>();
   const { isDarkMode } = useTheme();
-  const [article, setArticle] = useState<NewsItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [fetchedArticle, setFetchedArticle] = useState<NewsItem | null>(null);
+  const articleFromStore = useNewsStore(state => state.news.find(a => a.id === id));
+  const article = articleFromStore || fetchedArticle;
+  // Initialize loading to true only if we don't have the article from store initially
+  const [loading, setLoading] = useState(!articleFromStore);
 
   useEffect(() => {
     const loadArticle = async () => {
-      try {
-        if (id) {
+      // Only fetch if the article is not in the store
+      if (id && !articleFromStore) {
+        setLoading(true); // Ensure loading is true before this fetch path
+        try {
           const data = await fetchArticleById(id);
-          setArticle(data);
+          setFetchedArticle(data);
+        } catch (error) {
+          console.error('Error loading article:', error);
+          // Optionally, set an error state here to display to the user
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error loading article:', error);
-      } finally {
-        setLoading(false);
+      } else if (articleFromStore) {
+        // If article is already in store, we are not loading.
+        // This also handles cases where articleFromStore becomes available after initial render.
+        if (loading) setLoading(false);
       }
     };
 
+    // We need to call loadArticle if id is present.
+    // If articleFromStore is already there, it will quickly set loading to false.
+    // If not, it proceeds to fetch.
     if (id) {
       loadArticle();
+    } else {
+      // If there's no ID, we are not loading and likely should show "not found" or redirect.
+      setLoading(false);
     }
-  }, [id]);
+  }, [id, articleFromStore]); // articleFromStore is a dependency
 
-  if (loading) {
+  // Adjust loading condition based on the derived article
+  // Loading is true if we are in the process of fetching (and article is not yet available)
+  // or if articleFromStore was not initially present.
+  if (loading && !article) {
     return (
       <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-white'} flex items-center justify-center`}>
         <div className="text-center">

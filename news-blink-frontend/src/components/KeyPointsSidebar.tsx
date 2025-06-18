@@ -128,8 +128,8 @@ export function KeyPointsSidebar({ article }: KeyPointsSidebarProps) {
       <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
         <RealPowerBarVoteSystem
           articleId={article.id}
-          initialLikes={article.votes?.likes || 0}
-          initialDislikes={article.votes?.dislikes || 0}
+          likes={article.votes?.likes || 0}
+          dislikes={article.votes?.dislikes || 0}
         />
       </div>
 
