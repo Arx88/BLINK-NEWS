@@ -1,6 +1,8 @@
 
 import json
 import os
+import logging
+import logging.handlers
 from flask import Flask
 from flask_cors import CORS
 from routes.api import init_api
@@ -33,6 +35,36 @@ def create_app():
     # Cargar configuración de la aplicación
     app_config = load_app_config(app)
     app.config['APP_CONFIG'] = app_config
+
+    # --- Setup for dedicated blink sorting warnings logger ---
+    LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'LOG')
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+
+    warnings_log_file = os.path.join(LOG_DIR, 'blink_sorting_warnings.log')
+
+    # Create a specific logger
+    warnings_logger = logging.getLogger('blink_sorting_warnings')
+    warnings_logger.setLevel(logging.WARNING) # Set the level for this logger
+
+    # Prevent propagation to root logger if you don't want duplicate console logs
+    # warnings_logger.propagate = False
+
+    # Create a file handler for this logger
+    file_handler = logging.FileHandler(warnings_log_file)
+    file_handler.setLevel(logging.WARNING) # Set level for the handler
+
+    # Create a formatter and set it for the handler
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+
+    # Add the handler to the logger
+    # Check if handlers are already added to prevent duplicates during reloads in debug mode
+    if not warnings_logger.handlers:
+        warnings_logger.addHandler(file_handler)
+
+    app.logger.info(f"Dedicated blink sorting warnings logger configured. Warnings will be saved to {warnings_log_file}")
+    # --- End of dedicated logger setup ---
     
     # Inicializar las rutas de la API
     init_api(app)
