@@ -241,11 +241,21 @@ def get_all_blinks_sorted():
     # Using glob to find all json files as per general instruction, though news_model.get_all_blinks() also works
     blink_files = glob.glob(os.path.join(blinks_path, "*.json"))
 
+    # For logging purposes
+    logged_count = 0
+    max_logs = 3 # Log details for a few blinks
+
     for blink_file in blink_files:
         try:
             with open(blink_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 all_blinks_data.append(data)
+
+                if logged_count < max_logs:
+                    blink_id_for_log = data.get('id', 'unknown_id')
+                    votes_for_log = data.get('votes', 'No votes field')
+                    current_app.logger.info(f"[API /blinks] Loaded blink ID: {blink_id_for_log}, Votes: {votes_for_log}, File: {os.path.basename(blink_file)}")
+                    logged_count += 1
         except json.JSONDecodeError:
             current_app.logger.error(f"Error decoding JSON from file {blink_file}")
             # Decide: skip this file or return an error for the whole request? For now, skip.
@@ -254,9 +264,15 @@ def get_all_blinks_sorted():
             current_app.logger.error(f"IOError reading file {blink_file}: {e}")
             continue
 
+    if not blink_files:
+        current_app.logger.info("[API /blinks] No blink files found.")
+    elif logged_count == 0 and blink_files: # If files exist but none were logged (e.g. all failed to load)
+        current_app.logger.info(f"[API /blinks] Found {len(blink_files)} files, but failed to load/log details for any.")
+
     # Sort the blinks using the extracted key function
     all_blinks_data.sort(key=_sort_blinks_key, reverse=True)
 
+    current_app.logger.info(f"[API /blinks] Returning {len(all_blinks_data)} blinks after processing and sorting.")
     return jsonify(all_blinks_data)
 
 # --- New Blink Endpoints End ---
