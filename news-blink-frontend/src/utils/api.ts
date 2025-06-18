@@ -18,6 +18,7 @@ export interface NewsItem {
 
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => { // Added export
+  console.log(`[utils/api.ts] transformBlinkToNewsItem - Input blink data:`, blink);
   const rawVotes = blink.votes;
   let finalVotes = { likes: 0, dislikes: 0 };
 
@@ -33,6 +34,7 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => { // Added exp
   // If rawVotes is null, undefined, or not an object,
   // finalVotes remains { likes: 0, dislikes: 0 } as initialized.
   // This also handles cases where rawVotes.likes or rawVotes.dislikes might be missing.
+  console.log(`[utils/api.ts] transformBlinkToNewsItem - Calculated finalVotes:`, finalVotes);
 
   return {
     id: blink.id || '',
@@ -88,6 +90,7 @@ export const fetchNews = async (/* tab: string = 'ultimas' // Tab parameter no l
 };
 
 export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike'): Promise<NewsItem | null> => {
+  console.log(`[utils/api.ts] voteOnArticle called - articleId: ${articleId}, voteType: ${voteType}`);
   const apiUrl = `/api/blinks/${articleId}/vote`;
   const requestBody = { voteType };
 
@@ -102,23 +105,27 @@ export const voteOnArticle = async (articleId: string, voteType: 'like' | 'disli
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Error voting on article ${articleId}: ${response.status} ${response.statusText}. Response: ${errorText}`);
+      console.error(`[utils/api.ts] Error voting on article ${articleId}: ${response.status} ${response.statusText}. Response: ${errorText}`);
       // throw new Error(`API error: ${response.status} ${response.statusText}`); // No longer throwing, return null instead
       return null;
     }
 
     const responseData = await response.json();
+    console.log(`[utils/api.ts] voteOnArticle - Raw responseData from API:`, responseData); // Log raw response
+
     if (responseData && responseData.data) {
-      console.log(`Vote registered: ${voteType} for article ${articleId} successfully. Response data received.`);
-      return transformBlinkToNewsItem(responseData.data);
+      console.log(`[utils/api.ts] voteOnArticle - Data before transform (responseData.data):`, responseData.data);
+      const transformedBlink = transformBlinkToNewsItem(responseData.data);
+      console.log(`[utils/api.ts] voteOnArticle - Data AFTER transform (transformedBlink):`, transformedBlink);
+      return transformedBlink;
     } else {
-      console.error(`Error voting on article ${articleId}: Response data or responseData.data is missing.`);
+      console.error(`[utils/api.ts] voteOnArticle - Error: Response data or responseData.data is missing. Raw response:`, responseData);
       return null;
     }
 
   } catch (error: any) { // Added : any to type error for accessing message property
     // Log network errors or errors from the fetch operation itself
-    console.error(`Network or other error voting on article ${articleId}:`, error.message || error);
+    console.error(`[utils/api.ts] Network or other error voting on article ${articleId}:`, error.message || error);
     // Re-throw the error so the caller can handle it if needed // No longer re-throwing, return null instead
     return null;
   }

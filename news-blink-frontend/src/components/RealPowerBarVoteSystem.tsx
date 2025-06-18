@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Ensure useEffect is imported
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { voteOnArticle, NewsItem, transformBlinkToNewsItem } from '@/utils/api'; // Imported NewsItem and transformBlinkToNewsItem
@@ -24,16 +24,45 @@ export const RealPowerBarVoteSystem = ({
   const [userVote, setUserVote] = useState<'like' | 'dislike' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
 
+  // console.log(`[RealPowerBarVoteSystem] Render for articleId: ${articleId}, Likes: ${likes}, Dislikes: ${dislikes}, UserVote: ${userVote}`);
+  // This log can be very noisy. Add a useEffect below for more targeted prop logging.
+
+  useEffect(() => {
+    console.log(`[RealPowerBarVoteSystem] Props updated for articleId: ${articleId} - Likes: ${likes}, Dislikes: ${dislikes}, UserVote: ${userVote}`);
+  }, [articleId, likes, dislikes, userVote]);
+
   const total = likes + dislikes; // Now uses props
   const likePercentage = total > 0 ? (likes / total) * 100 : 0;
 
   const handleVote = async (voteType: 'like' | 'dislike', event: React.MouseEvent) => {
     event.stopPropagation();
+    console.log(`[RealPowerBarVoteSystem] handleVote called for articleId: ${articleId}, voteType: ${voteType}`);
+    console.log(`[RealPowerBarVoteSystem] Current props: likes=${likes}, dislikes=${dislikes}`);
+    console.log(`[RealPowerBarVoteSystem] Current state: userVote=${userVote}, isVoting=${isVoting}`);
+
     // Restore original guard: if it's the current vote, or if already voting, do nothing.
-    if (userVote === voteType || isVoting) return;
+    if (userVote === voteType || isVoting) {
+      console.log(`[RealPowerBarVoteSystem] Vote attempt blocked: userVote=${userVote}, voteType=${voteType}, isVoting=${isVoting}`);
+      return;
+    }
 
     // Store pre-vote state for userVote only
     const prevUserVote = userVote;
+
+    let logOptimisticLikes = likes;
+    let logOptimisticDislikes = dislikes;
+    if (voteType === 'like') {
+      logOptimisticLikes = likes + 1;
+      if (userVote === 'dislike') {
+        logOptimisticDislikes = dislikes -1 < 0 ? 0 : dislikes - 1; // Ensure not negative
+      }
+    } else { // voteType === 'dislike'
+      logOptimisticDislikes = dislikes + 1;
+      if (userVote === 'like') {
+        logOptimisticLikes = likes - 1 < 0 ? 0 : likes - 1; // Ensure not negative
+      }
+    }
+    console.log(`[RealPowerBarVoteSystem] Calculated optimistic update: likes=${logOptimisticLikes}, dislikes=${logOptimisticDislikes}. (User's previous vote: ${userVote}, current action: ${voteType})`);
 
     setIsVoting(true);
 
@@ -43,9 +72,11 @@ export const RealPowerBarVoteSystem = ({
 
     try {
       const updatedArticleData = await voteOnArticle(articleId, voteType);
+      console.log(`[RealPowerBarVoteSystem] voteOnArticle API call successful for articleId: ${articleId}. Response data:`, updatedArticleData);
 
       if (updatedArticleData) {
         const finalUpdatedBlink = transformBlinkToNewsItem(updatedArticleData);
+        console.log(`[RealPowerBarVoteSystem] Transformed data for store update: ID=${finalUpdatedBlink.id}, Likes=${finalUpdatedBlink.votes?.likes}, Dislikes=${finalUpdatedBlink.votes?.dislikes}`);
         // The component now relies on props for likes/dislikes.
         // The store update will trigger a re-render with new props.
         updateBlinkInList(finalUpdatedBlink);
@@ -53,15 +84,16 @@ export const RealPowerBarVoteSystem = ({
         // For now, assume optimistic userVote is fine.
       } else {
         // API call failed or returned null, revert optimistic userVote update
-        console.error('Vote API call failed. Reverting optimistic userVote update.');
+        console.error('[RealPowerBarVoteSystem] Vote API call failed or returned null data. Reverting optimistic userVote update.');
         setUserVote(prevUserVote);
       }
     } catch (error) {
-      console.error('Error during voting process, reverting optimistic userVote update:', error);
+      console.error(`[RealPowerBarVoteSystem] Error during voting process in handleVote for articleId: ${articleId}:`, error);
       // Revert optimistic userVote update on any unexpected error
       setUserVote(prevUserVote);
     } finally {
       setIsVoting(false);
+      console.log(`[RealPowerBarVoteSystem] handleVote finally block. isVoting set to false for articleId: ${articleId}`);
     }
   };
 
