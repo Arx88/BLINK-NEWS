@@ -18,6 +18,7 @@ export const RealPowerBarVoteSystem = ({
   dislikes = 0 // Use renamed prop, default to 0
   // onVoteSuccess is removed from destructuring
 }: RealPowerBarVoteSystemProps) => {
+  console.log(`[RealPowerBarVoteSystem] RENDER articleId: ${articleId}, Props: likes=${likes}, dislikes=${dislikes}`);
   const { isDarkMode } = useTheme();
   const updateBlinkInList = useNewsStore(state => state.updateBlinkInList); // Get action from store
   // Local state for likes and dislikes removed
@@ -28,7 +29,7 @@ export const RealPowerBarVoteSystem = ({
   // This log can be very noisy. Add a useEffect below for more targeted prop logging.
 
   useEffect(() => {
-    console.log(`[RealPowerBarVoteSystem] Props updated for articleId: ${articleId} - Likes: ${likes}, Dislikes: ${dislikes}, UserVote: ${userVote}`);
+    console.log(`[RealPowerBarVoteSystem] EFFECT Props updated or userVote changed for articleId: ${articleId} - Likes: ${likes}, Dislikes: ${dislikes}, UserVote: ${userVote}`);
   }, [articleId, likes, dislikes, userVote]);
 
   const total = likes + dislikes; // Now uses props
