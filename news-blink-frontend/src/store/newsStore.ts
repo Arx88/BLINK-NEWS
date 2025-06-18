@@ -42,13 +42,27 @@ const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] =>
 
       // If both items have 0 likes
       if (likesA === 0 && likesB === 0) {
+        if (hotSortLogCount <= maxHotSortLogs) { // Continue using existing log count condition
+            console.log(`    [0-Likes Group] Comparing A (id=${a.id}, dislikes=${dislikesA}, date=${new Date(dateA).toISOString()}) vs B (id=${b.id}, dislikes=${dislikesB}, date=${new Date(dateB).toISOString()})`);
+        }
         // Sort by number of dislikes (ascending - fewer dislikes are better)
         const dislikeDiff = dislikesA - dislikesB;
+        if (hotSortLogCount <= maxHotSortLogs) {
+            console.log(`      [0-Likes Group] dislikeDiff (A-B): ${dislikeDiff}`);
+        }
         if (dislikeDiff !== 0) {
           return dislikeDiff;
         }
+
         // If dislikes are equal, sort by publication date (descending - newer is better)
-        return dateB - dateA;
+        if (hotSortLogCount <= maxHotSortLogs) {
+            console.log(`      [0-Likes Group] Dislikes equal. Comparing dates (B-A). Date A: ${new Date(dateA).toISOString()}, Date B: ${new Date(dateB).toISOString()}`);
+        }
+        const dateDiffResult = dateB - dateA;
+        if (hotSortLogCount <= maxHotSortLogs) {
+            console.log(`      [0-Likes Group] dateDiffResult (B-A): ${dateDiffResult}`);
+        }
+        return dateDiffResult;
       }
 
       // If both items have positive likes (implicit from the checks above)

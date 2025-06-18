@@ -158,8 +158,8 @@ export const FuturisticHeroCard = memo(({ news, onCardClick }: FuturisticHeroCar
             <div onClick={(e) => e.stopPropagation()}>
               <RealPowerBarVoteSystem // Changed component
                 articleId={news.id}
-                initialLikes={news.votes?.likes || 0}
-                initialDislikes={news.votes?.dislikes || 0}
+                likes={news.votes?.likes || 0}
+                dislikes={news.votes?.dislikes || 0}
               />
             </div>
           </div>
