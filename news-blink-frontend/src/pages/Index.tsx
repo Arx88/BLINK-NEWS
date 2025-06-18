@@ -27,9 +27,13 @@ const Index = () => {
   const heroNews = filteredNews.length > 0 ? filteredNews[0] : null;
 
   if (heroNews) {
-    console.log(`[Index.tsx] heroNews selected: ID=${heroNews.id}, Likes=${heroNews.votes?.likes}, Dislikes=${heroNews.votes?.dislikes}`);
+    console.log(`[Index.tsx] heroNews selected: ID=${heroNews.id}, Likes=${heroNews.votes?.likes}, Dislikes=${heroNews.votes?.dislikes}, Interest=${heroNews.interestPercentage}`);
   } else {
     console.log('[Index.tsx] heroNews is null');
+  }
+
+  if (filteredNews.length > 0) {
+    console.log('[Index.tsx] filteredNews (first 3 with id, votes, interestPercentage):', filteredNews.slice(0, 3).map(item => ({id: item.id, votes: item.votes, interestPercentage: item.interestPercentage })));
   }
 
   useEffect(() => {

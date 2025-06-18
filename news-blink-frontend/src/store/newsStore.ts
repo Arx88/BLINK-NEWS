@@ -24,6 +24,7 @@ export const useNewsStore = create<NewsState>((set, get) => ({
     try {
       // apiFetchNews from utils/api.ts already passes userId and returns transformed, sorted NewsItem[]
       const fetchedNewsItems = await apiFetchNews();
+      console.log('[newsStore.ts fetchNews] NewsItems from apiFetchNews (first 3):', fetchedNewsItems?.slice(0, 3)?.map(item => ({ id: item.id, interestPercentage: item.interestPercentage, votes: item.votes })));
 
       // console.log(`[newsStore.ts] fetchNews - Fetched and transformed news (first 3 items):`, fetchedNewsItems.slice(0,3));
       // fetchedNewsItems.slice(0,3).forEach((item: NewsItem, index: number) => {
