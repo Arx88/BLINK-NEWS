@@ -164,10 +164,23 @@ def vote_on_blink(blink_id):
             if 'votes' not in blink_data:
                 blink_data['votes'] = {'likes': 0, 'dislikes': 0}
 
+            current_likes = blink_data['votes'].get('likes', 0)
+            current_dislikes = blink_data['votes'].get('dislikes', 0)
+
+            new_likes = current_likes
+            new_dislikes = current_dislikes
+
             if vote_type == 'like':
-                blink_data['votes']['likes'] = blink_data['votes'].get('likes', 0) + 1
+                new_likes = current_likes + 1
+                if current_dislikes > 0: # User is switching from dislike to like
+                    new_dislikes = current_dislikes - 1
             elif vote_type == 'dislike':
-                blink_data['votes']['dislikes'] = blink_data['votes'].get('dislikes', 0) + 1
+                new_dislikes = current_dislikes + 1
+                if current_likes > 0: # User is switching from like to dislike
+                    new_likes = current_likes - 1
+
+            blink_data['votes']['likes'] = max(0, new_likes)
+            blink_data['votes']['dislikes'] = max(0, new_dislikes)
 
             # Write updated data back
             current_app.logger.info(f"Attempting to write data for {blink_id} to blink file: {blink_data}")
