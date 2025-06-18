@@ -66,18 +66,26 @@ const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] =>
       }
 
       // If both items have positive likes (implicit from the checks above)
-      // Use original logic: aiScore (desc), then dislikes (asc), then date (desc)
+      // New logic: aiScore (desc), then likes (desc), then dislikes (asc), then date (desc)
       const scoreDiff = (b.aiScore || 0) - (a.aiScore || 0); // Higher aiScore is better
       if (scoreDiff !== 0) {
         return scoreDiff;
       }
 
-      const downVotesDiff = dislikesA - dislikesB; // Fewer dislikes are better
+      // AI scores are equal, compare by number of likes (descending - more likes are better)
+      const likeDiff = likesB - likesA;
+      if (likeDiff !== 0) {
+        return likeDiff;
+      }
+
+      // Likes are equal, compare by number of dislikes (ascending - fewer dislikes are better)
+      const downVotesDiff = dislikesA - dislikesB;
       if (downVotesDiff !== 0) {
         return downVotesDiff;
       }
 
-      return dateB - dateA; // Newer is better
+      // All other criteria are equal, sort by publication date (descending - newer is better)
+      return dateB - dateA;
     });
   } else if (sortBy === 'latest') {
     newBlinks.sort((a, b) => {
