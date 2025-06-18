@@ -16,17 +16,17 @@ export const RealPowerBarVoteSystem = ({ news }: RealPowerBarVoteSystemProps) =>
 
   // Internal state for UI responsiveness and optimistic updates
   // Derives initial state from the `news` prop
-  const [internalUserVote, setInternalUserVote] = useState(news.currentUserVoteStatus);
+  const [internalUserVote, setInternalUserVote] = useState(news?.currentUserVoteStatus ?? null);
   const [isVoting, setIsVoting] = useState(false);
-  const [optimisticLikes, setOptimisticLikes] = useState(news.votes?.likes ?? 0);
-  const [optimisticDislikes, setOptimisticDislikes] = useState(news.votes?.dislikes ?? 0);
+  const [optimisticLikes, setOptimisticLikes] = useState(news?.votes?.likes ?? 0);
+  const [optimisticDislikes, setOptimisticDislikes] = useState(news?.votes?.dislikes ?? 0);
 
   // Effect to sync internal state when the news prop changes externally
   useEffect(() => {
-    setInternalUserVote(news.currentUserVoteStatus);
-    setOptimisticLikes(news.votes?.likes ?? 0);
-    setOptimisticDislikes(news.votes?.dislikes ?? 0);
-  }, [news.currentUserVoteStatus, news.votes?.likes, news.votes?.dislikes, news.id]);
+    setInternalUserVote(news?.currentUserVoteStatus ?? null);
+    setOptimisticLikes(news?.votes?.likes ?? 0);
+    setOptimisticDislikes(news?.votes?.dislikes ?? 0);
+  }, [news?.currentUserVoteStatus, news?.votes?.likes, news?.votes?.dislikes, news?.id]);
 
   // Interest percentage is now calculated on the frontend if needed for display here
   // For this component, we might only display the power bar based on likes/dislikes ratio
@@ -38,6 +38,14 @@ export const RealPowerBarVoteSystem = ({ news }: RealPowerBarVoteSystemProps) =>
 
   const handleVote = async (newVoteType: 'like' | 'dislike', event: React.MouseEvent) => {
     event.stopPropagation();
+
+    if (!news || !news.id) {
+      console.error("[RealPowerBarVoteSystem] Attempted to vote with invalid news item:", news);
+      toast.error("Cannot vote: news item data is missing.");
+      // setIsVoting(false); // isVoting is already false or will be set in finally
+      return;
+    }
+
     if (isVoting) return;
 
     const previousVote = internalUserVote; // This is 'like', 'dislike', or null
@@ -114,7 +122,7 @@ export const RealPowerBarVoteSystem = ({ news }: RealPowerBarVoteSystemProps) =>
     }
   };
 
-  const interestPercentageForDisplay = news.interestPercentage !== undefined ? Math.round(news.interestPercentage) : 'N/A';
+  const interestPercentageForDisplay = news?.interestPercentage !== undefined ? Math.round(news.interestPercentage) : 'N/A';
 
 
   return (
