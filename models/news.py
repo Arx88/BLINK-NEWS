@@ -351,13 +351,35 @@ class News:
                     blink['currentUserVoteStatus'] = self._get_user_vote_status(blink, user_id) # Uses like/dislike now
                 else:
                     blink['currentUserVoteStatus'] = None
+
+                # Refined logging for interest percentage
+                interest_to_log = blink.get('interestPercentage')
+                interest_log_str = f"{interest_to_log:.2f}%" if isinstance(interest_to_log, float) else str(interest_to_log)
+                app_logger.debug(
+                    f"[GET_ALL_BLINKS_PRE_SORT] ID: {blink.get('id')}, "
+                    f"Votes: L={blink.get('votes', {}).get('likes', 0)} / D={blink.get('votes', {}).get('dislikes', 0)}, "
+                    f"Interest: {interest_log_str}, "
+                    f"Published: {blink.get('publishedAt')}, "
+                    f"UserVote: {blink.get('currentUserVoteStatus')}"
+                )
                 blinks_processed.append(blink)
-                # Updated log to include interest and reflect L/D votes
-                app_logger.debug(f"Processed blink_id='{blink.get('id')}': UserVote='{blink['currentUserVoteStatus']}', Votes(L/D): {current_votes.get('likes',0)}/{current_votes.get('dislikes',0)}, Interest: {blink.get('interestPercentage', 'N/A')}")
+                # Original log below can be kept or removed if the new one is sufficient
+                # app_logger.debug(f"Processed blink_id='{blink.get('id')}': UserVote='{blink['currentUserVoteStatus']}', Votes(L/D): {current_votes.get('likes',0)}/{current_votes.get('dislikes',0)}, Interest: {blink.get('interestPercentage', 'N/A')}")
             except Exception as e:
                 app_logger.error(f"Error processing blink file {filename} in get_all_blinks loop: {e}", exc_info=True)
 
         app_logger.info(f"Sorting {len(blinks_processed)} blinks based on dynamic interest and rules.")
         blinks_processed.sort(key=cmp_to_key(self._compare_blinks))
+
+        app_logger.debug("[GET_ALL_BLINKS_POST_SORT] First 5 items after sorting:")
+        for i, sorted_blink in enumerate(blinks_processed[:5]):
+            interest_to_log_sorted = sorted_blink.get('interestPercentage')
+            interest_log_str_sorted = f"{interest_to_log_sorted:.2f}%" if isinstance(interest_to_log_sorted, float) else str(interest_to_log_sorted)
+            app_logger.debug(
+                f"  {i+1}. ID: {sorted_blink.get('id')}, "
+                f"Interest: {interest_log_str_sorted}, "
+                f"Published: {sorted_blink.get('publishedAt')}"
+            )
+
         app_logger.info(f"Successfully processed, loaded and sorted {len(blinks_processed)} blinks.")
         return blinks_processed

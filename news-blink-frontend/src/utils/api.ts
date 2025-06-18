@@ -24,13 +24,13 @@ export interface NewsItem {
   };
   sources?: string[];
   content?: string;
-  interestPercentage?: number; // Retained, but not set by get_all_blinks or get_blink from backend model layer
+  interestPercentage: number; // Always a number after transformation, defaults to 0.0 if not provided/invalid from backend.
   currentUserVoteStatus?: 'like' | 'dislike' | null; // Update this type
 }
 
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => {
-  // console.log(`[utils/api.ts] transformBlinkToNewsItem - Input blink data:`, blink);
+  console.log(`[utils/api.ts transformBlinkToNewsItem] Input blink (ID: ${blink?.id}): interestPercentage = ${blink?.interestPercentage}`);
 
   let finalVotes = { likes: 0, dislikes: 0 }; // Use likes/dislikes
   if (blink.votes && typeof blink.votes === 'object') {
@@ -74,9 +74,11 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     content: blink.content || '',
     // interestPercentage is not set by backend's get_all_blinks / get_blink anymore.
     // Frontend will calculate or it will be undefined. Defaulting to undefined if not present.
-    interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : undefined,
+    interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : 0.0,
     currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null, // Ensure correct assignment
   };
+  console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${transformedItem.id}): interestPercentage = ${transformedItem.interestPercentage}`);
+  return transformedItem;
 };
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
@@ -89,6 +91,7 @@ export const fetchNews = async (): Promise<NewsItem[]> => {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
     const blinks = await response.json();
+    console.log('[utils/api.ts fetchNews] Raw blinks from backend (first 3):', blinks?.slice(0, 3)?.map((b: NewsItem) => ({ id: b.id, interestPercentage: b.interestPercentage, votes: b.votes })));
     if (Array.isArray(blinks)) {
       return blinks.map(transformBlinkToNewsItem);
     }
