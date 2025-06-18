@@ -160,8 +160,8 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
           <div className="flex-shrink-0">
             <RealPowerBarVoteSystem
               articleId={news.id}
-              initialLikes={news.votes?.likes || 0}
-              initialDislikes={news.votes?.dislikes || 0}
+              likes={news.votes?.likes || 0}
+              dislikes={news.votes?.dislikes || 0}
             />
           </div>
         </div>
