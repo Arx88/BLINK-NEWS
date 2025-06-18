@@ -79,7 +79,15 @@ export const useNewsStore = create<NewsState>((set, get) => ({
         }
         throw new Error(detailedErrorMessage);
       }
-      const data = await response.json();
+      const data = await response.json(); // Raw data from API
+
+      // ADD LOG FOR RAW DATA:
+      console.log(`[newsStore.ts] fetchNews - Raw data from /api/blinks (first 3 items):`, data && data.slice ? data.slice(0, 3) : data);
+      if (data && data.length > 0 && typeof data.slice === 'function') { // Ensure data is an array and sliceable
+          data.slice(0,3).forEach((item: any, index: number) => {
+              console.log(`[newsStore.ts] fetchNews - Raw item ${index} (ID: ${item.id || 'N/A'}) votes:`, item.votes);
+          });
+      }
 
       if (!Array.isArray(data)) {
         console.error('[newsStore] API response is not an array:', data);
@@ -97,7 +105,23 @@ export const useNewsStore = create<NewsState>((set, get) => ({
       // Assuming backend already sorts, but if client-side initial sort is ever needed,
       // it could be done here: data.sort(sortNewsItems);
       const transformedNews = data.map(transformBlinkToNewsItem);
-      const sortedNews = sortBlinks(transformedNews, 'hot'); // Apply client-side sort
+
+      // ADD LOG FOR TRANSFORMED DATA:
+      console.log(`[newsStore.ts] fetchNews - Transformed news (first 3 items):`, transformedNews && transformedNews.slice ? transformedNews.slice(0, 3) : transformedNews);
+      if (transformedNews && transformedNews.length > 0 && typeof transformedNews.slice === 'function') { // Ensure transformedNews is sliceable
+          transformedNews.slice(0,3).forEach((item: any, index: number) => {
+              console.log(`[newsStore.ts] fetchNews - Transformed item ${index} (ID: ${item.id || 'N/A'}) votes:`, item.votes);
+          });
+      }
+
+      const sortedNews = sortBlinks(transformedNews, 'hot');
+      console.log(`[newsStore.ts] fetchNews - Sorted news (first 3 items, votes only):`);
+      if (sortedNews && sortedNews.length > 0 && typeof sortedNews.slice === 'function') { // Ensure sortedNews is sliceable
+          sortedNews.slice(0,3).forEach((item: any, index: number) => {
+              console.log(`[newsStore.ts] fetchNews - Sorted item ${index} (ID: ${item.id || 'N/A'}) votes:`, item.votes);
+          });
+      }
+
       set({ news: sortedNews, loading: false, error: null });
     } catch (err: any) {
       console.error('[newsStore] Error in fetchNews catch block:', err.message);
