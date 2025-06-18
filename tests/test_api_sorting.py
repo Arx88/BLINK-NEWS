@@ -1,4 +1,5 @@
 import unittest
+from flask import Flask
 # Import the refactored sort key function from routes.api
 from routes.api import _sort_blinks_key as sort_key_under_test
 
@@ -6,6 +7,16 @@ from routes.api import _sort_blinks_key as sort_key_under_test
 # Tests will now use the imported sort_key_under_test.
 
 class TestApiSorting(unittest.TestCase):
+
+    def setUp(self):
+        """Set up a Flask application context before each test."""
+        self.app = Flask(__name__)
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+
+    def tearDown(self):
+        """Remove the Flask application context after each test."""
+        self.app_context.pop()
 
     def test_blink_with_zero_likes_and_zero_dislikes(self):
         """
@@ -188,6 +199,48 @@ class TestApiSorting(unittest.TestCase):
         self.assertIn(blinks[1]['id'], ['INV1', 'INV2'])
         self.assertIn(blinks[2]['id'], ['INV1', 'INV2'])
         self.assertNotEqual(blinks[1]['id'], blinks[2]['id'])
+
+    def test_non_integer_string_votes_default_to_zero(self):
+        """
+        Test Case 8: Blinks with non-integer string votes default to 0 for sorting.
+        This simulates data quality issues for vote counts.
+        """
+        # Blink NV1: True 1 dislike, should be last among these 0%
+        blink_NV1 = {'id': 'NV1', 'votes': {'likes': 0, 'dislikes': 1}, 'timestamp': 100}
+        # Blink NV2: Dislikes is an empty string, should default to 0 dislikes
+        blink_NV2 = {'id': 'NV2', 'votes': {'likes': 0, 'dislikes': ""}, 'timestamp': 200}
+        # Blink NV3: Likes is "abc", should default to 0 likes. Dislikes is 0.
+        blink_NV3 = {'id': 'NV3', 'votes': {'likes': "abc", 'dislikes': 0}, 'timestamp': 50}
+        # Blink NV4: True 0 dislikes, for comparison
+        blink_NV4 = {'id': 'NV4', 'votes': {'likes': 0, 'dislikes': 0}, 'timestamp': 150}
+
+        # Expected keys:
+        # NV1: (0.0, -1, -100.0)  (True 1 dislike)
+        # NV2: (0.0, 0, -200.0)   (Dislikes "" -> 0)
+        # NV3: (0.0, 0, -50.0)    (Likes "abc" -> 0, Dislikes 0)
+        # NV4: (0.0, 0, -150.0)   (True 0 dislikes)
+
+        # Check individual key generation to confirm defaulting
+        self.assertEqual(sort_key_under_test(blink_NV1), (0.0, -1, -100.0))
+        # For NV2, raw_dislikes is "", int("") fails, dislikes becomes 0.
+        self.assertEqual(sort_key_under_test(blink_NV2), (0.0, 0, -200.0))
+        # For NV3, raw_likes is "abc", int("abc") fails, likes becomes 0.
+        # Interest is 0 / (0 + 0) which is 0. Dislikes is 0.
+        self.assertEqual(sort_key_under_test(blink_NV3), (0.0, 0, -50.0))
+        self.assertEqual(sort_key_under_test(blink_NV4), (0.0, 0, -150.0))
+
+        blinks = [blink_NV1, blink_NV2, blink_NV3, blink_NV4]
+        # Sort order:
+        # 1. Blinks with 0 effective dislikes (NV3, NV4, NV2), sorted by timestamp ascending (-ts descending)
+        #    NV3 (-50.0)
+        #    NV4 (-150.0)
+        #    NV2 (-200.0)
+        # 2. Blink with 1 dislike (NV1)
+        #    NV1 (-100.0 for ts, but -1 for dislikes makes it last)
+        blinks.sort(key=sort_key_under_test, reverse=True)
+
+        expected_order_ids = ['NV3', 'NV4', 'NV2', 'NV1']
+        self.assertEqual([b['id'] for b in blinks], expected_order_ids)
 
 if __name__ == '__main__':
     unittest.main()
