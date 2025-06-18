@@ -244,3 +244,150 @@ class TestApiSorting(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+import json
+import os
+import shutil
+from routes.api import init_api # To initialize our api_bp
+# from models.news import News # To interact with news_model paths if needed (not used in final approach)
+
+class TestApiVoting(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+        # Using actual data dir for blinks, careful with test blink IDs and cleanup.
+        # The 'actual_data_dir_blinks' will be the 'data/blinks' directory in the project root.
+        # Path is constructed relative to this test file's location (tests/test_api_sorting.py)
+        # So, os.path.dirname(__file__) is /app/tests
+        # os.path.dirname(os.path.dirname(__file__)) is /app
+        self.actual_data_dir_blinks = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'blinks')
+
+        # Ensure the actual blinks directory exists (it should, but good practice)
+        os.makedirs(self.actual_data_dir_blinks, exist_ok=True)
+
+        # Configure the app
+        self.app.config['APP_CONFIG'] = {} # Minimal config for init_api
+        # Potentially, if news_model uses app.config['DATA_DIR'] or similar:
+        # self.app.config['DATA_DIR'] = self.test_data_dir
+
+        init_api(self.app) # Registers /api blueprint, including /blinks/.../vote
+
+        self.client = self.app.test_client()
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+
+    def tearDown(self):
+        self.app_context.pop()
+        # Clean up any created test files in the actual data dir
+        test_blink_path = os.path.join(self.actual_data_dir_blinks, 'test_vote_blink.json')
+        if os.path.exists(test_blink_path):
+            os.remove(test_blink_path)
+
+        # Cleanup for the article file potentially created by vote_on_blink
+        # The path for articles would be parallel to blinks dir: data/articles/
+        article_path = os.path.join(os.path.dirname(self.actual_data_dir_blinks), 'articles', 'test_vote_blink.json')
+        if os.path.exists(article_path):
+            os.remove(article_path)
+
+
+    def _create_test_blink_file(self, blink_id="test_vote_blink", likes=0, dislikes=0, timestamp=1234567890):
+        # Ensure votes is a dict, even if likes/dislikes are 0
+        blink_content = {
+            "id": blink_id,
+            "title": "Test Blink for Voting",
+            "timestamp": timestamp, # Add timestamp, might be used by some internal logic indirectly
+            "votes": {"likes": likes, "dislikes": dislikes},
+            "categories": ["test"],
+            "content": "Test content",
+            "points": ["Point 1"],
+            "image": "test.png",
+            "sources": ["test_source"],
+            "urls": ["http://example.com/test"]
+        }
+        blink_path = os.path.join(self.actual_data_dir_blinks, f"{blink_id}.json")
+        with open(blink_path, 'w') as f:
+            json.dump(blink_content, f, indent=2)
+        return blink_path
+
+    def _read_blink_file_votes(self, blink_id="test_vote_blink"):
+        blink_path = os.path.join(self.actual_data_dir_blinks, f"{blink_id}.json")
+        if not os.path.exists(blink_path):
+            return None
+        with open(blink_path, 'r') as f:
+            data = json.load(f)
+        return data.get("votes")
+
+    def test_vote_first_like(self):
+        self._create_test_blink_file(likes=0, dislikes=0)
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={'voteType': 'like'})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['data']['votes']['likes'], 1)
+        self.assertEqual(data['data']['votes']['dislikes'], 0)
+        file_votes = self._read_blink_file_votes()
+        self.assertEqual(file_votes['likes'], 1)
+        self.assertEqual(file_votes['dislikes'], 0)
+
+    def test_vote_first_dislike(self):
+        self._create_test_blink_file(likes=0, dislikes=0)
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={'voteType': 'dislike'})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['data']['votes']['likes'], 0)
+        self.assertEqual(data['data']['votes']['dislikes'], 1)
+        file_votes = self._read_blink_file_votes()
+        self.assertEqual(file_votes['likes'], 0)
+        self.assertEqual(file_votes['dislikes'], 1)
+
+    def test_vote_change_like_to_dislike(self):
+        self._create_test_blink_file(likes=1, dislikes=0) # Start with a like
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={'voteType': 'dislike'})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['data']['votes']['likes'], 0)
+        self.assertEqual(data['data']['votes']['dislikes'], 1)
+        file_votes = self._read_blink_file_votes()
+        self.assertEqual(file_votes['likes'], 0)
+        self.assertEqual(file_votes['dislikes'], 1)
+
+    def test_vote_change_dislike_to_like(self):
+        self._create_test_blink_file(likes=0, dislikes=1) # Start with a dislike
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={'voteType': 'like'})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data['data']['votes']['likes'], 1)
+        self.assertEqual(data['data']['votes']['dislikes'], 0)
+        file_votes = self._read_blink_file_votes()
+        self.assertEqual(file_votes['likes'], 1)
+        self.assertEqual(file_votes['dislikes'], 0)
+
+    def test_vote_repeated_like_increments(self):
+        self._create_test_blink_file(likes=1, dislikes=0) # Start with a like
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={'voteType': 'like'})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        # Current backend logic: likes becomes 1+1=2, dislikes remains 0.
+        self.assertEqual(data['data']['votes']['likes'], 2)
+        self.assertEqual(data['data']['votes']['dislikes'], 0)
+        file_votes = self._read_blink_file_votes()
+        self.assertEqual(file_votes['likes'], 2)
+        self.assertEqual(file_votes['dislikes'], 0)
+
+    def test_vote_on_nonexistent_blink(self):
+        response = self.client.post('/api/blinks/nonexistent_blink_test_id/vote', json={'voteType': 'like'})
+        self.assertEqual(response.status_code, 404)
+        data = response.get_json()
+        self.assertIn('Blink not found', data['error'])
+
+    def test_vote_with_invalid_vote_type(self):
+        self._create_test_blink_file(likes=0, dislikes=0)
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={'voteType': 'invalid'})
+        self.assertEqual(response.status_code, 400)
+        data = response.get_json()
+        self.assertIn('Invalid voteType', data['error'])
+
+    def test_vote_missing_vote_type(self):
+        self._create_test_blink_file(likes=0, dislikes=0)
+        response = self.client.post('/api/blinks/test_vote_blink/vote', json={})
+        self.assertEqual(response.status_code, 400)
+        data = response.get_json()
+        self.assertIn('Missing voteType', data['error'])
