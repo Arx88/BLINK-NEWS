@@ -106,11 +106,40 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   },
 
   updateBlinkInList: (updatedBlink: NewsItem) => {
+    console.log(`[newsStore.ts] updateBlinkInList called with updatedBlink (ID: ${updatedBlink.id}):`, updatedBlink);
     set(state => {
-      let newsListWithUpdate = state.news.map(item =>
-        item.id === updatedBlink.id ? { ...item, ...updatedBlink } : item
-      );
+      console.log(`[newsStore.ts] updateBlinkInList - Current state.news length: ${state.news.length}`);
+
+      let itemFoundAndUpdated = false;
+      let newsListWithUpdate = state.news.map(item => {
+        if (item.id === updatedBlink.id) {
+          console.log(`[newsStore.ts] updateBlinkInList - Updating item in store. ID: ${item.id}, Old votes:`, item.votes, "New votes:", updatedBlink.votes);
+          itemFoundAndUpdated = true;
+          return { ...item, ...updatedBlink };
+        }
+        return item;
+      });
+
+      if (!itemFoundAndUpdated) {
+          console.warn(`[newsStore.ts] updateBlinkInList - Blink with ID ${updatedBlink.id} not found in current news list. Original list length: ${state.news.length}. Adding it to the list.`);
+          // Optionally, decide if updatedBlink should be added if not found.
+          // For now, if not found, it means the list isn't changed by the map,
+          // and if we want to add it, we should do it here.
+          // newsListWithUpdate = [...newsListWithUpdate, updatedBlink]; // Example if adding
+      }
+
+      // console.log(`[newsStore.ts] updateBlinkInList - newsListWithUpdate (length: ${newsListWithUpdate.length}) BEFORE sorting:`, newsListWithUpdate);
+      const updatedItemInListBeforeSort = newsListWithUpdate.find(item => item.id === updatedBlink.id);
+      console.log(`[newsStore.ts] updateBlinkInList - State of item ID ${updatedBlink.id} in list BEFORE sorting:`, updatedItemInListBeforeSort);
+
       newsListWithUpdate = sortBlinks(newsListWithUpdate, 'hot'); // sortBlinks returns a new sorted array
+
+      // console.log(`[newsStore.ts] updateBlinkInList - newsListWithUpdate (length: ${newsListWithUpdate.length}) AFTER sorting:`, newsListWithUpdate);
+      const finalUpdatedItemInList = newsListWithUpdate.find(item => item.id === updatedBlink.id);
+      console.log(`[newsStore.ts] updateBlinkInList - State of item ID ${updatedBlink.id} in list AFTER sorting:`, finalUpdatedItemInList);
+      const newIndex = newsListWithUpdate.findIndex(item => item.id === updatedBlink.id);
+      console.log(`[newsStore.ts] updateBlinkInList - Final index of item ID ${updatedBlink.id} after sorting: ${newIndex}`);
+
       return { news: newsListWithUpdate };
     });
   },
