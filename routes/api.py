@@ -256,6 +256,17 @@ def get_all_blinks_sorted():
         try:
             with open(blink_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+
+                # Ensure 'votes' field exists with a default structure
+                if 'votes' not in data or not isinstance(data['votes'], dict):
+                    data['votes'] = {'likes': 0, 'dislikes': 0}
+                else:
+                    # Ensure 'likes' and 'dislikes' keys exist within data['votes']
+                    if 'likes' not in data['votes']:
+                        data['votes']['likes'] = 0
+                    if 'dislikes' not in data['votes']:
+                        data['votes']['dislikes'] = 0
+
                 all_blinks_data.append(data)
 
                 if logged_count < max_logs:
