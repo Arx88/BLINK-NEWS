@@ -5,15 +5,68 @@ from functools import cmp_to_key
 
 try:
     from news_blink_backend.src.logger_config import app_logger
+    # If import is successful, log this information
+    app_logger.info("Successfully imported 'app_logger' from 'news_blink_backend.src.logger_config' in models/news.py.")
 except ImportError:
     import logging
-    app_logger = logging.getLogger(__name__)
+    # import os # os is already imported at the top of the file
+
+    # Get the logger for this module (__name__ is 'models.news')
+    app_logger = logging.getLogger(__name__) # Or use a specific name like "models.news.fallback"
     app_logger.setLevel(logging.DEBUG)
-    if not app_logger.hasHandlers():
-        ch = logging.StreamHandler()
-        ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        app_logger.addHandler(ch)
-    app_logger.warning("Failed to import app_logger from news_blink_backend.src.logger_config. Using fallback basic logger for models.news.")
+
+    # Prevent adding handlers multiple times if this module is reloaded or code runs multiple times
+    if not app_logger.handlers:
+        # Define the log directory relative to this file (models/news.py)
+        # Path: models/news.py -> models/ -> project_root/ -> LOG/
+        log_dir_relative_to_this_file = os.path.join(os.path.dirname(__file__), '..', 'LOG')
+        log_directory = os.path.abspath(log_dir_relative_to_this_file)
+
+        if not os.path.exists(log_directory):
+            try:
+                os.makedirs(log_directory)
+            except OSError as e:
+                # This basic print is a last resort if even logging setup fails for directories
+                print(f"CRITICAL: Failed to create log directory {log_directory}. Error: {e}")
+                # Fallback to a very basic console logger if directory creation fails
+                # so the app doesn't crash due to logging issues.
+                ch = logging.StreamHandler()
+                ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+                app_logger.addHandler(ch)
+                app_logger.error(f"Fallback logger: Directory creation failed for {log_directory}.")
+
+
+        # Only proceed with file handler if directory exists or was created
+        if os.path.exists(log_directory):
+            log_file_path = os.path.join(log_directory, "VOTINGPROBLEMLOG.log")
+
+            # File Handler for the fallback logger
+            file_handler = logging.FileHandler(log_file_path, mode='a', encoding='utf-8') # 'a' for append
+            file_handler.setLevel(logging.DEBUG)
+
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s'
+            )
+            file_handler.setFormatter(formatter)
+            app_logger.addHandler(file_handler)
+
+            # Optional: Add a console handler to this fallback logger as well, for immediate visibility if needed
+            # ch_fallback = logging.StreamHandler()
+            # ch_fallback.setLevel(logging.INFO) # Or DEBUG
+            # ch_fallback.setFormatter(formatter)
+            # app_logger.addHandler(ch_fallback)
+
+            app_logger.info(f"Initialized fallback file logger for 'models.news' to: {log_file_path}")
+        else:
+            # This case means directory creation failed and the earlier print/basic handler took over.
+            # Log one more time to the (now basic console) app_logger that file logging is not active.
+            app_logger.warning("Directory for VOTINGPROBLEMLOG.log could not be created. Fallback logger is console only.")
+
+    else: # This means handlers were already added to this specific logger instance
+        app_logger.info(f"Handlers already configured for logger '{app_logger.name}'. Skipping fallback setup.")
+
+    # The original warning about failing to import the main logger is still good.
+    app_logger.warning("Failed to import 'app_logger' from 'news_blink_backend.src.logger_config'. Using fallback logger for 'models.news'.")
 
 class News:
     def __init__(self, data_dir):
