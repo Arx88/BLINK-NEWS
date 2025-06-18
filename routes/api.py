@@ -235,6 +235,7 @@ def get_all_blinks_sorted():
     Retrieves all blinks, sorts them, and returns as JSON.
     Sort primary: votes.likes (desc), secondary: timestamp (desc).
     """
+    warnings_logger = logging.getLogger('blink_sorting_warnings') # Get the dedicated logger
     blinks_path = news_model.blinks_dir
     all_blinks_data = []
 
@@ -254,7 +255,7 @@ def get_all_blinks_sorted():
                 if logged_count < max_logs:
                     blink_id_for_log = data.get('id', 'unknown_id')
                     votes_for_log = data.get('votes', 'No votes field')
-                    current_app.logger.info(f"[API /blinks] Loaded blink ID: {blink_id_for_log}, Votes: {votes_for_log}, File: {os.path.basename(blink_file)}")
+                    warnings_logger.info(f"[API /blinks] Loaded blink ID: {blink_id_for_log}, Votes: {votes_for_log}, File: {os.path.basename(blink_file)}")
                     logged_count += 1
         except json.JSONDecodeError:
             current_app.logger.error(f"Error decoding JSON from file {blink_file}")
@@ -265,14 +266,14 @@ def get_all_blinks_sorted():
             continue
 
     if not blink_files:
-        current_app.logger.info("[API /blinks] No blink files found.")
+        warnings_logger.info("[API /blinks] No blink files found.")
     elif logged_count == 0 and blink_files: # If files exist but none were logged (e.g. all failed to load)
-        current_app.logger.info(f"[API /blinks] Found {len(blink_files)} files, but failed to load/log details for any.")
+        warnings_logger.info(f"[API /blinks] Found {len(blink_files)} files, but failed to load/log details for any.")
 
     # Sort the blinks using the extracted key function
     all_blinks_data.sort(key=_sort_blinks_key, reverse=True)
 
-    current_app.logger.info(f"[API /blinks] Returning {len(all_blinks_data)} blinks after processing and sorting.")
+    warnings_logger.info(f"[API /blinks] Returning {len(all_blinks_data)} blinks after processing and sorting.")
     return jsonify(all_blinks_data)
 
 # --- New Blink Endpoints End ---
