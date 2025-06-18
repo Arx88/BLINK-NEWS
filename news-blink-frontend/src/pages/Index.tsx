@@ -26,6 +26,12 @@ const Index = () => {
   // heroNews is derived directly from filteredNews
   const heroNews = filteredNews.length > 0 ? filteredNews[0] : null;
 
+  if (heroNews) {
+    console.log(`[Index.tsx] heroNews selected: ID=${heroNews.id}, Likes=${heroNews.votes?.likes}, Dislikes=${heroNews.votes?.dislikes}`);
+  } else {
+    console.log('[Index.tsx] heroNews is null');
+  }
+
   useEffect(() => {
     if (activeTab) {
       loadNews(activeTab);

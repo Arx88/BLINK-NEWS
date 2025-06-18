@@ -37,6 +37,11 @@ export const NewsContent = ({
   clearFilters,
   onCardClick
 }: NewsContentProps) => {
+  if (heroNews) {
+    console.log(`[NewsContent.tsx] Received heroNews: ID=${heroNews.id}, Likes=${heroNews.votes?.likes}, Dislikes=${heroNews.votes?.dislikes}`);
+  } else {
+    console.log('[NewsContent.tsx] Received heroNews is null');
+  }
   const { isDarkMode } = useTheme();
 
   if (loading) {

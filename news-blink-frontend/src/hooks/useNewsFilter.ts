@@ -62,32 +62,7 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
       case 'tendencias':
-        filtered.sort((a, b) => {
-          const votesA = a.votes || { likes: 0, dislikes: 0 };
-          const likesA = Number(votesA.likes || 0);
-          const dislikesA = Number(votesA.dislikes || 0);
-          const totalVotesA = likesA + dislikesA;
-          const scoreA = totalVotesA > 0 ? likesA / totalVotesA : 0.0;
-
-          const votesB = b.votes || { likes: 0, dislikes: 0 };
-          const likesB = Number(votesB.likes || 0);
-          const dislikesB = Number(votesB.dislikes || 0);
-          const totalVotesB = likesB + dislikesB;
-          const scoreB = totalVotesB > 0 ? likesB / totalVotesB : 0.0;
-
-          if (scoreB !== scoreA) {
-            return scoreB - scoreA; // Primary: interest score descending
-          }
-
-          if (likesB !== likesA) {
-            return likesB - likesA; // Secondary: absolute likes descending
-          }
-
-          // Tertiary: publishedAt (timestamp) descending
-          const timestampA = new Date(a.publishedAt || 0).getTime();
-          const timestampB = new Date(b.publishedAt || 0).getTime();
-          return timestampB - timestampA;
-        });
+        // No custom sort needed here, as categoryFilteredNews is already sorted by newsStore's sortBlinks
         break;
       case 'rumores':
         filtered = filtered.filter(item => item.category === 'RUMORES' || item.aiScore < 90);
