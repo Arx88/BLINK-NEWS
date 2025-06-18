@@ -2,6 +2,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencias') => { // Keep the signature allowing initialActiveTab
+  console.log(`[useNewsFilter] Hook execution. Input 'news' array length: ${news.length}`);
+  if (news.length > 0 && typeof news.slice === 'function') {
+    console.log(`[useNewsFilter] Input 'news' (first 3 items with votes):`, news.slice(0, 3).map(item => ({id: item.id, votes: item.votes, aiScore: item.aiScore, publishedAt: item.publishedAt })));
+  }
   const [activeTab, setActiveTab] = useState(initialActiveTab);
 
   const [filteredNews, setFilteredNews] = useState<any[]>([]);
@@ -10,21 +14,50 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
 
   // Memoize expensive computations
   const searchFilteredNews = useMemo(() => {
-    if (!searchTerm) return news;
+    console.log(`[useNewsFilter] Recalculating searchFilteredNews. searchTerm: "${searchTerm}", input 'news' length: ${news.length}`);
+    if (!searchTerm) {
+      // console.log(`[useNewsFilter] searchFilteredNews - no searchTerm, returning original 'news' (length: ${news.length})`);
+      // To see if 'news' itself has the updated item:
+      if (news.length > 0 && typeof news.slice === 'function') {
+        console.log(`[useNewsFilter] searchFilteredNews - no searchTerm. Input 'news' (first 3 with votes):`, news.slice(0,3).map(item => ({id: item.id, votes: item.votes })));
+      }
+      return news;
+    }
     
     const lowercaseSearch = searchTerm.toLowerCase();
-    return news.filter(item =>
+    const result = news.filter(item =>
       item.title.toLowerCase().includes(lowercaseSearch) ||
       (item.points && item.points.some((point: string) => point.toLowerCase().includes(lowercaseSearch)))
     );
+    console.log(`[useNewsFilter] searchFilteredNews - after filter, result length: ${result.length}`);
+    if (result.length > 0 && typeof result.slice === 'function') {
+        console.log(`[useNewsFilter] searchFilteredNews - result (first 3 with votes):`, result.slice(0,3).map(item => ({id: item.id, votes: item.votes })));
+    }
+    return result;
   }, [news, searchTerm]);
 
   const categoryFilteredNews = useMemo(() => {
-    if (selectedCategory === 'all') return searchFilteredNews;
-    return searchFilteredNews.filter(item => item.category?.toUpperCase() === selectedCategory);
+    console.log(`[useNewsFilter] Recalculating categoryFilteredNews. selectedCategory: "${selectedCategory}", input 'searchFilteredNews' length: ${searchFilteredNews.length}`);
+    if (selectedCategory === 'all') {
+      // console.log(`[useNewsFilter] categoryFilteredNews - category 'all', returning 'searchFilteredNews' (length: ${searchFilteredNews.length})`);
+      if (searchFilteredNews.length > 0 && typeof searchFilteredNews.slice === 'function') {
+        console.log(`[useNewsFilter] categoryFilteredNews - category 'all'. Input 'searchFilteredNews' (first 3 with votes):`, searchFilteredNews.slice(0,3).map(item => ({id: item.id, votes: item.votes })));
+      }
+      return searchFilteredNews;
+    }
+    const result = searchFilteredNews.filter(item => item.category?.toUpperCase() === selectedCategory);
+    console.log(`[useNewsFilter] categoryFilteredNews - after filter, result length: ${result.length}`);
+    if (result.length > 0 && typeof result.slice === 'function') {
+        console.log(`[useNewsFilter] categoryFilteredNews - result (first 3 with votes):`, result.slice(0,3).map(item => ({id: item.id, votes: item.votes })));
+    }
+    return result;
   }, [searchFilteredNews, selectedCategory]);
 
   const tabFilteredNews = useMemo(() => {
+    console.log(`[useNewsFilter] Recalculating tabFilteredNews. activeTab: "${activeTab}", input 'categoryFilteredNews' length: ${categoryFilteredNews.length}`);
+    if (categoryFilteredNews.length > 0 && typeof categoryFilteredNews.slice === 'function') {
+        console.log(`[useNewsFilter] tabFilteredNews - input 'categoryFilteredNews' (first 3 with votes, aiScore, publishedAt):`, categoryFilteredNews.slice(0,3).map(item => ({id: item.id, votes: item.votes, aiScore: item.aiScore, publishedAt: item.publishedAt })));
+    }
     let filtered = [...categoryFilteredNews];
     // console.log('[useNewsFilter] Inside tabFilteredNews memo. Start. categoryFilteredNews length:', categoryFilteredNews.length, 'activeTab:', activeTab); // Optional inner log
     switch (activeTab) {
@@ -73,11 +106,18 @@ export const useNewsFilter = (news: any[], initialActiveTab: string = 'tendencia
     // The 'ultimas' tab still applies its own date-based sort.
     // Other tabs ('tendencias', 'rumores') will rely on the backend's default sort order
     // after their specific filtering logic is applied.
-
+    console.log(`[useNewsFilter] tabFilteredNews - after tab logic, result length: ${filtered.length}`);
+    if (filtered.length > 0 && typeof filtered.slice === 'function') {
+        console.log(`[useNewsFilter] tabFilteredNews - result (first 3 with votes, aiScore, publishedAt):`, filtered.slice(0,3).map(item => ({id: item.id, votes: item.votes, aiScore: item.aiScore, publishedAt: item.publishedAt })));
+    }
     return filtered;
   }, [categoryFilteredNews, activeTab]);
 
   useEffect(() => {
+    console.log(`[useNewsFilter] useEffect to setFilteredNews. 'tabFilteredNews' length: ${tabFilteredNews.length}`);
+    if (tabFilteredNews.length > 0 && typeof tabFilteredNews.slice === 'function') {
+        console.log(`[useNewsFilter] useEffect - 'tabFilteredNews' being set (first 3 with votes):`, tabFilteredNews.slice(0,3).map(item => ({id: item.id, votes: item.votes })));
+    }
     setFilteredNews(tabFilteredNews);
   }, [tabFilteredNews]);
 
