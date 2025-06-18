@@ -10,8 +10,7 @@ const getSafeTimestamp = (dateString: string | undefined | null): number => {
 
 // --- NEW SORTING FUNCTION (ADAPTED FROM USER SUGGESTION) ---
 const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] => {
-  // Create a copy to avoid modifying the original array directly
-  const newBlinks = [...blinks];
+  const newBlinks = [...blinks]; // Create a copy
 
   let hotSortLogCount = 0;
   const maxHotSortLogs = 20; // Log up to 20 comparisons
@@ -19,48 +18,58 @@ const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] =>
   if (sortBy === 'hot') {
     newBlinks.sort((a, b) => {
       hotSortLogCount++;
+      // Basic info logging for the first few comparisons
       if (hotSortLogCount <= maxHotSortLogs) {
           console.log(`[sortBlinks HOT Cmp #${hotSortLogCount}]`);
           console.log(`  A: id=${a.id}, ai=${a.aiScore}, pub=${a.publishedAt}, votes=${JSON.stringify(a.votes)}`);
           console.log(`  B: id=${b.id}, ai=${b.aiScore}, pub=${b.publishedAt}, votes=${JSON.stringify(b.votes)}`);
       }
 
-      // Criterio 1: Ordenar por 'aiScore' (score) de mayor a menor
-      const scoreDiff = (b.aiScore || 0) - (a.aiScore || 0);
-      if (hotSortLogCount <= maxHotSortLogs) { // Log intermediate diffs for the same comparisons
-          // console.log(`    scoreDiff: ${scoreDiff}`);
+      const likesA = a.votes?.likes ?? 0;
+      const likesB = b.votes?.likes ?? 0;
+      const dislikesA = a.votes?.dislikes ?? a.votes?.down ?? 0; // Keep .down for compatibility if needed
+      const dislikesB = b.votes?.dislikes ?? b.votes?.down ?? 0; // Keep .down for compatibility if needed
+      const dateA = getSafeTimestamp(a.publishedAt);
+      const dateB = getSafeTimestamp(b.publishedAt);
+
+      // Prioritize items with positive likes over items with zero likes
+      if (likesA > 0 && likesB === 0) {
+        return -1; // A (with likes) comes before B (no likes)
       }
+      if (likesB > 0 && likesA === 0) {
+        return 1;  // B (with likes) comes before A (no likes)
+      }
+
+      // If both items have 0 likes
+      if (likesA === 0 && likesB === 0) {
+        // Sort by number of dislikes (ascending - fewer dislikes are better)
+        const dislikeDiff = dislikesA - dislikesB;
+        if (dislikeDiff !== 0) {
+          return dislikeDiff;
+        }
+        // If dislikes are equal, sort by publication date (descending - newer is better)
+        return dateB - dateA;
+      }
+
+      // If both items have positive likes (implicit from the checks above)
+      // Use original logic: aiScore (desc), then dislikes (asc), then date (desc)
+      const scoreDiff = (b.aiScore || 0) - (a.aiScore || 0); // Higher aiScore is better
       if (scoreDiff !== 0) {
         return scoreDiff;
       }
 
-      // Los scores son iguales, pasamos al desempate.
-      // Criterio 2: Ordenar por votos negativos ('dislikes') de MENOR a mayor
-      const dislikesA = a.votes?.dislikes ?? a.votes?.down ?? 0;
-      const dislikesB = b.votes?.dislikes ?? b.votes?.down ?? 0;
-      const downVotesDiff = dislikesA - dislikesB;
-      if (hotSortLogCount <= maxHotSortLogs) {
-          // console.log(`    dislikesA: ${dislikesA}, dislikesB: ${dislikesB}, downVotesDiff: ${downVotesDiff}`);
-      }
+      const downVotesDiff = dislikesA - dislikesB; // Fewer dislikes are better
       if (downVotesDiff !== 0) {
         return downVotesDiff;
       }
 
-      // Los votos negativos también son iguales, último desempate.
-      // Criterio 3: Ordenar por fecha de creación ('publishedAt') de MÁS RECIENTE a más antiguo
-      const dateA = getSafeTimestamp(a.publishedAt);
-      const dateB = getSafeTimestamp(b.publishedAt);
-      const dateDiff = dateB - dateA;
-      if (hotSortLogCount <= maxHotSortLogs) {
-          // console.log(`    dateA_ts: ${dateA}, dateB_ts: ${dateB}, dateDiff: ${dateDiff}`);
-      }
-      return dateDiff;
+      return dateB - dateA; // Newer is better
     });
   } else if (sortBy === 'latest') {
     newBlinks.sort((a, b) => {
       const dateA = getSafeTimestamp(a.publishedAt);
       const dateB = getSafeTimestamp(b.publishedAt);
-      return dateB - dateA;
+      return dateB - dateA; // Newer is better
     });
   }
   return newBlinks;
