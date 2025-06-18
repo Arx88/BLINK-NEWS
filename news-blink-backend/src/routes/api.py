@@ -7,7 +7,24 @@ from ..logger_config import app_logger # Import the configured logger
 # Create a Blueprint for API routes
 api_bp = Blueprint('api', __name__)
 
-news_manager = News(data_dir='data')
+# news_manager = News(data_dir='data') # Removed global instantiation
+
+def get_news_manager():
+    data_dir = 'data' # Default
+    if current_app and 'APP_CONFIG' in current_app.config and 'NEWS_MODEL_DATA_DIR' in current_app.config['APP_CONFIG']:
+        data_dir = current_app.config['APP_CONFIG']['NEWS_MODEL_DATA_DIR']
+        # Use a distinct logger message for when config is actually used
+        app_logger.info(f"get_news_manager: Using NEWS_MODEL_DATA_DIR from app_config: {data_dir}")
+    else:
+        # This will log if current_app is not available or config is not set
+        app_logger.info(f"get_news_manager: Using default data_dir='{data_dir}'. current_app available: {bool(current_app)}")
+        if current_app and 'APP_CONFIG' not in current_app.config:
+            app_logger.info("get_news_manager: 'APP_CONFIG' not in current_app.config.")
+        elif current_app and 'NEWS_MODEL_DATA_DIR' not in current_app.config.get('APP_CONFIG', {}):
+            app_logger.info("get_news_manager: 'NEWS_MODEL_DATA_DIR' not in current_app.config['APP_CONFIG'].")
+
+    return News(data_dir=data_dir)
+
 news_service_external = NewsService(api_key=Config.NEWS_API_KEY)
 
 @api_bp.route('/health', methods=['GET'])
@@ -34,7 +51,8 @@ def get_all_blinks_route():
     user_id = request.args.get('userId', None)
     app_logger.info(f"Get all blinks request: userId='{user_id}'")
     try:
-        all_blinks = news_manager.get_all_blinks(user_id=user_id)
+        news_manager_instance = get_news_manager()
+        all_blinks = news_manager_instance.get_all_blinks(user_id=user_id)
         app_logger.info(f"Successfully retrieved {len(all_blinks)} blinks for userId='{user_id}'.")
         # Example: Log details of the first few blinks if needed for deep debugging
         # if all_blinks and len(all_blinks) > 0:
@@ -49,20 +67,22 @@ def get_blink_route(article_id):
     user_id = request.args.get('userId', None)
     app_logger.info(f"Get blink request: article_id='{article_id}', userId='{user_id}'")
     try:
-        blink = news_manager.get_blink(article_id) # get_blink in models now handles likes/dislikes conversion
+        news_manager_instance = get_news_manager()
+        # Call the updated News.get_blink method, passing user_id
+        blink = news_manager_instance.get_blink(article_id, user_id=user_id)
+
         if not blink:
-            app_logger.warning(f"Blink not found: article_id='{article_id}'")
+            app_logger.warning(f"Blink not found: article_id='{article_id}' (called by get_blink_route)")
             return jsonify({"error": "Blink not found"}), 404
 
-        app_logger.debug(f"Blink found: article_id='{article_id}'. Calculating interest and user status.")
-        # These calculations should use the (potentially converted) 'positive'/'negative' keys from blink
-        blink['interestPercentage'] = news_manager.calculate_interest_percentage(blink)
-        if user_id:
-            blink['currentUserVoteStatus'] = news_manager._get_user_vote_status(blink, user_id)
-        else:
-            blink['currentUserVoteStatus'] = None
+        # 'interestPercentage' is no longer calculated here or added by News.get_blink.
+        # 'currentUserVoteStatus' is now directly included by news_manager.get_blink.
 
-        app_logger.info(f"Successfully retrieved blink: article_id='{article_id}', interest={blink['interestPercentage']:.2f}%, userVote='{blink['currentUserVoteStatus']}', Votes={blink.get('votes')}.")
+        # If 'interestPercentage' is still desired on this specific endpoint, it can be calculated here.
+        # For now, assuming it's not added as per overall plan to move calcs to frontend.
+        # If it IS needed: blink['interestPercentage'] = news_manager.calculate_interest_percentage(blink)
+
+        app_logger.info(f"Successfully retrieved blink via get_blink_route: article_id='{article_id}', UserVote='{blink.get('currentUserVoteStatus')}', Votes={blink.get('votes')}.")
         return jsonify(blink)
     except Exception as e:
         app_logger.error(f"Error in /blinks/{article_id} route for userId='{user_id}'. Error: {e}", exc_info=True)
@@ -70,39 +90,56 @@ def get_blink_route(article_id):
 
 @api_bp.route('/blinks/<string:article_id>/vote', methods=['POST'])
 def vote_on_blink_route(article_id):
-    app_logger.info(f"Vote request for article_id='{article_id}'. Raw request data: {request.data}")
+    app_logger.info(f"[VOTE_DEBUG] Entered vote_on_blink_route for article_id='{article_id}'. Raw request data: {request.data}")
     data = request.get_json()
     if not data:
-        app_logger.warning(f"Missing JSON data in vote request for article_id='{article_id}'.")
-        return jsonify({"error": "Missing JSON data in request"}), 400
+        app_logger.warning(f"[VOTE_DEBUG] Missing JSON data for article_id='{article_id}'.")
+        return jsonify({"error": "Invalid JSON"}), 400
 
     user_id = data.get('userId')
-    vote_type = data.get('voteType') # Frontend sends 'positive' or 'negative'
-    app_logger.info(f"Processing vote for article_id='{article_id}', userId='{user_id}', voteType='{vote_type}'.")
+    vote_type = data.get('voteType') # Expected 'like' or 'dislike'
+    previous_vote = data.get('previousVote') # Expected 'like', 'dislike', or None
+
+    app_logger.info(f"[VOTE_DEBUG] Extracted from JSON for article_id='{article_id}': userId='{user_id}', voteType='{vote_type}', previousVote='{previous_vote}'.")
 
     if not user_id or not vote_type:
-        app_logger.warning(f"Missing 'userId' or 'voteType' in vote request body for article_id='{article_id}'. Body: {data}")
+        app_logger.warning(f"[VOTE_DEBUG] Missing 'userId' or 'voteType' for article_id='{article_id}'. Body: {data}")
         return jsonify({"error": "Missing 'userId' or 'voteType' in request body"}), 400
 
-    # This validation MUST check for 'positive' or 'negative'
-    if vote_type not in ['positive', 'negative']:
-        app_logger.warning(f"Invalid 'voteType' ('{vote_type}') in vote request for article_id='{article_id}'. Expected 'positive' or 'negative'. Body: {data}")
-        return jsonify({"error": "Invalid 'voteType'. Must be 'positive' or 'negative'."}), 400 # Corrected error message
+    app_logger.info(f"[VOTE_DEBUG] About to validate voteType ('{vote_type}') for article_id='{article_id}'. Expected values: ['like', 'dislike'].")
+    if vote_type not in ['like', 'dislike']:
+        app_logger.warning(f"[VOTE_DEBUG] Validation FAILED for voteType ('{vote_type}') for article_id='{article_id}'. Expected ['like', 'dislike']. Sending 400 error.")
+        return jsonify({"error": "Invalid voteType. Must be 'like' or 'dislike'"}), 400
+
+    # Validate previousVote if provided
+    if previous_vote is not None and previous_vote not in ['like', 'dislike']:
+        app_logger.warning(f"[VOTE_DEBUG] Validation FAILED for previousVote ('{previous_vote}') for article_id='{article_id}'. Expected ['like', 'dislike', None]. Sending 400 error.")
+        return jsonify({"error": "Invalid previousVote. Must be 'like', 'dislike', or null."}), 400
+
+    app_logger.info(f"[VOTE_DEBUG] voteType ('{vote_type}') and previousVote ('{previous_vote}') for article_id='{article_id}' passed validation. Calling news_manager.process_user_vote.")
 
     try:
-        # news_manager.process_vote now expects 'positive' or 'negative' and works with these keys internally
-        updated_blink = news_manager.process_vote(article_id, user_id, vote_type)
-        if not updated_blink:
-            app_logger.warning(f"process_vote returned None for article_id='{article_id}', userId='{user_id}', voteType='{vote_type}'. Blink might not exist or save failed.")
-            return jsonify({"error": "Failed to process vote or blink not found"}), 404
+        news_manager_instance = get_news_manager()
+        # Call the new method in models.news
+        updated_blink_data = news_manager_instance.process_user_vote(article_id, user_id, vote_type, previous_vote)
 
-        app_logger.debug(f"Vote processed for article_id='{article_id}'. Calculating interest and user status for response.")
-        # These calculations use the 'positive'/'negative' keys from updated_blink
-        updated_blink['interestPercentage'] = news_manager.calculate_interest_percentage(updated_blink)
-        updated_blink['currentUserVoteStatus'] = news_manager._get_user_vote_status(updated_blink, user_id)
+        if not updated_blink_data:
+            # Distinguish between blink not found and other processing errors if possible,
+            # but process_user_vote currently returns None for multiple failure types.
+            app_logger.warning(f"[VOTE_DEBUG] news_manager.process_user_vote returned None for article_id='{article_id}'. Blink might not exist or internal error during processing.")
+            # Assuming a general failure case for now. If process_user_vote could differentiate file not found vs. save error, status codes could be more specific.
+            return jsonify({"error": "Blink not found or failed to process vote"}), 404 # 404 implies blink itself not found, 500 for other errors.
 
-        app_logger.info(f"Vote successful for article_id='{article_id}', userId='{user_id}', voteType='{vote_type}'. New interest: {updated_blink['interestPercentage']:.2f}%. Votes: {updated_blink.get('votes')}")
-        return jsonify(updated_blink)
+        # news_manager.process_user_vote now adds/updates 'currentUserVoteStatus'
+        # It also calculates and adds 'interestPercentage'
+        # No need to recalculate interest here if process_user_vote handles it.
+        # However, process_user_vote as defined in the prompt does NOT recalculate interest.
+        # Let's add it here for consistency with previous API behavior.
+        updated_blink_data['interestPercentage'] = news_manager_instance.calculate_interest_percentage(updated_blink_data)
+
+        app_logger.info(f"[VOTE_DEBUG] Vote successful for article_id='{article_id}'. Votes: {updated_blink_data.get('votes')}, UserVote: {updated_blink_data.get('currentUserVoteStatus')}, New Interest: {updated_blink_data.get('interestPercentage'):.2f}%")
+        return jsonify(updated_blink_data), 200
+
     except Exception as e:
-        app_logger.error(f"Error in /blinks/{article_id}/vote route for userId='{user_id}', voteType='{vote_type}'. Error: {e}", exc_info=True)
-        return jsonify({"error": "Failed to process vote"}), 500
+        app_logger.error(f"[VOTE_DEBUG] Exception during vote processing for article_id='{article_id}': {e}", exc_info=True)
+        return jsonify({"error": "Server error processing vote"}), 500
