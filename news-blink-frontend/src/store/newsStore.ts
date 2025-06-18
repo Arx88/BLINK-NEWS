@@ -1,15 +1,35 @@
 import { create } from 'zustand';
 import { NewsItem, transformBlinkToNewsItem } from '../utils/api'; // Assuming NewsItem is exported from api.ts
 
+const getSafeTimestamp = (dateString: string | undefined | null): number => {
+  if (!dateString) return 0; // Default for missing/null/empty dates
+  const date = new Date(dateString);
+  // Check if date is valid; getTime() will be NaN for invalid dates
+  return isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
 // --- NEW SORTING FUNCTION (ADAPTED FROM USER SUGGESTION) ---
 const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] => {
   // Create a copy to avoid modifying the original array directly
   const newBlinks = [...blinks];
 
+  let hotSortLogCount = 0;
+  const maxHotSortLogs = 20; // Log up to 20 comparisons
+
   if (sortBy === 'hot') {
     newBlinks.sort((a, b) => {
+      hotSortLogCount++;
+      if (hotSortLogCount <= maxHotSortLogs) {
+          console.log(`[sortBlinks HOT Cmp #${hotSortLogCount}]`);
+          console.log(`  A: id=${a.id}, ai=${a.aiScore}, pub=${a.publishedAt}, votes=${JSON.stringify(a.votes)}`);
+          console.log(`  B: id=${b.id}, ai=${b.aiScore}, pub=${b.publishedAt}, votes=${JSON.stringify(b.votes)}`);
+      }
+
       // Criterio 1: Ordenar por 'aiScore' (score) de mayor a menor
       const scoreDiff = (b.aiScore || 0) - (a.aiScore || 0);
+      if (hotSortLogCount <= maxHotSortLogs) { // Log intermediate diffs for the same comparisons
+          // console.log(`    scoreDiff: ${scoreDiff}`);
+      }
       if (scoreDiff !== 0) {
         return scoreDiff;
       }
@@ -19,21 +39,27 @@ const sortBlinks = (blinks: NewsItem[], sortBy: 'hot' | 'latest'): NewsItem[] =>
       const dislikesA = a.votes?.dislikes ?? a.votes?.down ?? 0;
       const dislikesB = b.votes?.dislikes ?? b.votes?.down ?? 0;
       const downVotesDiff = dislikesA - dislikesB;
+      if (hotSortLogCount <= maxHotSortLogs) {
+          // console.log(`    dislikesA: ${dislikesA}, dislikesB: ${dislikesB}, downVotesDiff: ${downVotesDiff}`);
+      }
       if (downVotesDiff !== 0) {
         return downVotesDiff;
       }
 
       // Los votos negativos también son iguales, último desempate.
       // Criterio 3: Ordenar por fecha de creación ('publishedAt') de MÁS RECIENTE a más antiguo
-      // Ensure publishedAt is treated as a date for comparison
-      const dateA = new Date(a.publishedAt).getTime();
-      const dateB = new Date(b.publishedAt).getTime();
-      return dateB - dateA;
+      const dateA = getSafeTimestamp(a.publishedAt);
+      const dateB = getSafeTimestamp(b.publishedAt);
+      const dateDiff = dateB - dateA;
+      if (hotSortLogCount <= maxHotSortLogs) {
+          // console.log(`    dateA_ts: ${dateA}, dateB_ts: ${dateB}, dateDiff: ${dateDiff}`);
+      }
+      return dateDiff;
     });
   } else if (sortBy === 'latest') {
     newBlinks.sort((a, b) => {
-      const dateA = new Date(a.publishedAt).getTime();
-      const dateB = new Date(b.publishedAt).getTime();
+      const dateA = getSafeTimestamp(a.publishedAt);
+      const dateB = getSafeTimestamp(b.publishedAt);
       return dateB - dateA;
     });
   }

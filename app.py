@@ -45,14 +45,14 @@ def create_app():
 
     # Create a specific logger
     warnings_logger = logging.getLogger('blink_sorting_warnings')
-    warnings_logger.setLevel(logging.WARNING) # Set the level for this logger
+    warnings_logger.setLevel(logging.INFO) # <-- CHANGED TO INFO
 
     # Prevent propagation to root logger if you don't want duplicate console logs
     # warnings_logger.propagate = False
 
     # Create a file handler for this logger
     file_handler = logging.FileHandler(warnings_log_file)
-    file_handler.setLevel(logging.WARNING) # Set level for the handler
+    file_handler.setLevel(logging.INFO) # <-- CHANGED TO INFO
 
     # Create a formatter and set it for the handler
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
