@@ -31,13 +31,24 @@ blink_generator = BlinkGenerator()
 # Key function for sorting blinks, extracted for clarity and testability
 def _sort_blinks_key(blink):
     votes = blink.get('votes', {})
+    blink_id = blink.get('id', 'unknown_id') # Get blink ID for logging, default if not found
+
+    raw_likes = votes.get('likes', 0)
     try:
-        likes = int(votes.get('likes', 0))
-    except (ValueError, TypeError):
+        likes = int(raw_likes)
+    except (ValueError, TypeError) as e:
+        current_app.logger.warning(
+            f"Blink {blink_id}: Failed to convert 'likes' value '{raw_likes}' to int. Defaulting to 0. Error: {e}"
+        )
         likes = 0
+
+    raw_dislikes = votes.get('dislikes', 0)
     try:
-        dislikes = int(votes.get('dislikes', 0))
-    except (ValueError, TypeError):
+        dislikes = int(raw_dislikes)
+    except (ValueError, TypeError) as e:
+        current_app.logger.warning(
+            f"Blink {blink_id}: Failed to convert 'dislikes' value '{raw_dislikes}' to int. Defaulting to 0. Error: {e}"
+        )
         dislikes = 0
 
     total_votes = likes + dislikes
