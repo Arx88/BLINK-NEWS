@@ -1,169 +1,123 @@
-
-import { Badge } from '@/components/ui/badge';
+// news-blink-frontend/src/components/FuturisticNewsCard.tsx
+import React from 'react';
+import { Link } from 'react-router-dom';
+// Ensure Blink type is imported, assuming it's now in newsStore.ts or a shared types file
+// Based on previous step, it should be in news-blink-frontend/src/types/newsTypes.ts
+import { Blink } from '../types/newsTypes';
 import { RealPowerBarVoteSystem } from './RealPowerBarVoteSystem';
-import { useState, useEffect, useCallback, memo } from 'react';
-import { useTheme } from '@/contexts/ThemeContext';
+import { motion } from "framer-motion";
+import { ExternalLink, Eye } from 'lucide-react';
 
 interface FuturisticNewsCardProps {
-  news: any;
-  onCardClick: (id: string) => void;
+  blink: Blink;
+  index: number;
+  layoutId?: string;
 }
 
-export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCardProps) => {
-  const { isDarkMode } = useTheme();
-  const [currentBullet, setCurrentBullet] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
+export const FuturisticNewsCard: React.FC<FuturisticNewsCardProps> = ({ blink, index, layoutId }) => {
+  if (!blink) {
+    return null; // Or some placeholder/loading state
+  }
 
-  const handleCardClick = useCallback(() => {
-    onCardClick(news.id);
-  }, [news.id, onCardClick]);
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3, delay: index * 0.05 } },
+  };
 
-  const handleMouseEnter = useCallback(() => {
-    setIsHovered(true);
-  }, []);
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovered(false);
-  }, []);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isHovered && news.points && news.points.length > 0) {
-      setCurrentBullet(0);
-      
-      // Faster animation - 2 seconds
-      interval = setInterval(() => {
-        setCurrentBullet((prev) => (prev + 1) % news.points.length);
-      }, 2000);
-    } else {
-      setCurrentBullet(0);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isHovered, news.points]);
+  const formattedDate = new Date(blink.publication_date).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
-    <div 
-      onClick={handleCardClick}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className="cursor-pointer h-full flex flex-col" // Changed: Use h-full
+    <motion.div
+      layoutId={layoutId}
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      className="bg-slate-900/50 border border-cyan-700/30 rounded-lg shadow-xl overflow-hidden hover:shadow-cyan-500/50 transition-shadow duration-300 ease-in-out relative flex flex-col justify-between p-4"
+      data-blink-id={blink.id}
     >
-      <div className={`relative h-full flex flex-col ${isDarkMode 
-        ? 'bg-gray-900' 
-        : 'bg-white shadow-md hover:shadow-lg'} rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-200`}>
-        <div className="absolute top-0 left-0 w-full h-1 bg-blue-600" />
-        
-        {/* Image section with fixed height */}
-        <div className="relative overflow-hidden h-44 flex-shrink-0">
-          <img
-            src={news.image}
-            alt={news.title}
-            className="w-full h-full object-cover filter brightness-75 contrast-125"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-          <div className={`absolute inset-0 ${isDarkMode 
-            ? 'bg-black/30' 
-            : 'bg-gray-800/10'}`} />
-          
-          <div className="absolute top-4 right-4 flex flex-col items-end space-y-2">
-            {news.isHot && (
-              <Badge className="bg-red-500 text-white px-2 py-1 text-xs font-bold rounded-lg animate-pulse">
-                🔥
-              </Badge>
+      <div>
+        {/* Image Section */}
+        {blink.image_url && (
+          <div className="relative h-40 md:h-48 w-full overflow-hidden rounded-md mb-3">
+            <img
+              src={blink.image_url}
+              alt={blink.title}
+              className="w-full h-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+             {/* Category Tag */}
+            {blink.category && (
+              <span className="absolute top-2 left-2 bg-cyan-600/80 text-white text-xs px-2 py-1 rounded">
+                {blink.category}
+              </span>
             )}
-            <Badge className={`${isDarkMode 
-              ? 'bg-gray-800 text-white' 
-              : 'bg-white text-gray-700 shadow-sm'} backdrop-blur-sm px-2 py-1 text-xs font-bold rounded-lg`}>
-              {news.readTime}
-            </Badge>
           </div>
-          
-          <div className="absolute bottom-4 left-4 flex items-center space-x-2">
-            <Badge className={`${isDarkMode 
-              ? 'bg-gray-800 text-white' 
-              : 'bg-white text-gray-700 shadow-sm'} text-xs font-bold px-3 py-1 rounded-lg backdrop-blur-sm`}>
-              {news.category}
-            </Badge>
-          </div>
-        </div>
-        
-        {/* Content section - flexible height */}
-        <div className="p-5 flex-1 flex flex-col">
-          <div className="text-center mb-6">
-            <h3 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} leading-tight tracking-tighter transform hover:scale-105 transition-all duration-300 relative`}>
-              {news.title}
-            </h3>
-            <div className="w-16 h-1 mx-auto mt-2 rounded-full bg-blue-600 shadow-sm"></div>
-          </div>
-          
-          {/* Optimized bullets section */}
-          <div className="flex-1 flex flex-col justify-center mb-5"> {/* Removed overflow-hidden */}
-            <div className="space-y-2 relative"> {/* Removed overflow-y-auto */}
-              {news.points.slice(0, 5).map((point: string, index: number) => {
-                const isActive = isHovered && currentBullet === index;
+        )}
 
-                return (
-                  <div key={index} className="relative">
-                    {/* Simplified background highlight */}
-                    <div
-                      className={`absolute inset-0 -mx-5 transition-all duration-300 ease-out ${
-                        isActive
-                          ? isDarkMode
-                            ? 'bg-blue-600/20'
-                            : 'bg-blue-600/10'
-                          : 'bg-transparent'
-                      }`}
-                      style={{
-                        opacity: isActive ? 1 : 0,
-                        top: '-3px',
-                        bottom: '-3px',
-                      }}
-                    />
-                    
-                    <div className="flex items-center space-x-3 relative z-10 py-2">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300 ease-out ${
-                          isActive
-                            ? 'bg-blue-600 text-white shadow-blue-600/30'
-                            : isDarkMode
-                              ? 'bg-gray-800 text-white'
-                              : 'bg-black text-white'
-                        }`}
-                        style={{
-                          transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                        }}
-                      >
-                        <span className="text-xs font-black">
-                          ✦
-                        </span>
-                      </div>
-                      <p
-                        className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm leading-relaxed font-medium transition-all duration-300 ease-out flex-1 ${
-                          isActive ? (isDarkMode ? 'text-white font-semibold' : 'text-gray-900 font-semibold') : ''
-                        }`}
-                      >
-                        {point}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          
-          {/* Vote system at bottom */}
-          <div className="flex-shrink-0">
-            <RealPowerBarVoteSystem news={news} />
+        {/* Title */}
+        <h3 className="text-lg md:text-xl font-bold text-cyan-400 hover:text-cyan-300 transition-colors duration-200 mb-1 leading-tight">
+          <Link to={`/blink/${blink.id}`} className="focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded">
+            {blink.title}
+          </Link>
+        </h3>
+        
+        {/* Summary */}
+        <p className="text-sm text-gray-300/90 mb-3 line-clamp-3 leading-relaxed">
+          {blink.summary}
+        </p>
+      </div>
+
+      <div>
+        {/* Footer with date, interest, and source */}
+        <div className="mt-4 pt-3 border-t border-cyan-700/20 flex justify-between items-center text-xs text-gray-400/80">
+          <time dateTime={blink.publication_date} className="font-mono">
+            {formattedDate}
+          </time>
+          {/* NUEVO: Mostrar el porcentaje de interés */}
+          <span className={`font-bold text-sm ${blink.interest >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {blink.interest !== undefined ? blink.interest.toFixed(2) + '% Interés' : 'N/A'}
+          </span>
+          <span className="font-mono truncate max-w-[100px] hidden sm:inline">{blink.source_name}</span>
+        </div>
+
+        {/* Action Bar: View Details, External Link, Vote System */}
+        <div className="mt-3 flex flex-col space-y-2">
+          {/* Vote System */}
+          <RealPowerBarVoteSystem
+            blinkId={blink.id}
+            positiveVotes={blink.positive_votes}
+            negativeVotes={blink.negative_votes}
+          />
+          <div className="flex justify-between items-center space-x-2">
+            <Link
+              to={`/blink/${blink.id}`}
+              className="flex-1 text-center text-xs py-2 px-3 bg-cyan-600/80 hover:bg-cyan-500/80 text-white rounded-md transition-colors duration-200 ease-in-out flex items-center justify-center space-x-1"
+              title="Ver detalles"
+            >
+              <Eye size={14} />
+              <span>Detalles</span>
+            </Link>
+            <a
+              href={blink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center text-xs py-2 px-3 bg-slate-700/70 hover:bg-slate-600/70 text-gray-300 hover:text-white rounded-md transition-colors duration-200 ease-in-out flex items-center justify-center space-x-1"
+              title="Leer noticia original"
+            >
+              <ExternalLink size={14} />
+              <span>Fuente</span>
+            </a>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
-});
+};
 
-FuturisticNewsCard.displayName = 'FuturisticNewsCard';
+export default FuturisticNewsCard;
+```

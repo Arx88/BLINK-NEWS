@@ -1,61 +1,98 @@
-import { create } from 'zustand';
-// NewsItem will be imported from api.ts, which now includes interestPercentage and currentUserVoteStatus
-// transformBlinkToNewsItem is also available in api.ts but fetchNews from api.ts already returns transformed items.
-import { NewsItem, fetchNews as apiFetchNews } from '../utils/api';
+// news-blink-frontend/src/store/newsStore.ts
 
-// The old getSafeTimestamp and sortBlinks functions should be removed.
+import { create } from 'zustand';
+import { fetchBlinks as apiFetchBlinks, voteOnBlink as apiVoteOnBlink } from '../utils/api';
+// Import Blink type from types/newsTypes.ts instead of defining it here
+import { Blink } from '../types/newsTypes';
+
+export type VoteStatus = 'positive' | 'negative' | null;
 
 interface NewsState {
-  news: NewsItem[];
-  loading: boolean;
+  blinks: Blink[];
+  userVotes: Record<string, VoteStatus>; // Store user's vote for each blink
+  heroBlink: Blink | null;
+  lastBlink: Blink | null;
+  isLoading: boolean;
   error: string | null;
-  fetchNews: () => Promise<void>;
-  updateBlinkInList: (updatedBlink: NewsItem) => void;
-  // No more sortBy state or setSortBy action if backend handles sorting.
+  fetchBlinks: () => Promise<void>;
+  handleVote: (blinkId: string, newVoteType: 'positive' | 'negative') => Promise<void>;
+  setUserVote: (blinkId: string, voteStatus: VoteStatus) => void; // Action to set user vote
 }
 
 export const useNewsStore = create<NewsState>((set, get) => ({
-  news: [],
-  loading: false,
+  blinks: [],
+  userVotes: {},
+  heroBlink: null,
+  lastBlink: null,
+  isLoading: false,
   error: null,
 
-  fetchNews: async () => {
-    set({ loading: true, error: null });
+  fetchBlinks: async () => {
+    set({ isLoading: true, error: null });
     try {
-      // apiFetchNews from utils/api.ts already passes userId and returns transformed, sorted NewsItem[]
-      const fetchedNewsItems = await apiFetchNews();
-      console.log('[newsStore.ts fetchNews] NewsItems from apiFetchNews (first 3):', fetchedNewsItems?.slice(0, 3)?.map(item => ({ id: item.id, interestPercentage: item.interestPercentage, votes: item.votes })));
-
-      // console.log(`[newsStore.ts] fetchNews - Fetched and transformed news (first 3 items):`, fetchedNewsItems.slice(0,3));
-      // fetchedNewsItems.slice(0,3).forEach((item: NewsItem, index: number) => {
-      //     console.log(`[newsStore.ts] fetchNews - Item ${index} (ID: ${item.id || 'N/A'}) votes:`, item.votes, `interest: ${item.interestPercentage}`, `userVote: ${item.currentUserVoteStatus}`);
-      // });
-
-      set({ news: fetchedNewsItems, loading: false, error: null });
-    } catch (err: any) {
-      // console.error('[newsStore] Error in fetchNews catch block:', err.message);
-      set({ news: [], loading: false, error: err.message || 'Error loading news. Please try again.' });
+      const blinks = await apiFetchBlinks(); // Fetches already sorted blinks
+      set({
+        blinks,
+        heroBlink: blinks.length > 0 ? blinks[0] : null,
+        lastBlink: blinks.length > 1 ? blinks[blinks.length - 1] : null,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error("Failed to fetch blinks:", error);
+      set({ error: 'Failed to load blinks.', isLoading: false });
     }
   },
 
-  updateBlinkInList: (updatedBlink: NewsItem) => {
-    // console.log(`[newsStore.ts] updateBlinkInList called with updatedBlink (ID: ${updatedBlink.id}):`, updatedBlink);
-    set(state => {
-      const newsListWithUpdate = state.news.map(item => {
-        if (item.id === updatedBlink.id) {
-          // console.log(`[newsStore.ts] updateBlinkInList - Updating item in store. ID: ${item.id}`);
-          // console.log(`  Old item: votes=${JSON.stringify(item.votes)}, interest=${item.interestPercentage}, userVote=${item.currentUserVoteStatus}`);
-          // console.log(`  New item: votes=${JSON.stringify(updatedBlink.votes)}, interest=${updatedBlink.interestPercentage}, userVote=${updatedBlink.currentUserVoteStatus}`);
-          return updatedBlink; // Replace with the new blink data from API (already includes all updates)
-        }
-        return item;
-      });
+  handleVote: async (blinkId: string, newVoteType: 'positive' | 'negative') => {
+    const previousVoteStatus = get().userVotes[blinkId] || null;
 
-      // No client-side sorting needed here as the primary list order comes from backend.
-      // If a vote dramatically changes an item's position, this will only be reflected
-      // globally upon the next full fetchNews. For the item itself, its data is updated.
-      // This is usually acceptable to avoid complex client-side re-sorting that perfectly matches backend.
-      return { news: newsListWithUpdate };
-    });
+    // Optimistically update UI for instant feedback
+    get().setUserVote(blinkId, newVoteType);
+
+    try {
+      // Call the API to vote. The backend will handle vote logic and persistence.
+      // The previousVoteStatus is sent to help backend decide if it's a new vote, a change, or a removal.
+      await apiVoteOnBlink(blinkId, newVoteType, previousVoteStatus);
+
+      // After a successful vote, fetch all blinks again to get the updated list and order
+      // This ensures the UI reflects the correct state from the single source of truth (backend).
+      await get().fetchBlinks();
+
+    } catch (error) {
+      console.error(`Failed to vote on blink ${blinkId}:`, error);
+      // If API call fails, revert the optimistic UI update
+      get().setUserVote(blinkId, previousVoteStatus);
+      // Optionally, set an error message to display to the user
+      set({ error: `Failed to cast vote for blink ${blinkId}. Please try again.` });
+    }
+  },
+
+  setUserVote: (blinkId, voteStatus) => {
+    set(state => ({
+      userVotes: {
+        ...state.userVotes,
+        [blinkId]: voteStatus,
+      },
+    }));
   },
 }));
+
+// The Blink interface will be now imported from newsTypes.ts
+// Ensure news-blink-frontend/src/types/newsTypes.ts contains:
+/*
+export interface Blink {
+  id: string;
+  title: string;
+  summary: string;
+  image_url: string;
+  url: string;
+  publication_date: string;
+  positive_votes: number;
+  negative_votes: number;
+  category: string;
+  source_name: string;
+  interest: number; // Nueva propiedad
+}
+*/
+// If newsTypes.ts doesn't exist or Blink is not defined there, this subtask needs to handle that.
+// For now, assuming it exists as per the original problem description's structure.

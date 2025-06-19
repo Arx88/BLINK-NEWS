@@ -1,179 +1,87 @@
-import { useState, useEffect } from 'react';
-import { ThumbsUp, ThumbsDown } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { voteOnArticle, NewsItem } from '@/utils/api'; // Ensure path is correct, usually ../../utils/api
-import { useNewsStore } from '@/store/newsStore'; // Ensure path is correct, usually ../../store/newsStore
-import { toast } from 'sonner'; // For notifications
+// news-blink-frontend/src/components/RealPowerBarVoteSystem.tsx
+import { ThumbsUp, ThumbsDown, MinusCircle } from 'lucide-react';
+import { useNewsStore } from '../store/newsStore';
+import { cn } from '../lib/utils'; // Assuming this is a utility for classnames
 
 interface RealPowerBarVoteSystemProps {
-  news: NewsItem; // Use the NewsItem interface directly
+  blinkId: string;
+  positiveVotes: number; // Keep these for display purposes if needed, though interest is main
+  negativeVotes: number; // Keep these for display purposes if needed
 }
 
-export const RealPowerBarVoteSystem = ({ news }: RealPowerBarVoteSystemProps) => {
-  const { isDarkMode } = useTheme();
-  // Ensure updateArticleVotes is correctly typed in the store if it expects specific vote structure
-  const { fetchNews } = useNewsStore();
+export const RealPowerBarVoteSystem = ({
+  blinkId,
+  positiveVotes, // Received as props, can be used for immediate display before store updates all blinks
+  negativeVotes, // Received as props
+}: RealPowerBarVoteSystemProps) => {
+  const handleVote = useNewsStore((state) => state.handleVote);
+  // Get the user's vote status for this specific blink directly from the store
+  const userVoteStatus = useNewsStore((state) => state.userVotes[blinkId] || null);
 
-  // Internal state for UI responsiveness and optimistic updates
-  // Derives initial state from the `news` prop
-  const [internalUserVote, setInternalUserVote] = useState(news?.currentUserVoteStatus ?? null);
-  const [isVoting, setIsVoting] = useState(false);
-  const [optimisticLikes, setOptimisticLikes] = useState(news?.votes?.likes ?? 0);
-  const [optimisticDislikes, setOptimisticDislikes] = useState(news?.votes?.dislikes ?? 0);
+  // The component now primarily relies on `userVoteStatus` from the store for button states
+  // and `handleVote` from the store to process votes.
+  // The `positiveVotes` and `negativeVotes` props can still be used for display if needed,
+  // but the primary interaction logic is through Zustand.
 
-  // Effect to sync internal state when the news prop changes externally
-  useEffect(() => {
-    setInternalUserVote(news?.currentUserVoteStatus ?? null);
-    setOptimisticLikes(news?.votes?.likes ?? 0);
-    setOptimisticDislikes(news?.votes?.dislikes ?? 0);
-  }, [news?.currentUserVoteStatus, news?.votes?.likes, news?.votes?.dislikes, news?.id]);
-
-  // Interest percentage is now calculated on the frontend if needed for display here
-  // For this component, we might only display the power bar based on likes/dislikes ratio
-  // const displayInterestPercentage = news.interestPercentage !== undefined ? Math.round(news.interestPercentage) : 0;
-  // For the power bar, we only need likes and dislikes ratio
-  const totalOptimisticVotes = optimisticLikes + optimisticDislikes;
-  const optimisticLikePercentage = totalOptimisticVotes > 0 ? (optimisticLikes / totalOptimisticVotes) * 100 : 50; // Default to 50% if no votes
+  // Calculate percentages for the power bar display based on props or store data as preferred
+  const currentPositiveVotes = positiveVotes; // Could also be derived from a specific blink in store if preferred
+  const currentNegativeVotes = negativeVotes;
+  const totalVotes = currentPositiveVotes + currentNegativeVotes;
+  const positivePercentage = totalVotes > 0 ? (currentPositiveVotes / totalVotes) * 100 : 50;
+  const negativePercentage = totalVotes > 0 ? (currentNegativeVotes / totalVotes) * 100 : 50;
 
 
-  const handleVote = async (newVoteType: 'like' | 'dislike', event: React.MouseEvent) => {
-    event.stopPropagation();
-
-    if (!news || !news.id) {
-      console.error("[RealPowerBarVoteSystem] Attempted to vote with invalid news item:", news);
-      toast.error("Cannot vote: news item data is missing.");
-      // setIsVoting(false); // isVoting is already false or will be set in finally
-      return;
-    }
-
-    if (isVoting) return;
-
-    const previousVote = internalUserVote; // This is 'like', 'dislike', or null
-
-    if (
-      (newVoteType === 'like' && previousVote === 'like') ||
-      (newVoteType === 'dislike' && previousVote === 'dislike')
-    ) {
-      console.log(`[RealPowerBarVoteSystem] Vote ignored: clicked ${newVoteType} again.`);
-      // Optionally, this could be where an "undo vote" is triggered if desired.
-      // If so, previousVote would be the current vote, and newVoteType might be null/undefined
-      // or the API call would need to signal an undo.
-      // Current backend `process_user_vote` does nothing if previousVote === newVoteType.
-      return;
-    }
-
-    setIsVoting(true);
-
-    // Store current UI state for potential rollback on API error
-    const prevUiUserVote = internalUserVote;
-    const prevUiLikes = optimisticLikes;
-    const prevUiDislikes = optimisticDislikes;
-
-    // Optimistic UI updates
-    let nextOptimisticLikes = optimisticLikes;
-    let nextOptimisticDislikes = optimisticDislikes;
-
-    if (previousVote === 'like') {
-      nextOptimisticLikes = Math.max(0, nextOptimisticLikes - 1);
-    } else if (previousVote === 'dislike') {
-      nextOptimisticDislikes = Math.max(0, nextOptimisticDislikes - 1);
-    }
-
-    if (newVoteType === 'like') {
-      nextOptimisticLikes += 1;
-    } else if (newVoteType === 'dislike') {
-      nextOptimisticDislikes += 1;
-    }
-
-    setInternalUserVote(newVoteType);
-    setOptimisticLikes(nextOptimisticLikes);
-    setOptimisticDislikes(nextOptimisticDislikes);
-
-    try {
-      // Call the updated voteOnArticle function from api.ts
-      const updatedArticleData = await voteOnArticle(news.id, newVoteType, previousVote);
-
-      if (updatedArticleData && updatedArticleData.votes) {
-        // Update the Zustand store with the data from the API response
-        fetchNews(); // Add this line
-        toast.success(`Voto '${newVoteType}' registrado!`);
-        // Internal state will be synced by useEffect when news prop updates
-      } else {
-        toast.error('No se pudo registrar el voto o faltan datos.');
-        console.error('[RealPowerBarVoteSystem] Error: updatedArticleData or votes missing.', updatedArticleData);
-        // Revert optimistic UI updates on failure
-        setInternalUserVote(prevUiUserVote);
-        setOptimisticLikes(prevUiLikes);
-        setOptimisticDislikes(prevUiDislikes);
-      }
-    } catch (error) {
-      toast.error('Error al registrar el voto.');
-      console.error(`[RealPowerBarVoteSystem] API Exception:`, error);
-      // Revert optimistic UI updates
-      setInternalUserVote(prevUiUserVote);
-      setOptimisticLikes(prevUiLikes);
-      setOptimisticDislikes(prevUiDislikes);
-    } finally {
-      setIsVoting(false);
-    }
+  const onVote = (voteType: 'positive' | 'negative') => {
+    // If the user clicks the same button again, this indicates "unvoting" or removing the vote.
+    // The handleVote logic in the store should be able to interpret this.
+    // However, the problem description implies handleVote now takes the *new* vote.
+    // The logic in the store's handleVote will manage toggling or changing votes.
+    handleVote(blinkId, voteType);
   };
 
-  const interestPercentageForDisplay = news?.interestPercentage !== undefined ? Math.round(news.interestPercentage) : 'N/A';
-
-
   return (
-    <div className="space-y-3 sm:space-y-4 md:space-y-5">
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <span className={`text-xs sm:text-sm font-bold tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            INTERÉS
-          </span>
-          <span className={`text-xs sm:text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            {/* Display interest from prop, not calculated here */}
-            {interestPercentageForDisplay}{typeof interestPercentageForDisplay === 'number' ? '%' : ''}
-          </span>
-        </div>
-        
-        <div className={`relative w-full h-3 sm:h-4 ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-200/60'} rounded-full overflow-hidden shadow-inner`}>
-          <div 
-            className="relative h-full bg-green-500 transition-all duration-700 ease-out shadow-md"
-            style={{ width: `${optimisticLikePercentage}%` }}
-          >
-          </div>
-        </div>
+    <div className="flex items-center justify-between bg-slate-800/50 p-2 rounded-md">
+      <button
+        onClick={() => onVote('positive')}
+        className={cn(
+          "flex items-center space-x-1 text-sm p-2 rounded-md transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800",
+          userVoteStatus === 'positive'
+            ? "bg-green-500/30 text-green-300 hover:bg-green-500/40 focus:ring-green-500"
+            : "bg-slate-700/50 text-gray-400 hover:bg-slate-600/50 hover:text-green-400 focus:ring-green-600"
+        )}
+        aria-label="Votar positivamente"
+        title={`Votar positivamente (${currentPositiveVotes})`}
+      >
+        <ThumbsUp size={16} />
+        <span>{currentPositiveVotes}</span>
+      </button>
+
+      {/* Visual Power Bar */}
+      <div className="flex-grow h-2.5 bg-slate-700 rounded-full overflow-hidden mx-3 min-w-[50px]">
+        <div
+          className="h-full bg-green-500 transition-all duration-300 ease-out"
+          style={{ width: `${positivePercentage}%` }}
+          aria-label={`${positivePercentage.toFixed(0)}% votos positivos`}
+        ></div>
       </div>
-      
-      <div className="flex items-center justify-between gap-2 sm:gap-3">
-        <button
-          onClick={(e) => handleVote('like', e)}
-          disabled={isVoting}
-          className={`flex items-center justify-center space-x-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
-            internalUserVote === 'like'
-              ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
-              : isDarkMode 
-                ? 'bg-gray-700/70 text-gray-300 hover:bg-green-500/20 hover:text-green-400'
-                : 'bg-gray-100 text-gray-700 hover:bg-green-100 hover:text-green-600'
-          }`}
-        >
-          <ThumbsUp className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 ${internalUserVote === 'like' ? 'scale-110' : ''}`} />
-          <span className="text-sm sm:text-base font-bold">{optimisticLikes.toLocaleString()}</span>
-        </button>
-        
-        <button
-          onClick={(e) => handleVote('dislike', e)}
-          disabled={isVoting}
-          className={`flex items-center justify-center space-x-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
-            internalUserVote === 'dislike'
-              ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' 
-              : isDarkMode 
-                ? 'bg-gray-700/70 text-gray-300 hover:bg-red-500/20 hover:text-red-400'
-                : 'bg-gray-100 text-gray-700 hover:bg-red-100 hover:text-red-600'
-          }`}
-        >
-          <ThumbsDown className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-300 ${internalUserVote === 'dislike' ? 'scale-110' : ''}`} />
-          <span className="text-sm sm:text-base font-bold">{optimisticDislikes.toLocaleString()}</span>
-        </button>
-      </div>
+      {/* This is a simplified bar; if you want a two-sided bar (green/red), you'd need two divs or a more complex setup */}
+
+
+      <button
+        onClick={() => onVote('negative')}
+        className={cn(
+          "flex items-center space-x-1 text-sm p-2 rounded-md transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800",
+          userVoteStatus === 'negative'
+            ? "bg-red-500/30 text-red-300 hover:bg-red-500/40 focus:ring-red-500"
+            : "bg-slate-700/50 text-gray-400 hover:bg-slate-600/50 hover:text-red-400 focus:ring-red-600"
+        )}
+        aria-label="Votar negativamente"
+        title={`Votar negativamente (${currentNegativeVotes})`}
+      >
+        <ThumbsDown size={16} />
+        <span>{currentNegativeVotes}</span>
+      </button>
     </div>
   );
 };
+```
