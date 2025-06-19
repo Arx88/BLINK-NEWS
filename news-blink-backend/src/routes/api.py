@@ -185,6 +185,10 @@ def get_all_blinks_route():
             api_route_logger.debug("[API ROUTE DEBUG] blinks_for_json is empty, skipping manual JSON serialization sample.")
         # ----- END INTENSIVE DEBUG LOGGING -----
 
+        if blinks_for_json:
+            main_app_logger.info(f"FINAL CHECK PRE-JSONIFY in get_all_blinks_route: First item data: ID='{blinks_for_json[0].get('id')}', interestPercentage='{blinks_for_json[0].get('interestPercentage')}', currentUserVoteStatus='{blinks_for_json[0].get('currentUserVoteStatus')}'")
+        else:
+            main_app_logger.info("FINAL CHECK PRE-JSONIFY in get_all_blinks_route: blinks_for_json is empty.")
         return jsonify(blinks_for_json)
     except Exception as e:
         main_app_logger.error(f"Error in /blinks route for userId='{user_id}'. Error: {e}", exc_info=True)
