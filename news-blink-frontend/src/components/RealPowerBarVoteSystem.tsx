@@ -12,7 +12,7 @@ interface RealPowerBarVoteSystemProps {
 export const RealPowerBarVoteSystem = ({ news }: RealPowerBarVoteSystemProps) => {
   const { isDarkMode } = useTheme();
   // Ensure updateArticleVotes is correctly typed in the store if it expects specific vote structure
-  const { updateBlinkInList } = useNewsStore();
+  const { fetchNews } = useNewsStore();
 
   // Internal state for UI responsiveness and optimistic updates
   // Derives initial state from the `news` prop
@@ -95,7 +95,7 @@ export const RealPowerBarVoteSystem = ({ news }: RealPowerBarVoteSystemProps) =>
 
       if (updatedArticleData && updatedArticleData.votes) {
         // Update the Zustand store with the data from the API response
-        updateBlinkInList(updatedArticleData);
+        fetchNews(); // Add this line
         toast.success(`Voto '${newVoteType}' registrado!`);
         // Internal state will be synced by useEffect when news prop updates
       } else {
