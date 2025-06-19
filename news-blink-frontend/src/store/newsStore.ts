@@ -2,17 +2,18 @@
 
 import { create } from 'zustand';
 import { fetchNews as apiFetchBlinks, voteOnArticle as apiVoteOnBlink } from '../utils/api';
-// Import Blink type from types/newsTypes.ts instead of defining it here
-import { Blink } from '../types/newsTypes';
-export type { Blink }; // Re-export Blink for use in other modules
+// Import NewsItem type from api.ts, as it's the structure returned by fetchNews
+import { NewsItem } from '../utils/api';
+// Re-export NewsItem, potentially as Blink if components expect that name, or just NewsItem
+export type { NewsItem }; // Or export type { NewsItem as Blink } if needed for compatibility
 
-export type VoteStatus = 'positive' | 'negative' | null;
+export type VoteStatus = 'positive' | 'negative' | null; // This might need to align with NewsItem's currentUserVoteStatus ('like'/'dislike')
 
 interface NewsState {
-  blinks: Blink[];
+  blinks: NewsItem[]; // Use NewsItem here
   userVotes: Record<string, VoteStatus>; // Store user's vote for each blink
-  heroBlink: Blink | null;
-  lastBlink: Blink | null;
+  heroBlink: NewsItem | null; // Use NewsItem here
+  lastBlink: NewsItem | null; // Use NewsItem here
   isLoading: boolean;
   error: string | null;
   fetchBlinks: () => Promise<void>;
@@ -31,11 +32,11 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   fetchBlinks: async () => {
     set({ isLoading: true, error: null });
     try {
-      const blinks = await apiFetchBlinks(); // Fetches already sorted blinks
+      const newsItems = await apiFetchBlinks(); // apiFetchBlinks returns NewsItem[]
       set({
-        blinks,
-        heroBlink: blinks.length > 0 ? blinks[0] : null,
-        lastBlink: blinks.length > 1 ? blinks[blinks.length - 1] : null,
+        blinks: newsItems, // Assign NewsItem[] to blinks
+        heroBlink: newsItems.length > 0 ? newsItems[0] : null,
+        lastBlink: newsItems.length > 1 ? newsItems[newsItems.length - 1] : null,
         isLoading: false,
       });
     } catch (error) {
@@ -78,22 +79,19 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   },
 }));
 
-// The Blink interface will be now imported from newsTypes.ts
-// Ensure news-blink-frontend/src/types/newsTypes.ts contains:
+// The NewsItem interface is now imported from ../utils/api.ts
+// The Blink type from types/newsTypes.ts is currently not directly used in this store's state.
+// If components strictly need to import a type named 'Blink',
+// then `export type { NewsItem as Blink }` could be used above.
 /*
-export interface Blink {
+export interface NewsItem { // Reminder of the structure being used
   id: string;
   title: string;
   summary: string;
-  image_url: string;
-  url: string;
-  publication_date: string;
-  positive_votes: number;
-  negative_votes: number;
-  category: string;
-  source_name: string;
-  interest: number; // Nueva propiedad
+  image: string;
+  points: string[];
+  // ... other NewsItem fields
+  interest: number;
 }
 */
-// If newsTypes.ts doesn't exist or Blink is not defined there, this subtask needs to handle that.
-// For now, assuming it exists as per the original problem description's structure.
+// The original Blink type in types/newsTypes.ts might become outdated or represent a different raw structure.

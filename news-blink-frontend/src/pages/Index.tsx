@@ -1,6 +1,6 @@
 // news-blink-frontend/src/pages/Index.tsx
 import { useEffect } from 'react';
-import { useNewsStore, Blink } from '@/store/newsStore'; // Importar desde Zustand
+import { useNewsStore, NewsItem as Blink } from '@/store/newsStore'; // Import NewsItem as Blink
 import { Header } from '@/components/Header';
 import { Newsletter } from '@/components/Newsletter';
 import { Footer } from '@/components/ui/footer';
