@@ -122,42 +122,41 @@ def get_all_blinks_route():
 
         blinks_for_json = []
         for blink_data in all_blinks:
-            # Ensure all expected frontend fields are present
-            new_blink = {
+            main_app_logger.info(f"API_ROUTE: Processing blink_data for ID {blink_data.get('id')}. Keys: {list(blink_data.keys())}")
+
+            cvs_value = blink_data.get('currentUserVoteStatus') # Use .get() for safety before logging
+            ip_value = blink_data.get('interestPercentage')     # Use .get() for safety before logging
+
+            main_app_logger.info(f"API_ROUTE: For ID {blink_data.get('id')}, raw cvs from blink_data: '{cvs_value}' (type: {type(cvs_value)}), raw ip from blink_data: '{ip_value}' (type: {type(ip_value)})")
+
+            new_blink_currentUserVoteStatus = cvs_value
+            new_blink_interestPercentage = 0.0
+            try:
+                if ip_value is not None:
+                    new_blink_interestPercentage = float(ip_value)
+                else:
+                    main_app_logger.warning(f"API_ROUTE: interestPercentage was None for ID {blink_data.get('id')}, defaulting to 0.0")
+            except (ValueError, TypeError) as e: # Catch specific errors
+                main_app_logger.error(f"API_ROUTE: Error converting interestPercentage '{ip_value}' for ID {blink_data.get('id')}: {e}. Defaulting to 0.0.")
+
+            # Construct the dictionary to be appended
+            blink_to_append = {
                 'id': blink_data.get('id'),
                 'title': blink_data.get('title'),
                 'image': blink_data.get('image'),
                 'points': blink_data.get('points', []),
                 'category': blink_data.get('category'),
-                'isHot': blink_data.get('isHot', False), # Default if missing
+                'isHot': blink_data.get('isHot', False),
                 'readTime': blink_data.get('readTime'),
-                'publishedAt': blink_data.get('publishedAt'), # This will still be the 1970 date if source is missing
-                'aiScore': blink_data.get('aiScore'), # Optional, so .get() is fine
-                'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}), # Default if missing
-                'sources': blink_data.get('sources', []), # Default if missing
-                'content': blink_data.get('content'), # Optional
+                'publishedAt': blink_data.get('publishedAt'),
+                'aiScore': blink_data.get('aiScore'),
+                'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}),
+                'sources': blink_data.get('sources', []),
+                'content': blink_data.get('content'),
+                'currentUserVoteStatus': new_blink_currentUserVoteStatus,
+                'interestPercentage': new_blink_interestPercentage
             }
-            main_app_logger.info(f"Processing blink_data for ID {blink_data.get('id')}: Keys available: {list(blink_data.keys())}")
-
-            raw_cvs = blink_data.get('currentUserVoteStatus')
-            if 'currentUserVoteStatus' not in blink_data:
-                main_app_logger.warning(f"Key 'currentUserVoteStatus' not found in blink_data for ID {blink_data.get('id')}. Will be None.")
-            new_blink['currentUserVoteStatus'] = raw_cvs
-
-            raw_ip = blink_data.get('interestPercentage')
-            new_ip_value = 0.0
-            if 'interestPercentage' not in blink_data:
-                main_app_logger.warning(f"Key 'interestPercentage' not found in blink_data for ID {blink_data.get('id')}. Defaulting to 0.0.")
-            elif raw_ip is None:
-                main_app_logger.warning(f"Key 'interestPercentage' was None in blink_data for ID {blink_data.get('id')}. Defaulting to 0.0.")
-            else:
-                try:
-                    new_ip_value = float(raw_ip)
-                except (ValueError, TypeError):
-                    main_app_logger.error(f"Could not convert interestPercentage '{raw_ip}' to float for ID {blink_data.get('id')}. Defaulting to 0.0.")
-            new_blink['interestPercentage'] = new_ip_value
-
-            blinks_for_json.append(new_blink)
+            blinks_for_json.append(blink_to_append)
 
         main_app_logger.info(f"Successfully retrieved and reconstructed {len(blinks_for_json)} blinks for userId='{user_id}'.")
 
