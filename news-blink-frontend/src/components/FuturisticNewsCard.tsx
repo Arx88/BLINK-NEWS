@@ -2,10 +2,10 @@ import { Badge } from '@/components/ui/badge';
 import { PowerBarVoteSystem } from './PowerBarVoteSystem';
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { NewsItem } from '../store/newsStore'; // Import NewsItem
+import { NewsItem } from '../store/newsStore'; // Corrected import
 
 interface FuturisticNewsCardProps {
-  news: NewsItem; // Use NewsItem type
+  news: NewsItem; // Corrected type
   onCardClick: (id: string) => void;
 }
 
@@ -29,7 +29,8 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (isHovered && news.points && news.points.length > 0) {
+    // Ensure news.points exists and is an array before trying to access its length
+    if (isHovered && news.points && Array.isArray(news.points) && news.points.length > 0) {
       setCurrentBullet(0);
 
       // Faster animation - 2 seconds
@@ -44,6 +45,9 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
       if (interval) clearInterval(interval);
     };
   }, [isHovered, news.points]);
+
+  // Default news.points to an empty array if it's not available to prevent slice error
+  const displayPoints = (news.points && Array.isArray(news.points)) ? news.points : [];
 
   return (
     <div
@@ -60,7 +64,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
         {/* Image section with fixed height */}
         <div className="relative overflow-hidden h-44 flex-shrink-0">
           <img
-            src={news.image}
+            src={news.image} // NewsItem has 'image'
             alt={news.title}
             className="w-full h-full object-cover filter brightness-75 contrast-125"
             loading="lazy"
@@ -71,7 +75,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
             : 'bg-gray-800/10'}`} />
 
           <div className="absolute top-4 right-4 flex flex-col items-end space-y-2">
-            {news.isHot && (
+            {news.isHot && ( // NewsItem has 'isHot'
               <Badge className="bg-red-500 text-white px-2 py-1 text-xs font-bold rounded-lg animate-pulse">
                 🔥
               </Badge>
@@ -104,7 +108,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
           {/* Optimized bullets section */}
           <div className="flex-1 flex flex-col justify-center mb-5">
             <div className="space-y-2 relative">
-              {news.points.slice(0, 5).map((point: string, index: number) => {
+              {displayPoints.slice(0, 5).map((point: string, index: number) => { // Use displayPoints
                 const isActive = isHovered && currentBullet === index;
 
                 return (
@@ -160,7 +164,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
           <div className="flex-shrink-0">
             <PowerBarVoteSystem
               articleId={news.id}
-              initialLikes={news.votes?.likes || 0}
+              initialLikes={news.votes?.likes || 0} // NewsItem has votes: {likes, dislikes}
               initialDislikes={news.votes?.dislikes || 0}
             />
           </div>
