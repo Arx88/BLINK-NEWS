@@ -17,7 +17,7 @@ const Index = () => {
   const isLoading = useNewsStore(state => state.isLoading);
   const error = useNewsStore(state => state.error);
   const fetchBlinks = useNewsStore(state => state.fetchBlinks);
-  const heroBlink = useNewsStore(state => state.heroBlink);
+  // const heroBlink = useNewsStore(state => state.heroBlink);
 
   // El hook de filtro ahora recibe los blinks del store
   const {
@@ -32,7 +32,7 @@ const Index = () => {
   } = useNewsFilter(blinks, 'tendencias');
 
   // El heroBlink ahora viene directamente del store, que ya tiene la lógica del blink destacado
-  const heroNews = heroBlink;
+  const heroNews = filteredNews.length > 0 ? filteredNews[0] : null;
 
   // Cargar las noticias cuando el componente se monta por primera vez
   useEffect(() => {
