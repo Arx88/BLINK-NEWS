@@ -30,6 +30,8 @@ export interface NewsItem {
 
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => {
+  console.log('[transformBlinkToNewsItem] Received blink object:', blink);
+  console.log('[transformBlinkToNewsItem] Received blink keys:', Object.keys(blink));
   console.log(`[utils/api.ts transformBlinkToNewsItem] Input blink (ID: ${blink?.id}): interestPercentage = ${blink?.interestPercentage}`);
 
   let finalVotes = { likes: 0, dislikes: 0 }; // Use likes/dislikes
@@ -77,7 +79,7 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : 0.0,
     currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null, // Ensure correct assignment
   };
-  console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${transformedItem.id}): interestPercentage = ${transformedItem.interestPercentage}`);
+  // console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${transformedItem.id}): interestPercentage = ${transformedItem.interestPercentage}`);
   return transformedItem;
 };
 
