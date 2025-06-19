@@ -48,6 +48,7 @@ export interface NewsItem {
   content?: string;
   interest: number; // Changed from interestPercentage
   currentUserVoteStatus?: 'like' | 'dislike' | null; // Update this type
+  displayInterest?: number; // New field
 }
 
 // Helper function to transform backend blink data to NewsItem
