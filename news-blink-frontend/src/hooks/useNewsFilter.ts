@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { NewsItem } from '../utils/api'; // Import NewsItem
 
-export const useNewsFilter = (news: NewsItem[], initialActiveTab: string = 'tendencias') => {
+export const useNewsFilter = (news: NewsItem[] = [], initialActiveTab: string = 'tendencias') => {
   console.log(`[useNewsFilter] Hook execution. Input 'news' array length: ${news.length}. Backend now handles sorting.`);
   if (news.length > 0 && typeof news.slice === 'function') {
     console.log(`[useNewsFilter] Input 'news' (first 3 items with id, votes, interestPercentage, publishedAt):`, news.slice(0, 3).map(item => ({id: item.id, votes: item.votes, interestPercentage: item.interestPercentage, publishedAt: item.publishedAt })));
