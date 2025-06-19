@@ -136,9 +136,27 @@ def get_all_blinks_route():
                 'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}), # Default if missing
                 'sources': blink_data.get('sources', []), # Default if missing
                 'content': blink_data.get('content'), # Optional
-                'currentUserVoteStatus': blink_data.get('currentUserVoteStatus'), # Should be None if not applicable
-                'interestPercentage': float(blink_data.get('interestPercentage', 0.0)) # Explicitly cast and default
             }
+            main_app_logger.info(f"Processing blink_data for ID {blink_data.get('id')}: Keys available: {list(blink_data.keys())}")
+
+            raw_cvs = blink_data.get('currentUserVoteStatus')
+            if 'currentUserVoteStatus' not in blink_data:
+                main_app_logger.warning(f"Key 'currentUserVoteStatus' not found in blink_data for ID {blink_data.get('id')}. Will be None.")
+            new_blink['currentUserVoteStatus'] = raw_cvs
+
+            raw_ip = blink_data.get('interestPercentage')
+            new_ip_value = 0.0
+            if 'interestPercentage' not in blink_data:
+                main_app_logger.warning(f"Key 'interestPercentage' not found in blink_data for ID {blink_data.get('id')}. Defaulting to 0.0.")
+            elif raw_ip is None:
+                main_app_logger.warning(f"Key 'interestPercentage' was None in blink_data for ID {blink_data.get('id')}. Defaulting to 0.0.")
+            else:
+                try:
+                    new_ip_value = float(raw_ip)
+                except (ValueError, TypeError):
+                    main_app_logger.error(f"Could not convert interestPercentage '{raw_ip}' to float for ID {blink_data.get('id')}. Defaulting to 0.0.")
+            new_blink['interestPercentage'] = new_ip_value
+
             blinks_for_json.append(new_blink)
 
         main_app_logger.info(f"Successfully retrieved and reconstructed {len(blinks_for_json)} blinks for userId='{user_id}'.")
