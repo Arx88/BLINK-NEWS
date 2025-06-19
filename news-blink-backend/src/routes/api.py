@@ -1,301 +1,177 @@
-import json # Ensure json is imported
-import logging # Added
-import os # Added
+import os
+import json
 from flask import Blueprint, jsonify, request, current_app
-from ....models.news import News
-from ..services.news_service import NewsService
-from ..config import Config
+from functools import cmp_to_key
+from datetime import datetime
 
-print("ROUTES_API_PY_EXECUTING_TOP_LEVEL_MARKER_V2") # Added V2 to distinguish from any past attempts
+api_bp = Blueprint('api_bp', __name__)
 
-# --- Start of Dedicated Logger for api.py ---
-# api_route_logger_name = 'news_blink_backend.src.routes.api'
-# api_route_logger = logging.getLogger(api_route_logger_name)
-# api_route_logger.setLevel(logging.DEBUG)
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data')
+BLINKS_DIR = os.path.join(DATA_DIR, 'blinks')
+ARTICLES_DIR = os.path.join(DATA_DIR, 'articles')
 
-# if not api_route_logger.handlers: # Configure only if no handlers exist for this logger instance
-#     # Define the log directory relative to this file (src/routes/api.py)
-#     # Path: src/routes/api.py -> src/routes/ -> src/ -> news-blink-backend/ -> project_root/ -> LOG/
-#     log_dir_relative_to_this_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
-#     log_directory = os.path.abspath(log_dir_relative_to_this_file)
-#     print(f"ROUTES_API_DEBUG: Attempting to use log directory for API_ROUTE_DEBUG.log: {log_directory}")
+# Factor de confianza para el cálculo del interés.
+CONFIDENCE_FACTOR = 5
 
-#     try:
-#         if not os.path.exists(log_directory):
-#             os.makedirs(log_directory)
+def get_blink_data(blink_id):
+    """Lee los datos de un blink desde su archivo JSON."""
+    file_path = os.path.join(BLINKS_DIR, f"{blink_id}.json")
+    if not os.path.exists(file_path):
+        return None
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-#         log_file_path = os.path.join(log_directory, "API_ROUTE_DEBUG.log")
+def save_blink_data(blink_id, data):
+    """Guarda los datos de un blink en su archivo JSON."""
+    file_path = os.path.join(BLINKS_DIR, f"{blink_id}.json")
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-#         api_file_handler = logging.FileHandler(log_file_path, mode='a', encoding='utf-8')
-#         api_file_handler.setLevel(logging.DEBUG)
+def calculate_interest(blink):
+    """Calcula el porcentaje de interés de un blink usando la fórmula revisada."""
+    positive_votes = blink.get('positive_votes', 0)
+    negative_votes = blink.get('negative_votes', 0)
 
-#         formatter = logging.Formatter(
-#             '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s'
-#         )
-#         api_file_handler.setFormatter(formatter)
-#         api_route_logger.addHandler(api_file_handler)
-#         api_route_logger.info(f"Initialized dedicated file logger for '{api_route_logger_name}' to: {log_file_path}")
+    total_votes = positive_votes + negative_votes
+    net_vote_difference = positive_votes - negative_votes
 
-#     except OSError as e:
-#         # Basic print as a last resort if logging setup itself fails
-#         print(f"CRITICAL: Failed to set up file logger for {api_route_logger_name}. Error: {e}")
-#         # Add a basic stream handler if file setup fails
-#         if not api_route_logger.handlers: # Check again in case only file handler part failed
-#             ch = logging.StreamHandler()
-#             ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-#             api_route_logger.addHandler(ch)
-#         api_route_logger.error(f"Fallback logger for {api_route_logger_name}: File logging setup failed.")
+    if total_votes == 0:
+        return 0.0
 
-# # Attempt to import the main app_logger for general use, but critical debugs will use api_route_logger
-# try:
-#     from ..logger_config import app_logger as main_app_logger
-#     main_app_logger.info("Successfully imported main_app_logger in routes/api.py")
-# except ImportError:
-#     main_app_logger = api_route_logger # Fallback to api_route_logger if main cannot be imported
-#     main_app_logger.warning("Failed to import main_app_logger from logger_config, using api_route_logger as fallback for general logs in api.py.")
-# # --- End of Dedicated Logger for api.py ---
+    interest = (net_vote_difference / (total_votes + CONFIDENCE_FACTOR)) * 100.0
+    return interest
 
-# Placeholder for loggers after commenting out custom setup
-class SimpleConsoleLogger:
-    def debug(self, msg): print(f"DEBUG: {msg}")
-    def info(self, msg): print(f"INFO: {msg}")
-    def warning(self, msg): print(f"WARNING: {msg}")
-    def error(self, msg, exc_info=None):
-        print(f"ERROR: {msg}")
-        if exc_info: # Crude way to indicate there was exception info
-            print("ERROR_EXC_INFO_TRUE")
+def compare_blinks(item1, item2):
+    """Función de comparación para ordenar los blinks según las reglas especificadas."""
+    # Criterio Principal: Ordenar por 'interest' de forma DESCENDENTE.
+    if item1['interest'] > item2['interest']:
+        return -1
+    if item1['interest'] < item2['interest']:
+        return 1
 
-api_route_logger = SimpleConsoleLogger()
-main_app_logger = SimpleConsoleLogger()
-print("ROUTES_API_PY_USING_TEMP_SIMPLE_CONSOLE_LOGGERS")
+    # Si hay empate en 'interest', aplicar criterios secundarios.
+    # Regla A (Noticias sin votos): Interés 0, 0 positivos, 0 negativos
+    is_item1_unvoted = item1['positive_votes'] == 0 and item1['negative_votes'] == 0
+    is_item2_unvoted = item2['positive_votes'] == 0 and item2['negative_votes'] == 0
 
-# Create a Blueprint for API routes
-api_bp = Blueprint('api', __name__)
+    if is_item1_unvoted and is_item2_unvoted:
+        # Ordenar por fecha de publicación DESCENDENTE (más recientes primero)
+        date1 = datetime.fromisoformat(item1['publication_date'].replace('Z', '+00:00'))
+        date2 = datetime.fromisoformat(item2['publication_date'].replace('Z', '+00:00'))
+        return -1 if date1 > date2 else 1
 
-# news_manager = News(data_dir='data') # Removed global instantiation
+    # Regla B (Noticias con 0 positivos y >0 negativos)
+    is_item1_rule_b = item1['positive_votes'] == 0 and item1['negative_votes'] > 0
+    is_item2_rule_b = item2['positive_votes'] == 0 and item2['negative_votes'] > 0
 
-def get_news_manager():
-    data_dir = 'data' # Default
-    if current_app and 'APP_CONFIG' in current_app.config and 'NEWS_MODEL_DATA_DIR' in current_app.config['APP_CONFIG']:
-        data_dir = current_app.config['APP_CONFIG']['NEWS_MODEL_DATA_DIR']
-        # Use a distinct logger message for when config is actually used
-        main_app_logger.info(f"get_news_manager: Using NEWS_MODEL_DATA_DIR from app_config: {data_dir}")
-    else:
-        # This will log if current_app is not available or config is not set
-        main_app_logger.info(f"get_news_manager: Using default data_dir='{data_dir}'. current_app available: {bool(current_app)}")
-        if current_app and 'APP_CONFIG' not in current_app.config:
-            main_app_logger.info("get_news_manager: 'APP_CONFIG' not in current_app.config.")
-        elif current_app and 'NEWS_MODEL_DATA_DIR' not in current_app.config.get('APP_CONFIG', {}):
-            main_app_logger.info("get_news_manager: 'NEWS_MODEL_DATA_DIR' not in current_app.config['APP_CONFIG'].")
+    if is_item1_rule_b and is_item2_rule_b:
+        # Ordenar por Votos Negativos de forma ASCENDENTE
+        # (las que tienen menos votos negativos aparecerán primero en este subgrupo)
+        return item1['negative_votes'] - item2['negative_votes']
 
-    return News(data_dir=data_dir)
-
-news_service_external = NewsService(api_key=Config.NEWS_API_KEY)
-
-@api_bp.route('/health', methods=['GET'])
-def health_check():
-    main_app_logger.info("Health check endpoint called.")
-    return jsonify({"status": "ok"}), 200
-
-@api_bp.route('/news', methods=['GET'])
-def get_external_news():
-    country = request.args.get('country', default='us')
-    category = request.args.get('category', default='general')
-    main_app_logger.info(f"External news request: country={country}, category={category}")
-    params = {'country': country, 'category': category}
-    try:
-        articles = news_service_external.get_news(**params)
-        main_app_logger.info(f"External news request successful, found {len(articles) if isinstance(articles, list) else 'N/A'} articles.")
-        return jsonify(articles)
-    except Exception as e:
-        main_app_logger.error(f"Error fetching external news: country={country}, category={category}. Error: {e}", exc_info=True)
-        return jsonify({"error": "Failed to fetch external news"}), 500
+    # Desempate general por fecha si las otras reglas no aplican
+    date1 = datetime.fromisoformat(item1['publication_date'].replace('Z', '+00:00'))
+    date2 = datetime.fromisoformat(item2['publication_date'].replace('Z', '+00:00'))
+    return -1 if date1 > date2 else 1
 
 @api_bp.route('/blinks', methods=['GET'])
-def get_all_blinks_route():
-    print("ROUTES_API_PY_GET_ALL_BLINKS_ROUTE_CALLED_MARKER_V2") # Added V2
-    user_id = request.args.get('userId', None)
-    main_app_logger.info(f"Get all blinks request: userId='{user_id}'")
+def get_blinks():
+    """Obtiene todos los blinks, calcula su interés y los ordena."""
     try:
-        news_manager_instance = get_news_manager()
-        all_blinks = news_manager_instance.get_all_blinks(user_id=user_id)
+        all_blinks = []
+        for filename in os.listdir(BLINKS_DIR):
+            if filename.endswith('.json'):
+                blink_id = filename.split('.')[0]
+                blink_data = get_blink_data(blink_id)
+                if blink_data:
+                    # Asegurar que los contadores de votos existen
+                    blink_data.setdefault('positive_votes', 0)
+                    blink_data.setdefault('negative_votes', 0)
+                    # Calcular y añadir el interés a cada blink
+                    blink_data['interest'] = calculate_interest(blink_data)
+                    all_blinks.append(blink_data)
 
-        blinks_for_json = []
-        for blink_data in all_blinks:
-            # Log what the model layer provided
-            main_app_logger.info(f"API_ROUTE_V3: Blink data from model for ID {blink_data.get('id')}: {blink_data}")
+        # Ordenar la lista de blinks usando la función de comparación personalizada
+        sorted_blinks = sorted(all_blinks, key=cmp_to_key(compare_blinks))
 
-            # Create a new dictionary to ensure we are not modifying the original model data
-            # and to control the final set of fields sent to the frontend.
-            blink_to_send = {
-                'id': blink_data.get('id'),
-                'title': blink_data.get('title'),
-                'image': blink_data.get('image'),
-                'points': blink_data.get('points', []),
-                'category': blink_data.get('category'),
-                'isHot': blink_data.get('isHot', False), # Default if missing
-                'readTime': blink_data.get('readTime'),
-                'publishedAt': blink_data.get('publishedAt'), # Already defaulted in model if missing
-                'aiScore': blink_data.get('aiScore'), # Optional
-                'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}), # Default if missing
-                'sources': blink_data.get('sources', []), # Default if missing
-                'content': blink_data.get('content') # Optional
-            }
-
-            # Explicitly try to transfer 'currentUserVoteStatus'
-            if 'currentUserVoteStatus' in blink_data:
-                blink_to_send['currentUserVoteStatus'] = blink_data['currentUserVoteStatus']
-                main_app_logger.info(f"API_ROUTE_V3: ID {blink_data.get('id')} - Found and assigned 'currentUserVoteStatus': {blink_data['currentUserVoteStatus']}")
-            else:
-                blink_to_send['currentUserVoteStatus'] = None # Explicitly set to None if not found
-                main_app_logger.warning(f"API_ROUTE_V3: ID {blink_data.get('id')} - Key 'currentUserVoteStatus' NOT FOUND in blink_data. Defaulting to None.")
-
-            # Explicitly try to transfer and convert 'interestPercentage'
-            if 'interestPercentage' in blink_data:
-                try:
-                    blink_to_send['interestPercentage'] = float(blink_data['interestPercentage'])
-                    main_app_logger.info(f"API_ROUTE_V3: ID {blink_data.get('id')} - Found and assigned 'interestPercentage': {blink_to_send['interestPercentage']}")
-                except (ValueError, TypeError) as e:
-                    blink_to_send['interestPercentage'] = 0.0
-                    main_app_logger.error(f"API_ROUTE_V3: ID {blink_data.get('id')} - Error converting interestPercentage '{blink_data['interestPercentage']}'. Defaulting to 0.0. Error: {e}")
-            else:
-                blink_to_send['interestPercentage'] = 0.0 # Explicitly set to 0.0 if not found
-                main_app_logger.warning(f"API_ROUTE_V3: ID {blink_data.get('id')} - Key 'interestPercentage' NOT FOUND in blink_data. Defaulting to 0.0.")
-
-            blinks_for_json.append(blink_to_send)
-
-        main_app_logger.info(f"Successfully retrieved and reconstructed {len(blinks_for_json)} blinks for userId='{user_id}'.")
-
-        if blinks_for_json:
-            api_route_logger.debug(f"[API get_all_blinks_route] First item in blinks_for_json (pre-jsonify): {blinks_for_json[0]}")
-        else:
-            api_route_logger.debug("[API get_all_blinks_route] blinks_for_json is empty.")
-
-        # ----- START INTENSIVE DEBUG LOGGING -----
-        api_route_logger.debug(f"[API ROUTE DEBUG] blinks_for_json contains {len(blinks_for_json)} items. Logging details for first 3 (or fewer):")
-        for i, temp_blink in enumerate(blinks_for_json[:3]): # Log first 3
-            if isinstance(temp_blink, dict): # Ensure item is a dictionary
-                interest_val = temp_blink.get('interestPercentage')
-                api_route_logger.debug(
-                    f"[API ROUTE DEBUG] Item {i}: ID {temp_blink.get('id')}, "
-                    f"interestPercentage TYPE: {type(interest_val)}, VALUE: {interest_val}, "
-                    f"PublishedAt TYPE: {type(temp_blink.get('publishedAt'))}, VALUE: {temp_blink.get('publishedAt')}"
-                )
-            else:
-                api_route_logger.debug(f"[API ROUTE DEBUG] Item {i} is not a dict: {temp_blink}")
-
-        # Attempt to manually serialize a sample to JSON
-        if blinks_for_json: # Check if list is not empty
-            try:
-                # Create a sample that only includes 'id' and 'interestPercentage' for brevity and focus
-                sample_for_json_dumps = []
-                for temp_blink_sample in blinks_for_json[:3]: # Take first 3 again for sample
-                    if isinstance(temp_blink_sample, dict):
-                        sample_for_json_dumps.append({
-                            'id': temp_blink_sample.get('id'),
-                            'interestPercentage': temp_blink_sample.get('interestPercentage'),
-                            'publishedAt': temp_blink_sample.get('publishedAt'),
-                            'votes': temp_blink_sample.get('votes')
-                        })
-                    else: # if an item is not a dict, represent it as a string or placeholder
-                        sample_for_json_dumps.append(str(temp_blink_sample))
-
-                json_string_sample = json.dumps(sample_for_json_dumps)
-                api_route_logger.debug(f"[API ROUTE DEBUG] Manually serialized sample (first 3 items, selected fields): {json_string_sample}")
-            except Exception as e:
-                api_route_logger.error(f"[API ROUTE DEBUG] Error manually serializing to JSON: {e}", exc_info=True)
-        else:
-            api_route_logger.debug("[API ROUTE DEBUG] blinks_for_json is empty, skipping manual JSON serialization sample.")
-        # ----- END INTENSIVE DEBUG LOGGING -----
-
-        if blinks_for_json:
-            main_app_logger.info(f"FINAL CHECK PRE-JSONIFY in get_all_blinks_route: First item data: ID='{blinks_for_json[0].get('id')}', interestPercentage='{blinks_for_json[0].get('interestPercentage')}', currentUserVoteStatus='{blinks_for_json[0].get('currentUserVoteStatus')}'")
-        else:
-            main_app_logger.info("FINAL CHECK PRE-JSONIFY in get_all_blinks_route: blinks_for_json is empty.")
-        return jsonify(blinks_for_json)
+        return jsonify(sorted_blinks)
     except Exception as e:
-        main_app_logger.error(f"Error in /blinks route for userId='{user_id}'. Error: {e}", exc_info=True)
-        return jsonify({"error": "Failed to retrieve blinks"}), 500
+        current_app.logger.error(f"Error fetching blinks: {e}")
+        return jsonify({"error": "Failed to fetch blinks"}), 500
 
-@api_bp.route('/blinks/<string:article_id>', methods=['GET'])
-def get_blink_route(article_id):
-    user_id = request.args.get('userId', None)
-    main_app_logger.info(f"Get blink request: article_id='{article_id}', userId='{user_id}'")
+@api_bp.route('/blink/<string:id>/vote', methods=['POST'])
+def vote_blink(id):
+    """Procesa un voto para un blink específico."""
     try:
-        news_manager_instance = get_news_manager()
-        # Call the updated News.get_blink method, passing user_id
-        blink = news_manager_instance.get_blink(article_id, user_id=user_id)
+        data = request.get_json()
+        vote_type = data.get('vote_type')
+        previous_vote_status = data.get('previous_vote_status') # Puede ser 'positive', 'negative', o null
 
-        if not blink:
-            main_app_logger.warning(f"Blink not found: article_id='{article_id}' (called by get_blink_route)")
+        if vote_type not in ['positive', 'negative']:
+            return jsonify({"error": "Invalid vote type"}), 400
+
+        blink_data = get_blink_data(id)
+        if not blink_data:
             return jsonify({"error": "Blink not found"}), 404
 
-        # 'interestPercentage' is no longer calculated here or added by News.get_blink.
-        # 'currentUserVoteStatus' is now directly included by news_manager.get_blink.
+        # Asegurar que los contadores de votos existen y tienen valor por defecto
+        blink_data.setdefault('positive_votes', 0)
+        blink_data.setdefault('negative_votes', 0)
 
-        # If 'interestPercentage' is still desired on this specific endpoint, it can be calculated here.
-        # For now, assuming it's not added as per overall plan to move calcs to frontend.
-        # If it IS needed: blink['interestPercentage'] = news_manager.calculate_interest_percentage(blink)
-        blink['interestPercentage'] = news_manager_instance.calculate_interest_percentage(blink)
+        # Si el usuario hace clic en el mismo voto, no hacer nada. (Esto se maneja en frontend, pero una doble verificación aquí es buena)
+        # Esta lógica asume que el frontend envía el estado *antes* del nuevo voto.
+        # Si el nuevo voto es el mismo que el estado anterior, teóricamente no debería llegar aquí si el frontend lo maneja.
+        # Sin embargo, la lógica de ajuste de votos debe considerar el estado *actual* del backend.
 
-        main_app_logger.info(f"Successfully retrieved blink via get_blink_route: article_id='{article_id}', UserVote='{blink.get('currentUserVoteStatus')}', Votes={blink.get('votes')}, Interest={blink.get('interestPercentage'):.2f}%.")
-        return jsonify(blink)
+        if vote_type == 'positive':
+            if previous_vote_status == 'positive': # Clic en positivo cuando ya era positivo (quitar voto)
+                blink_data['positive_votes'] = max(0, blink_data['positive_votes'] - 1)
+            elif previous_vote_status == 'negative': # Cambiar de negativo a positivo
+                blink_data['negative_votes'] = max(0, blink_data['negative_votes'] - 1)
+                blink_data['positive_votes'] += 1
+            else: # Voto positivo por primera vez
+                blink_data['positive_votes'] += 1
+        elif vote_type == 'negative':
+            if previous_vote_status == 'negative': # Clic en negativo cuando ya era negativo (quitar voto)
+                blink_data['negative_votes'] = max(0, blink_data['negative_votes'] - 1)
+            elif previous_vote_status == 'positive': # Cambiar de positivo a negativo
+                blink_data['positive_votes'] = max(0, blink_data['positive_votes'] - 1)
+                blink_data['negative_votes'] += 1
+            else: # Voto negativo por primera vez
+                blink_data['negative_votes'] += 1
+
+        save_blink_data(id, blink_data)
+        # Devolver el blink actualizado con su nuevo interés para consistencia, aunque el frontend recargará todo.
+        blink_data['interest'] = calculate_interest(blink_data)
+        return jsonify(blink_data)
+
     except Exception as e:
-        main_app_logger.error(f"Error in /blinks/{article_id} route for userId='{user_id}'. Error: {e}", exc_info=True)
-        return jsonify({"error": "Failed to retrieve blink"}), 500
+        current_app.logger.error(f"Error processing vote for blink {id}: {e}")
+        return jsonify({"error": "Failed to process vote"}), 500
 
-@api_bp.route('/blinks/<string:article_id>/vote', methods=['POST'])
-def vote_on_blink_route(article_id):
-    main_app_logger.info(f"[VOTE_DEBUG] Entered vote_on_blink_route for article_id='{article_id}'. Raw request data: {request.data}")
-    data = request.get_json()
-    if not data:
-        main_app_logger.warning(f"[VOTE_DEBUG] Missing JSON data for article_id='{article_id}'.")
-        return jsonify({"error": "Invalid JSON"}), 400
-
-    user_id = data.get('userId')
-    vote_type = data.get('voteType') # Expected 'like' or 'dislike'
-    previous_vote = data.get('previousVote') # Expected 'like', 'dislike', or None
-
-    main_app_logger.info(f"[VOTE_DEBUG] Extracted from JSON for article_id='{article_id}': userId='{user_id}', voteType='{vote_type}', previousVote='{previous_vote}'.")
-
-    if not user_id or not vote_type:
-        main_app_logger.warning(f"[VOTE_DEBUG] Missing 'userId' or 'voteType' for article_id='{article_id}'. Body: {data}")
-        return jsonify({"error": "Missing 'userId' or 'voteType' in request body"}), 400
-
-    main_app_logger.info(f"[VOTE_DEBUG] About to validate voteType ('{vote_type}') for article_id='{article_id}'. Expected values: ['like', 'dislike'].")
-    if vote_type not in ['like', 'dislike']:
-        main_app_logger.warning(f"[VOTE_DEBUG] Validation FAILED for voteType ('{vote_type}') for article_id='{article_id}'. Expected ['like', 'dislike']. Sending 400 error.")
-        return jsonify({"error": "Invalid voteType. Must be 'like' or 'dislike'"}), 400
-
-    # Validate previousVote if provided
-    if previous_vote is not None and previous_vote not in ['like', 'dislike']:
-        main_app_logger.warning(f"[VOTE_DEBUG] Validation FAILED for previousVote ('{previous_vote}') for article_id='{article_id}'. Expected ['like', 'dislike', None]. Sending 400 error.")
-        return jsonify({"error": "Invalid previousVote. Must be 'like', 'dislike', or null."}), 400
-
-    main_app_logger.info(f"[VOTE_DEBUG] voteType ('{vote_type}') and previousVote ('{previous_vote}') for article_id='{article_id}' passed validation. Calling news_manager.process_user_vote.")
-
+@api_bp.route('/blink/<string:id>/details', methods=['GET'])
+def get_blink_details(id):
+    """Obtiene los detalles de un blink específico y su artículo asociado."""
     try:
-        news_manager_instance = get_news_manager()
-        # Call the new method in models.news
-        updated_blink_data = news_manager_instance.process_user_vote(article_id, user_id, vote_type, previous_vote)
+        blink_data = get_blink_data(id)
+        if not blink_data:
+            return jsonify({"error": "Blink not found"}), 404
 
-        if not updated_blink_data:
-            # Distinguish between blink not found and other processing errors if possible,
-            # but process_user_vote currently returns None for multiple failure types.
-            main_app_logger.warning(f"[VOTE_DEBUG] news_manager.process_user_vote returned None for article_id='{article_id}'. Blink might not exist or internal error during processing.")
-            # Assuming a general failure case for now. If process_user_vote could differentiate file not found vs. save error, status codes could be more specific.
-            return jsonify({"error": "Blink not found or failed to process vote"}), 404 # 404 implies blink itself not found, 500 for other errors.
+        # Calcular y añadir el interés al blink
+        blink_data['interest'] = calculate_interest(blink_data)
 
-        # news_manager.process_user_vote now adds/updates 'currentUserVoteStatus'
-        # It also calculates and adds 'interestPercentage'
-        # No need to recalculate interest here if process_user_vote handles it.
-        # However, process_user_vote as defined in the prompt does NOT recalculate interest.
-        # Let's add it here for consistency with previous API behavior.
-        updated_blink_data['interestPercentage'] = news_manager_instance.calculate_interest_percentage(updated_blink_data)
+        article_file_path = os.path.join(ARTICLES_DIR, f"{id}.json")
+        if not os.path.exists(article_file_path):
+            # Si no hay artículo, devolver solo la info del blink con su interés
+            return jsonify(blink_data)
 
-        main_app_logger.info(f"[VOTE_DEBUG] Vote successful for article_id='{article_id}'. Votes: {updated_blink_data.get('votes')}, UserVote: {updated_blink_data.get('currentUserVoteStatus')}, New Interest: {updated_blink_data.get('interestPercentage'):.2f}%")
-        return jsonify(updated_blink_data), 200
+        with open(article_file_path, 'r', encoding='utf-8') as f:
+            article_data = json.load(f)
 
+        # Combinar datos del blink y del artículo
+        detailed_blink = {**blink_data, "article_content": article_data}
+
+        return jsonify(detailed_blink)
     except Exception as e:
-        main_app_logger.error(f"[VOTE_DEBUG] Exception during vote processing for article_id='{article_id}': {e}", exc_info=True)
-        return jsonify({"error": "Server error processing vote"}), 500
+        current_app.logger.error(f"Error fetching blink detail for {id}: {e}")
+        return jsonify({"error": "Failed to fetch blink details"}), 500
