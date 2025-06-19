@@ -52,20 +52,21 @@ export const useNewsStore = create<NewsState>((set, get) => ({
     get().setUserVote(blinkId, newVoteType);
 
     try {
+      const apiVoteType = newVoteType === 'positive' ? 'like' : 'dislike';
       // Call the API to vote. The backend will handle vote logic and persistence.
       // The previousVoteStatus is sent to help backend decide if it's a new vote, a change, or a removal.
-      await apiVoteOnBlink(blinkId, newVoteType, previousVoteStatus);
+      await apiVoteOnBlink(blinkId, apiVoteType, previousVoteStatus);
 
-      // After a successful vote, fetch all blinks again to get the updated list and order
+      // If API call is successful, then fetch blinks to get updated counts/order
       // This ensures the UI reflects the correct state from the single source of truth (backend).
       await get().fetchBlinks();
 
     } catch (error) {
       console.error(`Failed to vote on blink ${blinkId}:`, error);
-      // If API call fails, revert the optimistic UI update
+      // If API call fails, revert the optimistic UI update for vote status
       get().setUserVote(blinkId, previousVoteStatus);
-      // Optionally, set an error message to display to the user
       set({ error: `Failed to cast vote for blink ${blinkId}. Please try again.` });
+      // Importantly, do NOT call fetchBlinks() on error.
     }
   },
 
