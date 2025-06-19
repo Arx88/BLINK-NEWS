@@ -9,6 +9,49 @@ interface FuturisticNewsCardProps {
   onCardClick: (id: string) => void;
 }
 
+const futuristicNewsCardPropsAreEqual = (prevProps: FuturisticNewsCardProps, nextProps: FuturisticNewsCardProps): boolean => {
+  // Compare essential properties of the news object
+  const prevNews = prevProps.news;
+  const nextNews = nextProps.news;
+
+  // Primary check: If ID is different, it's a different item.
+  if (prevNews.id !== nextNews.id) {
+    return false;
+  }
+
+  // Check if vote counts have changed, as this is relevant for reordering/display
+  if (prevNews.votes?.likes !== nextNews.votes?.likes ||
+      prevNews.votes?.dislikes !== nextNews.votes?.dislikes) {
+    return false;
+  }
+
+  // Check if other critical display properties have changed
+  // Add more properties if they are dynamic and should trigger re-render
+  // For example, title, image, category, points, readTime, isHot
+  if (prevNews.title !== nextNews.title ||
+      prevNews.image !== nextNews.image ||
+      prevNews.category !== nextNews.category ||
+      prevNews.readTime !== nextNews.readTime ||
+      prevNews.isHot !== nextNews.isHot) {
+        return false;
+  }
+
+  // Compare points array (simple length check, could be deeper if needed)
+  if ((prevNews.points?.length || 0) !== (nextNews.points?.length || 0)) {
+      return false;
+  }
+  // A more thorough check for points if order or content matters:
+  // if (JSON.stringify(prevNews.points) !== JSON.stringify(nextNews.points)) return false;
+
+
+  // Check if the callback function reference has changed (it shouldn't typically if defined well in parent)
+  if (prevProps.onCardClick !== nextProps.onCardClick) {
+    return false;
+  }
+
+  return true; // Props are considered equal, prevent re-render
+};
+
 export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCardProps) => {
   const { isDarkMode } = useTheme();
   const [currentBullet, setCurrentBullet] = useState(0);
@@ -172,6 +215,6 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
       </div>
     </div>
   );
-});
+}, futuristicNewsCardPropsAreEqual);
 
 FuturisticNewsCard.displayName = 'FuturisticNewsCard';
