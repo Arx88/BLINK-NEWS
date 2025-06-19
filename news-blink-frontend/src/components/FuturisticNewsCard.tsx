@@ -28,7 +28,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
   }, []);
 
   // Simulación de "key points" a partir del resumen, como en el original.
-  const points = news.summary.split('. ').filter(p => p.length > 5).slice(0, 3);
+  const points = (news.summary || '').split('. ').filter(p => p.length > 5).slice(0, 3);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
