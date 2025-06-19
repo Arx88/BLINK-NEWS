@@ -13,7 +13,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 const Index = () => {
   const { isDarkMode } = useTheme();
   // Obteniendo TODO el estado desde el store de Zustand
-  const { blinks, isLoading, error, fetchBlinks, heroBlink } = useNewsStore();
+  const blinks = useNewsStore(state => state.blinks);
+  const isLoading = useNewsStore(state => state.isLoading);
+  const error = useNewsStore(state => state.error);
+  const fetchBlinks = useNewsStore(state => state.fetchBlinks);
+  const heroBlink = useNewsStore(state => state.heroBlink);
 
   // El hook de filtro ahora recibe los blinks del store
   const {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // Added React import
+import React, { useState, useEffect } from 'react'; // Added React import
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNewsStore } from '@/store/newsStore';
@@ -21,6 +21,11 @@ export const PowerBarVoteSystem = ({
 
   const handleVoteFromStore = useNewsStore((state) => state.handleVote);
   const userVoteStatusFromStore = useNewsStore((state) => state.userVotes[articleId] || null);
+
+  useEffect(() => {
+    setLikes(initialLikes);
+    setDislikes(initialDislikes);
+  }, [initialLikes, initialDislikes]);
 
   const total = likes + dislikes;
   const likePercentage = total > 0 ? (likes / total) * 100 : 50;
