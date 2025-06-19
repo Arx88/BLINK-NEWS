@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RealPowerBarVoteSystem } from '@/components/RealPowerBarVoteSystem';
+import { PowerBarVoteSystem } from '@/components/PowerBarVoteSystem';
 import { ComplementaryInfoCard } from '@/components/ComplementaryInfoCard';
 import { Target, TrendingUp, Lightbulb, AlertCircle } from 'lucide-react';
 import { NewsItem } from '@/utils/api';
@@ -126,7 +126,7 @@ export function KeyPointsSidebar({ article }: KeyPointsSidebarProps) {
       </div>
 
       <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
-        <RealPowerBarVoteSystem
+        <PowerBarVoteSystem
           articleId={article.id}
           likes={article.votes?.likes || 0}
           dislikes={article.votes?.dislikes || 0}

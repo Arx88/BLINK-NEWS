@@ -175,4 +175,3 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
 });
 
 FuturisticNewsCard.displayName = 'FuturisticNewsCard';
-```
