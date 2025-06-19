@@ -143,10 +143,10 @@ export const voteOnArticle = async (articleId: string, voteType: 'like' | 'disli
     }
 
     const responseData = await response.json(); // Backend returns the full updated blink
-    if (responseData) {
-      return transformBlinkToNewsItem(responseData); // Transform it for the frontend
+    if (responseData && responseData.data) {
+      return transformBlinkToNewsItem(responseData.data); // Transform it for the frontend
     } else {
-      console.error(`[utils/api.ts] voteOnArticle - Error: Response data is missing. Raw response:`, responseData);
+      console.error(`[utils/api.ts] voteOnArticle - Error: Response data or responseData.data is missing. Raw response:`, responseData);
       return null;
     }
   } catch (error: any) {
