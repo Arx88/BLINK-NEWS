@@ -44,7 +44,7 @@ export const NewsContent = ({
   }
   const { isDarkMode } = useTheme();
 
-  if (loading) {
+  if (loading && filteredNews.length === 0) {
     return <LoadingState />;
   }
 
