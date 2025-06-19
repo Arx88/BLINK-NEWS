@@ -229,6 +229,7 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
               articleId={news.id}
               initialLikes={news.votes?.likes || 0} // NewsItem has votes: {likes, dislikes}
               initialDislikes={news.votes?.dislikes || 0}
+              displayInterest={news.displayInterest} // Add this line
             />
           </div>
         </div>

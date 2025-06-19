@@ -41,12 +41,8 @@ export const useNewsFilter = (news: Blink[] = [], initialActiveTab: string = 'te
       // Sort by timestamp descending (newest first)
       // Assuming timestamp is a string that can be compared (e.g., ISO date string)
       newsToSort.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-    } else if (activeTab === 'tendencias') { // Assuming 'tendencias' is for "Trends"
-      console.log('[useNewsFilter] Applying LIKES sort for "tendencias" tab.');
-      // Sort by likes descending (most popular first)
-      newsToSort.sort((a, b) => (b.votes?.likes || 0) - (a.votes?.likes || 0));
     } else {
-      console.log('[useNewsFilter] No specific sort applied for tab:', activeTab);
+      console.log('[useNewsFilter] No specific client-side sort applied for tab:', activeTab, '(includes "tendencias")');
     }
     // Add other conditions or a default sort if necessary for other tabs
 

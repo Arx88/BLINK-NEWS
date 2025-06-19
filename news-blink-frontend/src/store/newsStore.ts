@@ -33,10 +33,35 @@ export const useNewsStore = create<NewsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const newsItems = await apiFetchBlinks(); // apiFetchBlinks returns NewsItem[]
+
+      const interesMaximo = newsItems.length > 0
+                              ? newsItems.reduce((max, p) => p.interest > max ? p.interest : max, newsItems[0].interest)
+                              : 0;
+
+      const absInteresMaximo = Math.abs(interesMaximo);
+
+      const processedNewsItems = newsItems.map(item => {
+        let displayInterest = 0;
+        if (absInteresMaximo !== 0) { // Prevent division by zero
+          displayInterest = (item.interest / absInteresMaximo) * 100;
+        } else if (item.interest === 0 && interesMaximo === 0) {
+           displayInterest = 0;
+        } else if (item.interest > 0 && interesMaximo === 0){
+           displayInterest = 100;
+        }
+        // Ensure displayInterest is a finite number, default to 0 if not (e.g. NaN from 0/0 if not handled above)
+        displayInterest = Number.isFinite(displayInterest) ? displayInterest : 0;
+
+        return {
+          ...item,
+          displayInterest: displayInterest
+        };
+      });
+
       set({
-        blinks: newsItems, // Assign NewsItem[] to blinks
-        heroBlink: newsItems.length > 0 ? newsItems[0] : null,
-        lastBlink: newsItems.length > 1 ? newsItems[newsItems.length - 1] : null,
+        blinks: processedNewsItems,
+        heroBlink: processedNewsItems.length > 0 ? processedNewsItems[0] : null,
+        lastBlink: processedNewsItems.length > 1 ? processedNewsItems[processedNewsItems.length - 1] : null,
         isLoading: false,
       });
     } catch (error) {

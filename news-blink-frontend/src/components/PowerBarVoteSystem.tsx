@@ -7,14 +7,16 @@ interface PowerBarVoteSystemProps {
   articleId: string;
   initialLikes?: number;
   initialDislikes?: number;
+  displayInterest?: number;
 }
 
 export const PowerBarVoteSystem = ({
   articleId,
   initialLikes = 0,
-  initialDislikes = 0
+  initialDislikes = 0,
+  displayInterest
 }: PowerBarVoteSystemProps) => {
-  console.log(`[PowerBarVoteSystem Props - ${articleId}] initialLikes:`, initialLikes, 'initialDislikes:', initialDislikes);
+  console.log(`[PowerBarVoteSystem Props - ${articleId}] initialLikes:`, initialLikes, 'initialDislikes:', initialDislikes, 'displayInterest:', displayInterest);
   const { isDarkMode } = useTheme();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
@@ -30,7 +32,11 @@ export const PowerBarVoteSystem = ({
   }, [initialLikes, initialDislikes]);
 
   const total = likes + dislikes;
-  const likePercentage = total > 0 ? (likes / total) * 100 : 50;
+  const likePercentage = total > 0 ? (likes / total) * 100 : 50; // Fallback for text
+  const positivePercentage = total > 0 ? (likes / total) * 100 : 50; // Fallback for bar width (as per original understanding)
+
+  const percentageToShow = typeof displayInterest === 'number' ? displayInterest : likePercentage;
+  const barWidthPercentage = typeof displayInterest === 'number' ? Math.max(0, Math.min(100, displayInterest)) : positivePercentage;
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
     console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Called with voteType:`, voteType, 'Current isVoting:', isVoting, 'Current userVoteStatusFromStore:', userVoteStatusFromStore);
@@ -78,7 +84,7 @@ export const PowerBarVoteSystem = ({
             INTERÉS
           </span>
           <span className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            {Math.round(likePercentage)}%
+            {Math.round(percentageToShow)}%
           </span>
         </div>
 
@@ -88,7 +94,7 @@ export const PowerBarVoteSystem = ({
 
           <div
             className="relative h-full bg-green-500 transition-all duration-700 ease-out shadow-lg"
-            style={{ width: `${likePercentage}%` }}
+            style={{ width: `${barWidthPercentage}%` }}
           >
             {/* Inner shine/reflection effect on the bar */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
