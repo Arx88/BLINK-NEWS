@@ -64,6 +64,7 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
   return {
     id: blink.id || String(blink._id) || '', // Handle MongoDB _id if present
     title: blink.title || 'No Title Provided',
+    summary: blink.summary || '',
     image: blink.image || '/placeholder.svg', // Use a local placeholder
     points: Array.isArray(blink.points) ? blink.points : [],
     category: (Array.isArray(blink.categories) && blink.categories.length > 0 ? blink.categories[0] : blink.category) || 'general',
@@ -79,8 +80,7 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : 0.0,
     currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null, // Ensure correct assignment
   };
-  // console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${transformedItem.id}): interestPercentage = ${transformedItem.interestPercentage}`);
-  return transformedItem;
+  // console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${blink.id}): interestPercentage = ${blink.interestPercentage}`);
 };
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
