@@ -122,41 +122,47 @@ def get_all_blinks_route():
 
         blinks_for_json = []
         for blink_data in all_blinks:
-            main_app_logger.info(f"API_ROUTE: Processing blink_data for ID {blink_data.get('id')}. Keys: {list(blink_data.keys())}")
+            # Log what the model layer provided
+            main_app_logger.info(f"API_ROUTE_V3: Blink data from model for ID {blink_data.get('id')}: {blink_data}")
 
-            cvs_value = blink_data.get('currentUserVoteStatus') # Use .get() for safety before logging
-            ip_value = blink_data.get('interestPercentage')     # Use .get() for safety before logging
-
-            main_app_logger.info(f"API_ROUTE: For ID {blink_data.get('id')}, raw cvs from blink_data: '{cvs_value}' (type: {type(cvs_value)}), raw ip from blink_data: '{ip_value}' (type: {type(ip_value)})")
-
-            new_blink_currentUserVoteStatus = cvs_value
-            new_blink_interestPercentage = 0.0
-            try:
-                if ip_value is not None:
-                    new_blink_interestPercentage = float(ip_value)
-                else:
-                    main_app_logger.warning(f"API_ROUTE: interestPercentage was None for ID {blink_data.get('id')}, defaulting to 0.0")
-            except (ValueError, TypeError) as e: # Catch specific errors
-                main_app_logger.error(f"API_ROUTE: Error converting interestPercentage '{ip_value}' for ID {blink_data.get('id')}: {e}. Defaulting to 0.0.")
-
-            # Construct the dictionary to be appended
-            blink_to_append = {
+            # Create a new dictionary to ensure we are not modifying the original model data
+            # and to control the final set of fields sent to the frontend.
+            blink_to_send = {
                 'id': blink_data.get('id'),
                 'title': blink_data.get('title'),
                 'image': blink_data.get('image'),
                 'points': blink_data.get('points', []),
                 'category': blink_data.get('category'),
-                'isHot': blink_data.get('isHot', False),
+                'isHot': blink_data.get('isHot', False), # Default if missing
                 'readTime': blink_data.get('readTime'),
-                'publishedAt': blink_data.get('publishedAt'),
-                'aiScore': blink_data.get('aiScore'),
-                'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}),
-                'sources': blink_data.get('sources', []),
-                'content': blink_data.get('content'),
-                'currentUserVoteStatus': new_blink_currentUserVoteStatus,
-                'interestPercentage': new_blink_interestPercentage
+                'publishedAt': blink_data.get('publishedAt'), # Already defaulted in model if missing
+                'aiScore': blink_data.get('aiScore'), # Optional
+                'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}), # Default if missing
+                'sources': blink_data.get('sources', []), # Default if missing
+                'content': blink_data.get('content') # Optional
             }
-            blinks_for_json.append(blink_to_append)
+
+            # Explicitly try to transfer 'currentUserVoteStatus'
+            if 'currentUserVoteStatus' in blink_data:
+                blink_to_send['currentUserVoteStatus'] = blink_data['currentUserVoteStatus']
+                main_app_logger.info(f"API_ROUTE_V3: ID {blink_data.get('id')} - Found and assigned 'currentUserVoteStatus': {blink_data['currentUserVoteStatus']}")
+            else:
+                blink_to_send['currentUserVoteStatus'] = None # Explicitly set to None if not found
+                main_app_logger.warning(f"API_ROUTE_V3: ID {blink_data.get('id')} - Key 'currentUserVoteStatus' NOT FOUND in blink_data. Defaulting to None.")
+
+            # Explicitly try to transfer and convert 'interestPercentage'
+            if 'interestPercentage' in blink_data:
+                try:
+                    blink_to_send['interestPercentage'] = float(blink_data['interestPercentage'])
+                    main_app_logger.info(f"API_ROUTE_V3: ID {blink_data.get('id')} - Found and assigned 'interestPercentage': {blink_to_send['interestPercentage']}")
+                except (ValueError, TypeError) as e:
+                    blink_to_send['interestPercentage'] = 0.0
+                    main_app_logger.error(f"API_ROUTE_V3: ID {blink_data.get('id')} - Error converting interestPercentage '{blink_data['interestPercentage']}'. Defaulting to 0.0. Error: {e}")
+            else:
+                blink_to_send['interestPercentage'] = 0.0 # Explicitly set to 0.0 if not found
+                main_app_logger.warning(f"API_ROUTE_V3: ID {blink_data.get('id')} - Key 'interestPercentage' NOT FOUND in blink_data. Defaulting to 0.0.")
+
+            blinks_for_json.append(blink_to_send)
 
         main_app_logger.info(f"Successfully retrieved and reconstructed {len(blinks_for_json)} blinks for userId='{user_id}'.")
 
