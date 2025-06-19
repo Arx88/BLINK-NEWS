@@ -57,15 +57,11 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
   console.log('[transformBlinkToNewsItem] Received blink keys:', Object.keys(blink));
   console.log(`[utils/api.ts transformBlinkToNewsItem] Input blink (ID: ${blink?.id}): interest = ${blink?.interest}`);
 
-  let finalVotes = { likes: 0, dislikes: 0 }; // Use likes/dislikes
-  if (blink.votes && typeof blink.votes === 'object') {
-    const parsedLikes = parseInt(String(blink.votes.likes), 10); // Use blink.votes.likes
-    const parsedDislikes = parseInt(String(blink.votes.dislikes), 10); // Use blink.votes.dislikes
-    finalVotes = {
-      likes: !isNaN(parsedLikes) ? parsedLikes : 0,
-      dislikes: !isNaN(parsedDislikes) ? parsedDislikes : 0,
-    };
-  }
+  // Correctly map positive_votes and negative_votes from backend
+  const finalVotes = {
+    likes: typeof blink.positive_votes === 'number' ? blink.positive_votes : 0,
+    dislikes: typeof blink.negative_votes === 'number' ? blink.negative_votes : 0
+  };
 
   let publishedAtDate = new Date().toISOString(); // Default to now
   if (blink.publishedAt) {
