@@ -1,9 +1,30 @@
 import os
 import json
 import math
+import logging
 from flask import Blueprint, jsonify, request, current_app
 from functools import cmp_to_key
 from datetime import datetime
+
+LOG_DIR_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
+if not os.path.exists(LOG_DIR_PATH):
+    os.makedirs(LOG_DIR_PATH)
+VOTE_BAR_FIX_LOG_FILE = os.path.join(LOG_DIR_PATH, 'VoteBarFix.log')
+
+vote_bar_fix_logger = logging.getLogger('VoteBarFixLogger')
+vote_bar_fix_logger.setLevel(logging.DEBUG)
+# Prevent duplicate logs if root logger is also configured for file output
+vote_bar_fix_logger.propagate = False
+
+# Remove any existing handlers to avoid duplication during reloads/multiple calls
+for handler in vote_bar_fix_logger.handlers[:]:
+    vote_bar_fix_logger.removeHandler(handler)
+    handler.close()
+
+file_handler_votebarfix = logging.FileHandler(VOTE_BAR_FIX_LOG_FILE, mode='w') # mode='w' to overwrite
+formatter_votebarfix = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler_votebarfix.setFormatter(formatter_votebarfix)
+vote_bar_fix_logger.addHandler(file_handler_votebarfix)
 
 api_bp = Blueprint('api_bp', __name__)
 
@@ -107,27 +128,29 @@ def get_blinks():
                 # Recalculate interest
                 blink_item['interest'] = calculate_interest(blink_item)
 
-        # Aggressively ensure 'interest' is a float for all items
-        for blink_to_serialize in sorted_blinks:
-            blink_to_serialize.setdefault('positive_votes', 0)
-            blink_to_serialize.setdefault('negative_votes', 0)
-            calculated_float_interest = float(calculate_interest(blink_to_serialize)) # Explicitly cast to float
-            blink_to_serialize['interest'] = calculated_float_interest
+            # START DIAGNOSTIC LOGGING BLOCK (using vote_bar_fix_logger)
+            if sorted_blinks:
+                sample_size = min(3, len(sorted_blinks))
+                vote_bar_fix_logger.info(f"--- DIAGNOSTIC LOG: Data for first {sample_size} of {len(sorted_blinks)} blinks PRE-JSONIFY ---")
+                for i in range(sample_size):
+                    blink_to_log = sorted_blinks[i]
+                    log_output = {
+                        "id": blink_to_log.get("id", "N/A"),
+                        "title": blink_to_log.get("title", "N/A"),
+                        "positive_votes": blink_to_log.get("positive_votes", "N/A"),
+                        "type_positive_votes": str(type(blink_to_log.get("positive_votes"))),
+                        "negative_votes": blink_to_log.get("negative_votes", "N/A"),
+                        "type_negative_votes": str(type(blink_to_log.get("negative_votes"))),
+                        "interest": blink_to_log.get("interest", "N/A"),
+                        "type_interest": str(type(blink_to_log.get("interest")))
+                    }
+                    vote_bar_fix_logger.info(f"Blink {i+1} sample: {log_output}")
+                vote_bar_fix_logger.info(f"--- END DIAGNOSTIC LOG ---")
+            else:
+                vote_bar_fix_logger.info("--- DIAGNOSTIC LOG: sorted_blinks list is empty PRE-JSONIFY ---")
+            # END DIAGNOSTIC LOGGING BLOCK
 
-        # Optional: Log a sample of blinks right before jsonify for final backend state verification
-        if sorted_blinks: # Check if list is not empty
-            sample_size = min(3, len(sorted_blinks))
-            sample_blinks_for_log = []
-            for i in range(sample_size):
-                blink_sample = sorted_blinks[i]
-                sample_blinks_for_log.append({
-                    "id": blink_sample.get("id"),
-                    "interest": blink_sample.get("interest"),
-                    "type_of_interest": str(type(blink_sample.get("interest")))
-                })
-            current_app.logger.info(f"Sample of blinks before jsonify: {sample_blinks_for_log}")
-
-        return jsonify(sorted_blinks)
+            return jsonify(sorted_blinks)
     except Exception as e:
         current_app.logger.error(f"Error fetching blinks: {e}")
         return jsonify({"error": "Failed to fetch blinks"}), 500
