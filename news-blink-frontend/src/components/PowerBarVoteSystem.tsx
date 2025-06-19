@@ -93,7 +93,7 @@ export const PowerBarVoteSystem = ({
       {/* Vote Buttons */}
       <div className="flex items-center justify-between gap-6">
         <button
-          onClick={() => handleVote('like')}
+          onClick={(e) => { e.stopPropagation(); handleVote('like'); }}
           disabled={isVoting}
           className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
             userVoteStatusFromStore === 'positive'
@@ -110,7 +110,7 @@ export const PowerBarVoteSystem = ({
         </button>
 
         <button
-          onClick={() => handleVote('dislike')}
+          onClick={(e) => { e.stopPropagation(); handleVote('dislike'); }}
           disabled={isVoting}
           className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
             userVoteStatusFromStore === 'negative'
