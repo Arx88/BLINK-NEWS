@@ -53,11 +53,36 @@ def get_all_blinks_route():
     try:
         news_manager_instance = get_news_manager()
         all_blinks = news_manager_instance.get_all_blinks(user_id=user_id)
-        app_logger.info(f"Successfully retrieved {len(all_blinks)} blinks for userId='{user_id}'.")
-        # Example: Log details of the first few blinks if needed for deep debugging
-        # if all_blinks and len(all_blinks) > 0:
-        #    app_logger.debug(f"First blink details: ID={all_blinks[0].get('id')}, Votes={all_blinks[0].get('votes')}, Interest={all_blinks[0].get('interestPercentage')}")
-        return jsonify(all_blinks)
+
+        blinks_for_json = []
+        for blink_data in all_blinks:
+            # Ensure all expected frontend fields are present
+            new_blink = {
+                'id': blink_data.get('id'),
+                'title': blink_data.get('title'),
+                'image': blink_data.get('image'),
+                'points': blink_data.get('points', []),
+                'category': blink_data.get('category'),
+                'isHot': blink_data.get('isHot', False), # Default if missing
+                'readTime': blink_data.get('readTime'),
+                'publishedAt': blink_data.get('publishedAt'), # This will still be the 1970 date if source is missing
+                'aiScore': blink_data.get('aiScore'), # Optional, so .get() is fine
+                'votes': blink_data.get('votes', {'likes': 0, 'dislikes': 0}), # Default if missing
+                'sources': blink_data.get('sources', []), # Default if missing
+                'content': blink_data.get('content'), # Optional
+                'currentUserVoteStatus': blink_data.get('currentUserVoteStatus'), # Should be None if not applicable
+                'interestPercentage': float(blink_data.get('interestPercentage', 0.0)) # Explicitly cast and default
+            }
+            blinks_for_json.append(new_blink)
+
+        app_logger.info(f"Successfully retrieved and reconstructed {len(blinks_for_json)} blinks for userId='{user_id}'.")
+
+        if blinks_for_json:
+            app_logger.debug(f"[API get_all_blinks_route] First item in blinks_for_json (pre-jsonify): {blinks_for_json[0]}")
+        else:
+            app_logger.debug("[API get_all_blinks_route] blinks_for_json is empty.")
+
+        return jsonify(blinks_for_json)
     except Exception as e:
         app_logger.error(f"Error in /blinks route for userId='{user_id}'. Error: {e}", exc_info=True)
         return jsonify({"error": "Failed to retrieve blinks"}), 500
