@@ -10,35 +10,50 @@ interface FuturisticNewsCardProps {
 }
 
 const futuristicNewsCardPropsAreEqual = (prevProps: FuturisticNewsCardProps, nextProps: FuturisticNewsCardProps): boolean => {
+  // console.log(`[propsAreEqual ${nextProps.news.id}] Entry. Prev ID: ${prevProps.news.id}, Next ID: ${nextProps.news.id}`);
   // Compare essential properties of the news object
   const prevNews = prevProps.news;
   const nextNews = nextProps.news;
 
   // Primary check: If ID is different, it's a different item.
   if (prevNews.id !== nextNews.id) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] ID changed: ${prevNews.id} vs ${nextProps.news.id}`);
     return false;
   }
 
   // Check if vote counts have changed, as this is relevant for reordering/display
   if (prevNews.votes?.likes !== nextNews.votes?.likes ||
       prevNews.votes?.dislikes !== nextNews.votes?.dislikes) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] Votes changed. Likes: ${prevNews.votes?.likes}=>${nextNews.votes?.likes}, Dislikes: ${prevNews.votes?.dislikes}=>${nextNews.votes?.dislikes}`);
     return false;
   }
 
   // Check if other critical display properties have changed
-  // Add more properties if they are dynamic and should trigger re-render
-  // For example, title, image, category, points, readTime, isHot
-  if (prevNews.title !== nextNews.title ||
-      prevNews.image !== nextNews.image ||
-      prevNews.category !== nextNews.category ||
-      prevNews.readTime !== nextNews.readTime ||
-      prevNews.isHot !== nextNews.isHot) {
-        return false;
+  if (prevNews.title !== nextNews.title) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] Title changed.`);
+    return false;
+  }
+  if (prevNews.image !== nextNews.image) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] Image changed.`);
+    return false;
+  }
+  if (prevNews.category !== nextNews.category) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] Category changed.`);
+    return false;
+  }
+  if (prevNews.readTime !== nextNews.readTime) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] ReadTime changed.`);
+    return false;
+  }
+  if (prevNews.isHot !== nextNews.isHot) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] IsHot changed.`);
+    return false;
   }
 
   // Compare points array (simple length check, could be deeper if needed)
   if ((prevNews.points?.length || 0) !== (nextNews.points?.length || 0)) {
-      return false;
+    console.log(`[propsAreEqual ${nextProps.news.id}] Points length changed.`);
+    return false;
   }
   // A more thorough check for points if order or content matters:
   // if (JSON.stringify(prevNews.points) !== JSON.stringify(nextNews.points)) return false;
@@ -46,13 +61,16 @@ const futuristicNewsCardPropsAreEqual = (prevProps: FuturisticNewsCardProps, nex
 
   // Check if the callback function reference has changed (it shouldn't typically if defined well in parent)
   if (prevProps.onCardClick !== nextProps.onCardClick) {
+    console.log(`[propsAreEqual ${nextProps.news.id}] onCardClick changed.`);
     return false;
   }
 
+  // console.log(`[propsAreEqual ${nextProps.news.id}] Props are equal. No re-render.`);
   return true; // Props are considered equal, prevent re-render
 };
 
 export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCardProps) => {
+  console.log(`[FuturisticNewsCard Render - ${news.id}] Component is rendering. Title: ${news.title}`);
   const { isDarkMode } = useTheme();
   const [currentBullet, setCurrentBullet] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
