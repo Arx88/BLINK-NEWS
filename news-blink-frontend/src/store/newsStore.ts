@@ -34,27 +34,16 @@ export const useNewsStore = create<NewsState>((set, get) => ({
     try {
       const newsItems = await apiFetchBlinks(); // apiFetchBlinks returns NewsItem[]
 
-      const interesMaximo = newsItems.length > 0
-                              ? newsItems.reduce((max, p) => p.interest > max ? p.interest : max, newsItems[0].interest)
-                              : 0;
-
-      const absInteresMaximo = Math.abs(interesMaximo);
-
       const processedNewsItems = newsItems.map(item => {
-        let displayInterest = 0;
-        if (absInteresMaximo !== 0) { // Prevent division by zero
-          displayInterest = (item.interest / absInteresMaximo) * 100;
-        } else if (item.interest === 0 && interesMaximo === 0) {
-           displayInterest = 0;
-        } else if (item.interest > 0 && interesMaximo === 0){
-           displayInterest = 100;
-        }
-        // Ensure displayInterest is a finite number, default to 0 if not (e.g. NaN from 0/0 if not handled above)
-        displayInterest = Number.isFinite(displayInterest) ? displayInterest : 0;
+        let newDisplayInterest = 0;
+        // Use (item.interest || 0) to default to 0 if item.interest is null, undefined, or NaN,
+        // although item.interest should ideally always be a number from the backend.
+        const currentInterest = typeof item.interest === 'number' && Number.isFinite(item.interest) ? item.interest : 0;
+        newDisplayInterest = Math.max(0, Math.min(100, currentInterest));
 
         return {
           ...item,
-          displayInterest: displayInterest
+          displayInterest: newDisplayInterest
         };
       });
 
