@@ -1,29 +1,32 @@
-// news-blink-frontend/src/components/RealPowerBarVoteSystem.tsx
+// news-blink-frontend/src/components/PowerBarVoteSystem.tsx
 import React from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { useNewsStore } from '@/store/newsStore';
 import { cn } from '@/lib/utils';
 
-interface RealPowerBarVoteSystemProps {
-  blinkId: string;
-  positiveVotes: number;
-  negativeVotes: number;
+interface PowerBarVoteSystemProps { // Renamed interface
+  articleId: string;      // Renamed prop
+  initialLikes: number;   // Renamed prop
+  initialDislikes: number; // Renamed prop
 }
 
-export const RealPowerBarVoteSystem: React.FC<RealPowerBarVoteSystemProps> = ({
-  blinkId,
-  positiveVotes,
-  negativeVotes,
+export const PowerBarVoteSystem: React.FC<PowerBarVoteSystemProps> = ({ // Renamed component and updated props
+  articleId,
+  initialLikes,
+  initialDislikes,
 }) => {
   const handleVote = useNewsStore((state) => state.handleVote);
-  const userVoteStatus = useNewsStore((state) => state.userVotes[blinkId] || null);
+  // Use articleId to get user's vote status
+  const userVoteStatus = useNewsStore((state) => state.userVotes[articleId] || null);
 
-  const totalVotes = positiveVotes + negativeVotes;
-  const positivePercentage = totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 50;
+  // Calculate percentages based on initialLikes and initialDislikes
+  const totalVotes = initialLikes + initialDislikes;
+  const positivePercentage = totalVotes > 0 ? (initialLikes / totalVotes) * 100 : 50;
 
   const onVoteClick = (e: React.MouseEvent, voteType: 'positive' | 'negative') => {
     e.stopPropagation(); // Previene que el clic en el botón active el clic en la tarjeta
-    handleVote(blinkId, voteType);
+    // Use articleId when calling handleVote
+    handleVote(articleId, voteType);
   };
 
   return (

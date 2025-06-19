@@ -1,12 +1,11 @@
-// news-blink-frontend/src/components/FuturisticNewsCard.tsx
 import { Badge } from '@/components/ui/badge';
-import { RealPowerBarVoteSystem } from './RealPowerBarVoteSystem';
+import { PowerBarVoteSystem } from './PowerBarVoteSystem';
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Blink } from '@/store/newsStore'; // Importar el tipo Blink desde el store
+import { NewsItem } from '../store/newsStore'; // Import NewsItem
 
 interface FuturisticNewsCardProps {
-  news: Blink; // Usar el tipo Blink que incluye 'interest'
+  news: NewsItem; // Use NewsItem type
   onCardClick: (id: string) => void;
 }
 
@@ -27,87 +26,142 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
     setIsHovered(false);
   }, []);
 
-  // Simulación de "key points" a partir del resumen, como en el original.
-  const points = (news.summary || '').split('. ').filter(p => p.length > 5).slice(0, 3);
-
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isHovered && points.length > 1) {
+
+    if (isHovered && news.points && news.points.length > 0) {
+      setCurrentBullet(0);
+
+      // Faster animation - 2 seconds
       interval = setInterval(() => {
-        setCurrentBullet((prev) => (prev + 1) % points.length);
+        setCurrentBullet((prev) => (prev + 1) % news.points.length);
       }, 2000);
+    } else {
+      setCurrentBullet(0);
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isHovered, points.length]);
+  }, [isHovered, news.points]);
 
   return (
     <div
       onClick={handleCardClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="cursor-pointer h-full flex flex-col"
+      className="cursor-pointer h-auto min-h-[600px] flex flex-col"
     >
-      <div className={`relative h-full flex flex-col ${isDarkMode ? 'bg-gray-900' : 'bg-white shadow-md hover:shadow-lg'} rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-200`}>
+      <div className={`relative h-full flex flex-col ${isDarkMode
+        ? 'bg-gray-900'
+        : 'bg-white shadow-md hover:shadow-lg'} rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-200`}>
         <div className="absolute top-0 left-0 w-full h-1 bg-blue-600" />
 
+        {/* Image section with fixed height */}
         <div className="relative overflow-hidden h-44 flex-shrink-0">
           <img
-            src={news.image_url} // Corregido: Usar image_url
+            src={news.image}
             alt={news.title}
             className="w-full h-full object-cover filter brightness-75 contrast-125"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-          <div className={`absolute inset-0 ${isDarkMode ? 'bg-black/30' : 'bg-gray-800/10'}`} />
+          <div className={`absolute inset-0 ${isDarkMode
+            ? 'bg-black/30'
+            : 'bg-gray-800/10'}`} />
 
-          <div className="absolute top-4 right-4">
-            <Badge className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-700 shadow-sm'} backdrop-blur-sm px-2 py-1 text-xs font-bold rounded-lg`}>
+          <div className="absolute top-4 right-4 flex flex-col items-end space-y-2">
+            {news.isHot && (
+              <Badge className="bg-red-500 text-white px-2 py-1 text-xs font-bold rounded-lg animate-pulse">
+                🔥
+              </Badge>
+            )}
+            <Badge className={`${isDarkMode
+              ? 'bg-gray-800 text-white'
+              : 'bg-white text-gray-700 shadow-sm'} backdrop-blur-sm px-2 py-1 text-xs font-bold rounded-lg`}>
+              {news.readTime}
+            </Badge>
+          </div>
+
+          <div className="absolute bottom-4 left-4 flex items-center space-x-2">
+            <Badge className={`${isDarkMode
+              ? 'bg-gray-800 text-white'
+              : 'bg-white text-gray-700 shadow-sm'} text-xs font-bold px-3 py-1 rounded-lg backdrop-blur-sm`}>
               {news.category}
             </Badge>
           </div>
         </div>
 
+        {/* Content section - flexible height */}
         <div className="p-5 flex-1 flex flex-col">
           <div className="text-center mb-6">
-            <h3 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} leading-tight tracking-tighter`}>
+            <h3 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} leading-tight tracking-tighter transform hover:scale-105 transition-all duration-300 relative`}>
               {news.title}
             </h3>
             <div className="w-16 h-1 mx-auto mt-2 rounded-full bg-blue-600 shadow-sm"></div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-center mb-5 min-h-[100px]">
+          {/* Optimized bullets section */}
+          <div className="flex-1 flex flex-col justify-center mb-5">
             <div className="space-y-2 relative">
-              {points.map((point: string, index: number) => {
+              {news.points.slice(0, 5).map((point: string, index: number) => {
                 const isActive = isHovered && currentBullet === index;
+
                 return (
-                  <div key={index} className="flex items-start space-x-3 relative z-10 py-1">
-                    <div className="w-4 h-4 mt-1 flex-shrink-0 flex items-center justify-center">
-                      <span className={`text-blue-500 transition-transform duration-300 ${isActive ? 'scale-150' : ''}`}>✦</span>
+                  <div key={index} className="relative">
+                    {/* Simplified background highlight */}
+                    <div
+                      className={`absolute inset-0 -mx-5 transition-all duration-300 ease-out ${
+                        isActive
+                          ? isDarkMode
+                            ? 'bg-blue-600/20'
+                            : 'bg-blue-600/10'
+                          : 'bg-transparent'
+                      }`}
+                      style={{
+                        opacity: isActive ? 1 : 0,
+                        top: '-3px',
+                        bottom: '-3px',
+                      }}
+                    />
+
+                    <div className="flex items-center space-x-3 relative z-10 py-2">
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-all duration-300 ease-out ${
+                          isActive
+                            ? 'bg-blue-600 text-white shadow-blue-600/30'
+                            : isDarkMode
+                              ? 'bg-gray-800 text-white'
+                              : 'bg-black text-white'
+                        }`}
+                        style={{
+                          transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                        }}
+                      >
+                        <span className="text-xs font-black">
+                          ✦
+                        </span>
+                      </div>
+                      <p
+                        className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm leading-relaxed font-medium transition-all duration-300 ease-out flex-1 ${
+                          isActive ? (isDarkMode ? 'text-white font-semibold' : 'text-gray-900 font-semibold') : ''
+                        }`}
+                      >
+                        {point}
+                      </p>
                     </div>
-                    <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-sm leading-relaxed font-medium transition-colors duration-300 ${isActive ? (isDarkMode ? 'text-white' : 'text-black') : ''}`}>
-                      {point}
-                    </p>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="mt-auto">
-            <div className="flex justify-between items-center text-xs text-gray-400 mb-2">
-              <time dateTime={news.publication_date}>
-                {new Date(news.publication_date).toLocaleDateString()}
-              </time>
-              <span className={`font-bold ${news.interest >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {news.interest.toFixed(2)}% Interés
-              </span>
-            </div>
-            <RealPowerBarVoteSystem
-              blinkId={news.id}
-              positiveVotes={news.positive_votes}
-              negativeVotes={news.negative_votes}
+          {/* Vote system at bottom */}
+          <div className="flex-shrink-0">
+            <PowerBarVoteSystem
+              articleId={news.id}
+              initialLikes={news.votes?.likes || 0}
+              initialDislikes={news.votes?.dislikes || 0}
             />
           </div>
         </div>
@@ -117,3 +171,4 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
 });
 
 FuturisticNewsCard.displayName = 'FuturisticNewsCard';
+```

@@ -1,8 +1,8 @@
 // news-blink-frontend/src/hooks/useNewsFilter.ts
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Blink } from '../store/newsStore'; // Importar el tipo Blink unificado
+import { NewsItem as Blink } from '../store/newsStore'; // Import NewsItem as Blink
 
-// El hook ahora usa el tipo 'Blink' y establece un valor por defecto para 'news'
+// El hook ahora usa el tipo 'Blink' (que es NewsItem) y establece un valor por defecto para 'news'
 export const useNewsFilter = (news: Blink[] = [], initialActiveTab: string = 'tendencias') => {
   const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [filteredNews, setFilteredNews] = useState<Blink[]>([]);
