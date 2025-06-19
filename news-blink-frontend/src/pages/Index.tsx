@@ -1,5 +1,5 @@
 // news-blink-frontend/src/pages/Index.tsx
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useNewsStore, NewsItem as Blink } from '@/store/newsStore'; // Import NewsItem as Blink
 import { Header } from '@/components/Header';
 import { Newsletter } from '@/components/Newsletter';
@@ -43,10 +43,10 @@ const Index = () => {
     fetchBlinks();
   };
 
-  const handleCardClick = (id: string) => {
+  const handleCardClick = useCallback((id: string) => {
     // Idealmente, usar React Router para la navegación sin recargar la página
     window.location.href = `/blink/${id}`;
-  };
+  }, []); // Empty dependency array as it doesn't depend on any values from the component scope
 
   const categories = [
     { value: 'all', label: 'Todas' },
