@@ -5,54 +5,69 @@ from flask import Blueprint, jsonify, request, current_app
 from ....models.news import News
 from ..services.news_service import NewsService
 from ..config import Config
-# from ..logger_config import app_logger # Import the configured logger # REPLACED by new logger setup
+
+print("ROUTES_API_PY_EXECUTING_TOP_LEVEL_MARKER_V2") # Added V2 to distinguish from any past attempts
 
 # --- Start of Dedicated Logger for api.py ---
-api_route_logger_name = 'news_blink_backend.src.routes.api'
-api_route_logger = logging.getLogger(api_route_logger_name)
-api_route_logger.setLevel(logging.DEBUG)
+# api_route_logger_name = 'news_blink_backend.src.routes.api'
+# api_route_logger = logging.getLogger(api_route_logger_name)
+# api_route_logger.setLevel(logging.DEBUG)
 
-if not api_route_logger.handlers: # Configure only if no handlers exist for this logger instance
-    # Define the log directory relative to this file (src/routes/api.py)
-    # Path: src/routes/api.py -> src/routes/ -> src/ -> news-blink-backend/ -> project_root/ -> LOG/
-    log_dir_relative_to_this_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
-    log_directory = os.path.abspath(log_dir_relative_to_this_file)
-    print(f"ROUTES_API_DEBUG: Attempting to use log directory for API_ROUTE_DEBUG.log: {log_directory}")
+# if not api_route_logger.handlers: # Configure only if no handlers exist for this logger instance
+#     # Define the log directory relative to this file (src/routes/api.py)
+#     # Path: src/routes/api.py -> src/routes/ -> src/ -> news-blink-backend/ -> project_root/ -> LOG/
+#     log_dir_relative_to_this_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
+#     log_directory = os.path.abspath(log_dir_relative_to_this_file)
+#     print(f"ROUTES_API_DEBUG: Attempting to use log directory for API_ROUTE_DEBUG.log: {log_directory}")
 
-    try:
-        if not os.path.exists(log_directory):
-            os.makedirs(log_directory)
+#     try:
+#         if not os.path.exists(log_directory):
+#             os.makedirs(log_directory)
 
-        log_file_path = os.path.join(log_directory, "API_ROUTE_DEBUG.log")
+#         log_file_path = os.path.join(log_directory, "API_ROUTE_DEBUG.log")
 
-        api_file_handler = logging.FileHandler(log_file_path, mode='a', encoding='utf-8')
-        api_file_handler.setLevel(logging.DEBUG)
+#         api_file_handler = logging.FileHandler(log_file_path, mode='a', encoding='utf-8')
+#         api_file_handler.setLevel(logging.DEBUG)
 
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s'
-        )
-        api_file_handler.setFormatter(formatter)
-        api_route_logger.addHandler(api_file_handler)
-        api_route_logger.info(f"Initialized dedicated file logger for '{api_route_logger_name}' to: {log_file_path}")
+#         formatter = logging.Formatter(
+#             '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s'
+#         )
+#         api_file_handler.setFormatter(formatter)
+#         api_route_logger.addHandler(api_file_handler)
+#         api_route_logger.info(f"Initialized dedicated file logger for '{api_route_logger_name}' to: {log_file_path}")
 
-    except OSError as e:
-        # Basic print as a last resort if logging setup itself fails
-        print(f"CRITICAL: Failed to set up file logger for {api_route_logger_name}. Error: {e}")
-        # Add a basic stream handler if file setup fails
-        if not api_route_logger.handlers: # Check again in case only file handler part failed
-            ch = logging.StreamHandler()
-            ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-            api_route_logger.addHandler(ch)
-        api_route_logger.error(f"Fallback logger for {api_route_logger_name}: File logging setup failed.")
+#     except OSError as e:
+#         # Basic print as a last resort if logging setup itself fails
+#         print(f"CRITICAL: Failed to set up file logger for {api_route_logger_name}. Error: {e}")
+#         # Add a basic stream handler if file setup fails
+#         if not api_route_logger.handlers: # Check again in case only file handler part failed
+#             ch = logging.StreamHandler()
+#             ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+#             api_route_logger.addHandler(ch)
+#         api_route_logger.error(f"Fallback logger for {api_route_logger_name}: File logging setup failed.")
 
-# Attempt to import the main app_logger for general use, but critical debugs will use api_route_logger
-try:
-    from ..logger_config import app_logger as main_app_logger
-    main_app_logger.info("Successfully imported main_app_logger in routes/api.py")
-except ImportError:
-    main_app_logger = api_route_logger # Fallback to api_route_logger if main cannot be imported
-    main_app_logger.warning("Failed to import main_app_logger from logger_config, using api_route_logger as fallback for general logs in api.py.")
-# --- End of Dedicated Logger for api.py ---
+# # Attempt to import the main app_logger for general use, but critical debugs will use api_route_logger
+# try:
+#     from ..logger_config import app_logger as main_app_logger
+#     main_app_logger.info("Successfully imported main_app_logger in routes/api.py")
+# except ImportError:
+#     main_app_logger = api_route_logger # Fallback to api_route_logger if main cannot be imported
+#     main_app_logger.warning("Failed to import main_app_logger from logger_config, using api_route_logger as fallback for general logs in api.py.")
+# # --- End of Dedicated Logger for api.py ---
+
+# Placeholder for loggers after commenting out custom setup
+class SimpleConsoleLogger:
+    def debug(self, msg): print(f"DEBUG: {msg}")
+    def info(self, msg): print(f"INFO: {msg}")
+    def warning(self, msg): print(f"WARNING: {msg}")
+    def error(self, msg, exc_info=None):
+        print(f"ERROR: {msg}")
+        if exc_info: # Crude way to indicate there was exception info
+            print("ERROR_EXC_INFO_TRUE")
+
+api_route_logger = SimpleConsoleLogger()
+main_app_logger = SimpleConsoleLogger()
+print("ROUTES_API_PY_USING_TEMP_SIMPLE_CONSOLE_LOGGERS")
 
 # Create a Blueprint for API routes
 api_bp = Blueprint('api', __name__)
@@ -98,6 +113,7 @@ def get_external_news():
 
 @api_bp.route('/blinks', methods=['GET'])
 def get_all_blinks_route():
+    print("ROUTES_API_PY_GET_ALL_BLINKS_ROUTE_CALLED_MARKER_V2") # Added V2
     user_id = request.args.get('userId', None)
     main_app_logger.info(f"Get all blinks request: userId='{user_id}'")
     try:
