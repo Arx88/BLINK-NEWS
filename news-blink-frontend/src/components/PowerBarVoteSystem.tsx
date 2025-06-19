@@ -1,64 +1,131 @@
-// news-blink-frontend/src/components/PowerBarVoteSystem.tsx
-import React from 'react';
+import React, { useState } from 'react'; // Added React import
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useNewsStore } from '@/store/newsStore';
-import { cn } from '@/lib/utils';
 
-interface PowerBarVoteSystemProps { // Renamed interface
-  articleId: string;      // Renamed prop
-  initialLikes: number;   // Renamed prop
-  initialDislikes: number; // Renamed prop
+interface PowerBarVoteSystemProps {
+  articleId: string;
+  initialLikes?: number;
+  initialDislikes?: number;
 }
 
-export const PowerBarVoteSystem: React.FC<PowerBarVoteSystemProps> = ({ // Renamed component and updated props
+export const PowerBarVoteSystem = ({
   articleId,
-  initialLikes,
-  initialDislikes,
-}) => {
-  const handleVote = useNewsStore((state) => state.handleVote);
-  // Use articleId to get user's vote status
-  const userVoteStatus = useNewsStore((state) => state.userVotes[articleId] || null);
+  initialLikes = 0,
+  initialDislikes = 0
+}: PowerBarVoteSystemProps) => {
+  const { isDarkMode } = useTheme();
+  const [likes, setLikes] = useState(initialLikes);
+  const [dislikes, setDislikes] = useState(initialDislikes);
+  const [isVoting, setIsVoting] = useState(false);
 
-  // Calculate percentages based on initialLikes and initialDislikes
-  const totalVotes = initialLikes + initialDislikes;
-  const positivePercentage = totalVotes > 0 ? (initialLikes / totalVotes) * 100 : 50;
+  const handleVoteFromStore = useNewsStore((state) => state.handleVote);
+  const userVoteStatusFromStore = useNewsStore((state) => state.userVotes[articleId] || null);
 
-  const onVoteClick = (e: React.MouseEvent, voteType: 'positive' | 'negative') => {
-    e.stopPropagation(); // Previene que el clic en el botón active el clic en la tarjeta
-    // Use articleId when calling handleVote
-    handleVote(articleId, voteType);
+  const total = likes + dislikes;
+  const likePercentage = total > 0 ? (likes / total) * 100 : 50;
+
+  const handleVote = async (voteType: 'like' | 'dislike') => {
+    if (isVoting) return;
+    if ((voteType === 'like' && userVoteStatusFromStore === 'positive') || (voteType === 'dislike' && userVoteStatusFromStore === 'negative')) {
+      return;
+    }
+
+    setIsVoting(true);
+    const previousVoteStatus = userVoteStatusFromStore;
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      handleVoteFromStore(articleId, voteType === 'like' ? 'positive' : 'negative');
+
+      if (voteType === 'like') {
+        setLikes(prevLikes => prevLikes + 1);
+        if (previousVoteStatus === 'negative') {
+          setDislikes(prevDislikes => Math.max(0, prevDislikes - 1));
+        }
+      } else { // voteType === 'dislike'
+        setDislikes(prevDislikes => prevDislikes + 1);
+        if (previousVoteStatus === 'positive') {
+          setLikes(prevLikes => Math.max(0, prevLikes - 1));
+        }
+      }
+    } catch (error) {
+      console.error('Error al votar:', error);
+    } finally {
+      setIsVoting(false);
+    }
   };
 
   return (
-    <div className="flex items-center gap-2 w-full">
-      <button
-        onClick={(e) => onVoteClick(e, 'positive')}
-        className={cn(
-          "p-1 rounded-full transition-colors duration-200 ease-in-out text-gray-400",
-          userVoteStatus === 'positive' && "bg-cyan-500/30 text-white"
-        )}
-        aria-label="Votar positivamente"
-      >
-        <ThumbsUp className="w-4 h-4" />
-      </button>
+    <div className="space-y-8">
+      {/* Power Bar */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <span className={`text-sm font-bold tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            INTERÉS
+          </span>
+          <span className={`text-sm font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            {Math.round(likePercentage)}%
+          </span>
+        </div>
 
-      <div className="w-full h-2 bg-red-800/50 rounded-full overflow-hidden flex">
-        <div
-          className="h-full bg-green-500/80 transition-all duration-500 ease-out"
-          style={{ width: `${positivePercentage}%` }}
-        />
+        <div className={`relative w-full h-5 ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-200/60'} rounded-full overflow-hidden shadow-inner backdrop-blur-sm`}>
+          {/* Optional: Subtle animated gradient background for the bar track */}
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 via-yellow-500/10 to-green-500/10 animate-pulse opacity-50" />
+
+          <div
+            className="relative h-full bg-green-500 transition-all duration-700 ease-out shadow-lg"
+            style={{ width: `${likePercentage}%` }}
+          >
+            {/* Inner shine/reflection effect on the bar */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
+            {/* Glow effect for the bar */}
+            <div className="absolute inset-0 shadow-lg shadow-green-500/40" />
+          </div>
+
+          {/* Subtle pattern overlay on the track */}
+          <div className="absolute inset-0 opacity-10" style={{
+            backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 3px, ${isDarkMode ? '#fff' : '#000'} 3px, ${isDarkMode ? '#fff' : '#000'} 4px)`
+          }} />
+        </div>
       </div>
 
-      <button
-        onClick={(e) => onVoteClick(e, 'negative')}
-        className={cn(
-          "p-1 rounded-full transition-colors duration-200 ease-in-out text-gray-400",
-          userVoteStatus === 'negative' && "bg-red-500/40 text-white"
-        )}
-        aria-label="Votar negativamente"
-      >
-        <ThumbsDown className="w-4 h-4" />
-      </button>
+      {/* Vote Buttons */}
+      <div className="flex items-center justify-between gap-6">
+        <button
+          onClick={() => handleVote('like')}
+          disabled={isVoting}
+          className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
+            userVoteStatusFromStore === 'positive'
+              ? isDarkMode
+                ? 'bg-green-500/20 text-green-400 shadow-lg shadow-green-500/20'
+                : 'bg-green-500/10 text-green-600 shadow-md shadow-green-500/10'
+              : isDarkMode
+                ? 'bg-gray-800/40 text-gray-400 hover:bg-green-500/10 hover:text-green-400 backdrop-blur-sm'
+                : 'bg-gray-100/50 text-gray-600 hover:bg-green-100 hover:text-green-600 backdrop-blur-sm'
+          }`}
+        >
+          <ThumbsUp className={`w-5 h-5 transition-all duration-300 ${userVoteStatusFromStore === 'positive' ? 'scale-110' : 'group-hover:scale-105'}`} />
+          <span className="text-lg font-bold">{likes.toLocaleString()}</span>
+        </button>
+
+        <button
+          onClick={() => handleVote('dislike')}
+          disabled={isVoting}
+          className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
+            userVoteStatusFromStore === 'negative'
+              ? isDarkMode
+                ? 'bg-red-500/20 text-red-400 shadow-lg shadow-red-500/20'
+                : 'bg-red-500/10 text-red-600 shadow-md shadow-red-500/10'
+              : isDarkMode
+                ? 'bg-gray-800/40 text-gray-400 hover:bg-red-500/10 hover:text-red-400 backdrop-blur-sm'
+                : 'bg-gray-100/50 text-gray-600 hover:bg-red-100 hover:text-red-600 backdrop-blur-sm'
+          }`}
+        >
+          <ThumbsDown className={`w-5 h-5 transition-all duration-300 ${userVoteStatusFromStore === 'negative' ? 'scale-110' : 'group-hover:scale-105'}`} />
+          <span className="text-lg font-bold">{dislikes.toLocaleString()}</span>
+        </button>
+      </div>
     </div>
   );
 };
