@@ -14,6 +14,7 @@ export const PowerBarVoteSystem = ({
   initialLikes = 0,
   initialDislikes = 0
 }: PowerBarVoteSystemProps) => {
+  console.log(`[PowerBarVoteSystem Props - ${articleId}] initialLikes:`, initialLikes, 'initialDislikes:', initialDislikes);
   const { isDarkMode } = useTheme();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
@@ -21,6 +22,7 @@ export const PowerBarVoteSystem = ({
 
   const handleVoteFromStore = useNewsStore((state) => state.handleVote);
   const userVoteStatusFromStore = useNewsStore((state) => state.userVotes[articleId] || null);
+  console.log(`[PowerBarVoteSystem Store - ${articleId}] userVoteStatusFromStore:`, userVoteStatusFromStore);
 
   useEffect(() => {
     setLikes(initialLikes);
@@ -31,6 +33,7 @@ export const PowerBarVoteSystem = ({
   const likePercentage = total > 0 ? (likes / total) * 100 : 50;
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
+    console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Called with voteType:`, voteType, 'Current isVoting:', isVoting, 'Current userVoteStatusFromStore:', userVoteStatusFromStore);
     if (isVoting) return;
     if ((voteType === 'like' && userVoteStatusFromStore === 'positive') || (voteType === 'dislike' && userVoteStatusFromStore === 'negative')) {
       return;
@@ -41,6 +44,8 @@ export const PowerBarVoteSystem = ({
 
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
+      console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Calling handleVoteFromStore with articleId:`, articleId, 'and voteType (adjusted):', voteType === 'like' ? 'positive' : 'negative');
+      console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Previous vote status was:`, previousVoteStatus);
       handleVoteFromStore(articleId, voteType === 'like' ? 'positive' : 'negative');
 
       if (voteType === 'like') {
@@ -48,11 +53,13 @@ export const PowerBarVoteSystem = ({
         if (previousVoteStatus === 'negative') {
           setDislikes(prevDislikes => Math.max(0, prevDislikes - 1));
         }
+        console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Attempted local state update for 'like'.`);
       } else { // voteType === 'dislike'
         setDislikes(prevDislikes => prevDislikes + 1);
         if (previousVoteStatus === 'positive') {
           setLikes(prevLikes => Math.max(0, prevLikes - 1));
         }
+        console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Attempted local state update for 'dislike'.`);
       }
     } catch (error) {
       console.error('Error al votar:', error);
@@ -61,6 +68,7 @@ export const PowerBarVoteSystem = ({
     }
   };
 
+  console.log(`[PowerBarVoteSystem Render State - ${articleId}] likes:`, likes, 'dislikes:', dislikes, 'isVoting:', isVoting, 'userVoteStatus (from store):', userVoteStatusFromStore);
   return (
     <div className="space-y-8">
       {/* Power Bar */}
