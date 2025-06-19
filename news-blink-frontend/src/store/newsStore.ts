@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { fetchBlinks as apiFetchBlinks, voteOnBlink as apiVoteOnBlink } from '../utils/api';
 // Import Blink type from types/newsTypes.ts instead of defining it here
 import { Blink } from '../types/newsTypes';
+export type { Blink }; // Re-export Blink for use in other modules
 
 export type VoteStatus = 'positive' | 'negative' | null;
 
