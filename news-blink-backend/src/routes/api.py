@@ -17,6 +17,7 @@ if not api_route_logger.handlers: # Configure only if no handlers exist for this
     # Path: src/routes/api.py -> src/routes/ -> src/ -> news-blink-backend/ -> project_root/ -> LOG/
     log_dir_relative_to_this_file = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
     log_directory = os.path.abspath(log_dir_relative_to_this_file)
+    print(f"ROUTES_API_DEBUG: Attempting to use log directory for API_ROUTE_DEBUG.log: {log_directory}")
 
     try:
         if not os.path.exists(log_directory):
