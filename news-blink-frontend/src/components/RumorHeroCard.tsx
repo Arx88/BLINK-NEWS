@@ -1,6 +1,6 @@
 
 import { Badge } from '@/components/ui/badge';
-import { RealPowerBarVoteSystem } from './RealPowerBarVoteSystem'; // Changed import
+import { PowerBarVoteSystem } from './PowerBarVoteSystem'; // Corrected import
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Eye, MessageCircle } from 'lucide-react';
@@ -161,7 +161,7 @@ export const RumorHeroCard = memo(({ news, onCardClick }: RumorHeroCardProps) =>
 
               {/* Vote system */}
               <div onClick={(e) => e.stopPropagation()}>
-                <RealPowerBarVoteSystem // Changed component
+                <PowerBarVoteSystem // Corrected component
                   articleId={news.id}
                   initialLikes={news.votes?.likes || 0}
                   initialDislikes={news.votes?.dislikes || 0}
