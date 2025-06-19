@@ -1,6 +1,6 @@
 
 import { Badge } from '@/components/ui/badge';
-import { RealPowerBarVoteSystem } from './RealPowerBarVoteSystem'; // Changed import
+import { PowerBarVoteSystem } from './PowerBarVoteSystem'; // Corrected import
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -161,7 +161,11 @@ export const FuturisticHeroCard = memo(({ news, onCardClick }: FuturisticHeroCar
 
             {/* Vote system */}
             <div onClick={(e) => e.stopPropagation()}>
-              <RealPowerBarVoteSystem news={news} />
+              <PowerBarVoteSystem
+                articleId={news.id}
+                initialLikes={news.votes?.likes || 0}
+                initialDislikes={news.votes?.dislikes || 0}
+              />
             </div>
           </div>
         </div>
