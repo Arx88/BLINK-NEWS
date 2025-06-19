@@ -32,10 +32,20 @@ export const useNewsFilter = (news: Blink[] = [], initialActiveTab: string = 'te
   // La lógica de filtrado por pestaña se mantiene, pero ya no necesita ordenar.
   // El ordenamiento principal ya viene del backend.
   const tabFilteredNews = useMemo(() => {
-    // Si en el futuro una pestaña necesita un filtro especial, se puede añadir aquí.
-    // Por ahora, todas las pestañas usan los datos ya filtrados por categoría y búsqueda.
-    return categoryFilteredNews;
-  }, [categoryFilteredNews]);
+    const newsToSort = [...categoryFilteredNews]; // Create a shallow copy to sort
+
+    if (activeTab === 'ultimas') { // Assuming 'ultimas' is the identifier for the "Latest" tab
+      // Sort by timestamp descending (newest first)
+      // Assuming timestamp is a string that can be compared (e.g., ISO date string)
+      newsToSort.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } else if (activeTab === 'tendencias') { // Assuming 'tendencias' is for "Trends"
+      // Sort by likes descending (most popular first)
+      newsToSort.sort((a, b) => (b.votes?.likes || 0) - (a.votes?.likes || 0));
+    }
+    // Add other conditions or a default sort if necessary for other tabs
+
+    return newsToSort;
+  }, [categoryFilteredNews, activeTab]);
 
   useEffect(() => {
     setFilteredNews(tabFilteredNews);
