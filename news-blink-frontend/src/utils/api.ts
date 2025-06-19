@@ -1,4 +1,26 @@
 // Helper function to get or generate a simple userId
+
+function formatTimeAgo(isoDateString: string): string {
+  const date = new Date(isoDateString);
+  const now = new Date();
+  const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.round(minutes / 60);
+  const days = Math.round(hours / 24);
+  const weeks = Math.round(days / 7);
+  const months = Math.round(days / 30.44); // Average days in month
+  const years = Math.round(days / 365.25);
+
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  if (weeks < 5) return `${weeks}w ago`; // Up to 4 weeks
+  if (months < 12) return `${months}mo ago`;
+  return `${years}y ago`;
+}
+
 const getUserId = (): string => {
   let userId = localStorage.getItem('blinkUserId');
   if (!userId) {
@@ -69,7 +91,7 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     points: Array.isArray(blink.points) ? blink.points : [],
     category: (Array.isArray(blink.categories) && blink.categories.length > 0 ? blink.categories[0] : blink.category) || 'general',
     isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false, // Or derive from interestPercentage later
-    readTime: blink.readTime || 'N/A',
+    readTime: formatTimeAgo(publishedAtDate),
     publishedAt: publishedAtDate,
     aiScore: typeof blink.aiScore === 'number' ? blink.aiScore : undefined,
     votes: finalVotes,
