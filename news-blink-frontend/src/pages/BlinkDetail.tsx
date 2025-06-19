@@ -15,7 +15,7 @@ export default function BlinkDetail() {
   const { id } = useParams<{ id: string }>();
   const { isDarkMode } = useTheme();
   const [fetchedArticle, setFetchedArticle] = useState<NewsItem | null>(null);
-  const articleFromStore = useNewsStore(state => state.news.find(a => a.id === id));
+  const articleFromStore = useNewsStore(state => (state.news || []).find(a => a.id === id));
   const article = articleFromStore || fetchedArticle;
   // Initialize loading to true only if we don't have the article from store initially
   const [loading, setLoading] = useState(!articleFromStore);
