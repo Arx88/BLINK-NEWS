@@ -1,7 +1,7 @@
 // news-blink-frontend/src/store/newsStore.ts
 
 import { create } from 'zustand';
-import { fetchBlinks as apiFetchBlinks, voteOnBlink as apiVoteOnBlink } from '../utils/api';
+import { fetchNews as apiFetchBlinks, voteOnArticle as apiVoteOnBlink } from '../utils/api';
 // Import Blink type from types/newsTypes.ts instead of defining it here
 import { Blink } from '../types/newsTypes';
 export type { Blink }; // Re-export Blink for use in other modules
