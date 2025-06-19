@@ -24,7 +24,7 @@ export interface NewsItem {
   };
   sources?: string[];
   content?: string;
-  interestPercentage: number; // Always a number after transformation, defaults to 0.0 if not provided/invalid from backend.
+  interest: number; // Changed from interestPercentage
   currentUserVoteStatus?: 'like' | 'dislike' | null; // Update this type
 }
 
@@ -32,7 +32,7 @@ export interface NewsItem {
 export const transformBlinkToNewsItem = (blink: any): NewsItem => {
   console.log('[transformBlinkToNewsItem] Received blink object:', blink);
   console.log('[transformBlinkToNewsItem] Received blink keys:', Object.keys(blink));
-  console.log(`[utils/api.ts transformBlinkToNewsItem] Input blink (ID: ${blink?.id}): interestPercentage = ${blink?.interestPercentage}`);
+  console.log(`[utils/api.ts transformBlinkToNewsItem] Input blink (ID: ${blink?.id}): interest = ${blink?.interest}`);
 
   let finalVotes = { likes: 0, dislikes: 0 }; // Use likes/dislikes
   if (blink.votes && typeof blink.votes === 'object') {
@@ -75,25 +75,24 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     votes: finalVotes,
     sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []),
     content: blink.content || '',
-    // interestPercentage is not set by backend's get_all_blinks / get_blink anymore.
-    // Frontend will calculate or it will be undefined. Defaulting to undefined if not present.
-    interestPercentage: typeof blink.interestPercentage === 'number' ? blink.interestPercentage : 0.0,
+    // Changed from interestPercentage to interest
+    interest: typeof blink.interest === 'number' ? blink.interest : 0.0,
     currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null, // Ensure correct assignment
   };
-  // console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${blink.id}): interestPercentage = ${blink.interestPercentage}`);
+  // console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${blink.id}): interest = ${blink.interest}`);
 };
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
   const userId = getUserId();
   try {
-    // Backend now handles sorting and provides interestPercentage & currentUserVoteStatus
+    // Backend now handles sorting and provides interest & currentUserVoteStatus
     const response = await fetch(`/api/blinks?userId=${encodeURIComponent(userId)}`);
     if (!response.ok) {
       console.error(`API error fetching news: ${response.status} ${response.statusText}`);
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
     const blinks = await response.json();
-    console.log('[utils/api.ts fetchNews] Raw blinks from backend (first 3):', blinks?.slice(0, 3)?.map((b: NewsItem) => ({ id: b.id, interestPercentage: b.interestPercentage, votes: b.votes })));
+    console.log('[utils/api.ts fetchNews] Raw blinks from backend (first 3):', blinks?.slice(0, 3)?.map((b: NewsItem) => ({ id: b.id, interest: b.interest, votes: b.votes })));
     if (Array.isArray(blinks)) {
       return blinks.map(transformBlinkToNewsItem);
     }
@@ -180,7 +179,7 @@ const getMockNews = async (): Promise<NewsItem[]> => {
                 readTime: item.readTime || '5 min',
                 publishedAt: item.publishedAt || new Date().toISOString(),
                 votes: item.votes ? { positive: item.votes.likes || 0, negative: item.votes.dislikes || 0 } : { positive: 0, negative: 0 },
-                interestPercentage: item.interestPercentage || 0,
+                interest: item.interest || 0, // Changed from interestPercentage
                 currentUserVoteStatus: item.currentUserVoteStatus || null,
             }));
             return mockNewsCache;
