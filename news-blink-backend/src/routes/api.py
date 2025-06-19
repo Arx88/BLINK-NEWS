@@ -1,5 +1,6 @@
 import os
 import json
+import math
 from flask import Blueprint, jsonify, request, current_app
 from functools import cmp_to_key
 from datetime import datetime
@@ -93,6 +94,38 @@ def get_blinks():
 
         # Ordenar la lista de blinks usando la función de comparación personalizada
         sorted_blinks = sorted(all_blinks, key=cmp_to_key(compare_blinks))
+
+        # Defensive check to ensure 'interest' is present and valid before jsonify
+        for blink_item in sorted_blinks: # Changed loop variable name to avoid conflict if 'blink' is used above
+            if 'interest' not in blink_item or not isinstance(blink_item.get('interest'), (int, float)) or not math.isfinite(blink_item.get('interest', float('nan'))):
+                current_app.logger.warning(
+                    f"Blink {blink_item.get('id', 'Unknown ID')} missing, invalid, or non-finite interest before jsonify. Recalculating."
+                )
+                # Ensure positive_votes and negative_votes are present, defaulting to 0
+                blink_item.setdefault('positive_votes', 0)
+                blink_item.setdefault('negative_votes', 0)
+                # Recalculate interest
+                blink_item['interest'] = calculate_interest(blink_item)
+
+        # Aggressively ensure 'interest' is a float for all items
+        for blink_to_serialize in sorted_blinks:
+            blink_to_serialize.setdefault('positive_votes', 0)
+            blink_to_serialize.setdefault('negative_votes', 0)
+            calculated_float_interest = float(calculate_interest(blink_to_serialize)) # Explicitly cast to float
+            blink_to_serialize['interest'] = calculated_float_interest
+
+        # Optional: Log a sample of blinks right before jsonify for final backend state verification
+        if sorted_blinks: # Check if list is not empty
+            sample_size = min(3, len(sorted_blinks))
+            sample_blinks_for_log = []
+            for i in range(sample_size):
+                blink_sample = sorted_blinks[i]
+                sample_blinks_for_log.append({
+                    "id": blink_sample.get("id"),
+                    "interest": blink_sample.get("interest"),
+                    "type_of_interest": str(type(blink_sample.get("interest")))
+                })
+            current_app.logger.info(f"Sample of blinks before jsonify: {sample_blinks_for_log}")
 
         return jsonify(sorted_blinks)
     except Exception as e:
