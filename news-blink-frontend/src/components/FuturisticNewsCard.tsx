@@ -15,6 +15,8 @@ const futuristicNewsCardPropsAreEqual = (prevProps: FuturisticNewsCardProps, nex
   const prevNews = prevProps.news;
   const nextNews = nextProps.news;
 
+  console.log(`[propsAreEqual ${nextProps.news.id}] Comparing onCardClick references: prev === next is`, prevProps.onCardClick === nextProps.onCardClick);
+
   // Primary check: If ID is different, it's a different item.
   if (prevNews.id !== nextNews.id) {
     console.log(`[propsAreEqual ${nextProps.news.id}] ID changed: ${prevNews.id} vs ${nextProps.news.id}`);
