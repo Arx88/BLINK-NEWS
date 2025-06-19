@@ -1,3 +1,4 @@
+import json # Ensure json is imported
 from flask import Blueprint, jsonify, request, current_app
 from ....models.news import News
 from ..services.news_service import NewsService
@@ -81,6 +82,43 @@ def get_all_blinks_route():
             app_logger.debug(f"[API get_all_blinks_route] First item in blinks_for_json (pre-jsonify): {blinks_for_json[0]}")
         else:
             app_logger.debug("[API get_all_blinks_route] blinks_for_json is empty.")
+
+        # ----- START INTENSIVE DEBUG LOGGING -----
+        app_logger.debug(f"[API ROUTE DEBUG] blinks_for_json contains {len(blinks_for_json)} items. Logging details for first 3 (or fewer):")
+        for i, temp_blink in enumerate(blinks_for_json[:3]): # Log first 3
+            if isinstance(temp_blink, dict): # Ensure item is a dictionary
+                interest_val = temp_blink.get('interestPercentage')
+                app_logger.debug(
+                    f"[API ROUTE DEBUG] Item {i}: ID {temp_blink.get('id')}, "
+                    f"interestPercentage TYPE: {type(interest_val)}, VALUE: {interest_val}, "
+                    f"PublishedAt TYPE: {type(temp_blink.get('publishedAt'))}, VALUE: {temp_blink.get('publishedAt')}"
+                )
+            else:
+                app_logger.debug(f"[API ROUTE DEBUG] Item {i} is not a dict: {temp_blink}")
+
+        # Attempt to manually serialize a sample to JSON
+        if blinks_for_json: # Check if list is not empty
+            try:
+                # Create a sample that only includes 'id' and 'interestPercentage' for brevity and focus
+                sample_for_json_dumps = []
+                for temp_blink_sample in blinks_for_json[:3]: # Take first 3 again for sample
+                    if isinstance(temp_blink_sample, dict):
+                        sample_for_json_dumps.append({
+                            'id': temp_blink_sample.get('id'),
+                            'interestPercentage': temp_blink_sample.get('interestPercentage'),
+                            'publishedAt': temp_blink_sample.get('publishedAt'),
+                            'votes': temp_blink_sample.get('votes')
+                        })
+                    else: # if an item is not a dict, represent it as a string or placeholder
+                        sample_for_json_dumps.append(str(temp_blink_sample))
+
+                json_string_sample = json.dumps(sample_for_json_dumps)
+                app_logger.debug(f"[API ROUTE DEBUG] Manually serialized sample (first 3 items, selected fields): {json_string_sample}")
+            except Exception as e:
+                app_logger.error(f"[API ROUTE DEBUG] Error manually serializing to JSON: {e}", exc_info=True)
+        else:
+            app_logger.debug("[API ROUTE DEBUG] blinks_for_json is empty, skipping manual JSON serialization sample.")
+        # ----- END INTENSIVE DEBUG LOGGING -----
 
         return jsonify(blinks_for_json)
     except Exception as e:
