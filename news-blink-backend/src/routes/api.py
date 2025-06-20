@@ -159,6 +159,17 @@ def get_blinks():
         sorted_blinks = sorted(all_blinks, key=cmp_to_key(compare_blinks))
         vote_fix_logger.info("Sorting complete.")
 
+        # Implement isHot logic
+        vote_fix_logger.info("Applying isHot logic.")
+        for i, blink in enumerate(sorted_blinks):
+            if i < 4:
+                blink['isHot'] = True
+                vote_fix_logger.info(f"Blink {blink.get('id', 'N/A')} marked as isHot=True (index {i})")
+            else:
+                blink['isHot'] = False
+                vote_fix_logger.info(f"Blink {blink.get('id', 'N/A')} marked as isHot=False (index {i})")
+        vote_fix_logger.info("isHot logic application complete.")
+
         # Log sample of sorted blinks and total count
         if sorted_blinks:
             vote_fix_logger.info(f"Total blinks being returned after sorting: {len(sorted_blinks)}")
@@ -177,6 +188,7 @@ def get_blinks():
                     "positive_votes": blink_to_log.get("positive_votes", "N/A"),
                     "negative_votes": blink_to_log.get("negative_votes", "N/A"),
                     "interest": blink_to_log.get("interest", "N/A"),
+                    "isHot": blink_to_log.get("isHot", "N/A"),  # Added for isHot logging
                     "publication_date": blink_to_log.get("publication_date", "N/A")
                 }
                 vote_fix_logger.info(f"Blink {i+1} sample (detail): {log_output}")
@@ -197,6 +209,7 @@ def get_blinks():
                     "positive_votes": blink_to_log.get("positive_votes", "MISSING_OR_UNDEFINED"),
                     "negative_votes": blink_to_log.get("negative_votes", "MISSING_OR_UNDEFINED"),
                     "interest": blink_to_log.get("interest", "MISSING_OR_UNDEFINED"),
+                    "isHot": blink_to_log.get("isHot", "MISSING_OR_UNDEFINED"), # Added for isHot logging
                     "publication_date": blink_to_log.get("publication_date", "N/A")
                 }
                 vote_fix_logger.info(f"Item {i+1}: {log_output}")

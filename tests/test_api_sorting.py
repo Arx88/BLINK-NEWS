@@ -358,5 +358,80 @@ class TestApiBlinkSorting(unittest.TestCase):
         ]
         self.assertEqual(ids, expected_ids, f"Expected {expected_ids}, but got {ids}")
 
+    def test_is_hot_property(self):
+        now = datetime.now(timezone.utc)
+
+        # Sub-test 1: 5 blinks (4 hot, 1 not)
+        # To ensure predictable sort order, we'll primarily vary 'likes' assuming interest is directly proportional
+        # or that likes act as a tie-breaker if interest calculation leads to ties.
+        # For simplicity, let's assume higher likes = higher interest for this test setup.
+        # All blinks will have 0 dislikes and recent, distinct publication dates to make 'likes' the dominant factor.
+
+        # Clean up before this specific test section to ensure no old files interfere
+        # This is a more robust way if not using unique IDs across all tests in the class
+        if os.path.exists(self.blinks_dir):
+            shutil.rmtree(self.blinks_dir)
+        os.makedirs(self.blinks_dir, exist_ok=True)
+
+        created_blinks_scenario1 = [
+            self._create_blink_file("hot_b1", likes=10, dislikes=0, published_at_iso_string=(now - timedelta(minutes=1)).isoformat()), # Expected Hot
+            self._create_blink_file("hot_b2", likes=9, dislikes=0, published_at_iso_string=(now - timedelta(minutes=2)).isoformat()),  # Expected Hot
+            self._create_blink_file("hot_b3", likes=8, dislikes=0, published_at_iso_string=(now - timedelta(minutes=3)).isoformat()),  # Expected Hot
+            self._create_blink_file("hot_b4", likes=7, dislikes=0, published_at_iso_string=(now - timedelta(minutes=4)).isoformat()),  # Expected Hot
+            self._create_blink_file("hot_b5", likes=6, dislikes=0, published_at_iso_string=(now - timedelta(minutes=5)).isoformat())   # Expected Not Hot
+        ]
+
+        response_5_blinks = self.client.get('/api/blinks')
+        self.assertEqual(response_5_blinks.status_code, 200)
+        blinks_5 = response_5_blinks.get_json()
+
+        self.assertEqual(len(blinks_5), 5)
+
+        # Check isHot status based on expected sort order (highest likes first)
+        # The actual sorting logic in api.py will determine the order.
+        # We assume here that likes=10 is first, likes=6 is last.
+
+        # Create a mapping of ID to blink data for easier assertion
+        blinks_5_map = {blink['id']: blink for blink in blinks_5}
+
+        # IDs sorted by likes descending (which should be the order from API)
+        expected_order_ids_scen1 = ["hot_b1", "hot_b2", "hot_b3", "hot_b4", "hot_b5"]
+
+        for i, blink_id in enumerate(expected_order_ids_scen1):
+            self.assertEqual(blinks_5[i]['id'], blink_id) # Verify API returned in expected order
+            if i < 4:
+                self.assertTrue(blinks_5[i].get('isHot'), f"Blink {blink_id} (index {i}) should be hot.")
+            else:
+                self.assertFalse(blinks_5[i].get('isHot'), f"Blink {blink_id} (index {i}) should not be hot.")
+
+        # Sub-test 2: 2 blinks (both hot)
+        # Clean up again for isolation, or use unique IDs. Using unique IDs here for simplicity.
+        # No need to rm -rf if using unique IDs that don't clash with previous ones in this method.
+        # However, to be absolutely sure for this sub-test, let's clean and recreate.
+        if os.path.exists(self.blinks_dir): # Ensure clean slate for this sub-test
+            shutil.rmtree(self.blinks_dir)
+        os.makedirs(self.blinks_dir, exist_ok=True)
+
+        created_blinks_scenario2 = [
+            self._create_blink_file("hot_s2_b1", likes=10, dislikes=0, published_at_iso_string=(now - timedelta(minutes=10)).isoformat()), # Expected Hot
+            self._create_blink_file("hot_s2_b2", likes=9, dislikes=0, published_at_iso_string=(now - timedelta(minutes=11)).isoformat())   # Expected Hot
+        ]
+
+        response_2_blinks = self.client.get('/api/blinks')
+        self.assertEqual(response_2_blinks.status_code, 200)
+        blinks_2 = response_2_blinks.get_json()
+
+        self.assertEqual(len(blinks_2), 2)
+
+        # Create a mapping of ID to blink data for easier assertion
+        blinks_2_map = {blink['id']: blink for blink in blinks_2}
+        expected_order_ids_scen2 = ["hot_s2_b1", "hot_s2_b2"]
+
+
+        for i, blink_id in enumerate(expected_order_ids_scen2):
+            self.assertEqual(blinks_2[i]['id'], blink_id) # Verify API returned in expected order
+            self.assertTrue(blinks_2[i].get('isHot'), f"Blink {blink_id} (index {i}) should be hot in 2-blink scenario.")
+
+
 if __name__ == '__main__':
     unittest.main()
