@@ -12,7 +12,7 @@ def setup_logger():
     if not os.path.exists(log_directory):
         os.makedirs(log_directory)
 
-    log_file_path = os.path.join(log_directory, "backend.log")
+    log_file_path = os.path.join(log_directory, "VoteFixLog")
 
     # Get the logger
     logger = logging.getLogger("blink_backend") # Use a specific name for our app's logger

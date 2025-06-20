@@ -5,52 +5,7 @@ import logging
 from flask import Blueprint, jsonify, request, current_app
 from functools import cmp_to_key
 from datetime import datetime
-
-# --- VERY EARLY DIAGNOSTICS ---
-print("--- TOP OF api.py REACHED ---", flush=True)
-# Raw file write test
-raw_log_dir_test = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
-raw_log_path_test = os.path.join(raw_log_dir_test, 'VoteFixLog_RAW_TEST.log')
-print(f"--- Attempting RAW write to: {raw_log_path_test} ---", flush=True)
-try:
-    if not os.path.exists(raw_log_dir_test):
-        print(f"--- LOG directory for raw test not found, attempting to create: {raw_log_dir_test} ---", flush=True)
-        os.makedirs(raw_log_dir_test, exist_ok=True)
-        print(f"--- LOG directory for raw test creation attempted. ---", flush=True)
-
-    with open(raw_log_path_test, "w") as f_test:
-        f_test.write("RAW TEST WRITE FROM TOP OF api.py SUCCESSFUL AT " + datetime.now().isoformat() + "\n")
-    print(f"--- RAW write to {raw_log_path_test} SUCCEEDED ---", flush=True)
-except Exception as e_raw:
-    print(f"--- RAW write to {raw_log_path_test} FAILED: {e_raw} ---", flush=True)
-# --- END OF VERY EARLY DIAGNOSTICS ---
-
-LOG_DIR_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
-if not os.path.exists(LOG_DIR_PATH):
-    os.makedirs(LOG_DIR_PATH)
-
-print(f"ROUTES.API: LOG_DIR_PATH for VoteFixLog.log is: {LOG_DIR_PATH}", flush=True)
-VOTE_FIX_LOG_FILE = os.path.join(LOG_DIR_PATH, 'VoteFixLog.log')
-print(f"ROUTES.API: Attempting to configure VoteFixLogLogger. Log file path: {VOTE_FIX_LOG_FILE}", flush=True)
-
-vote_fix_logger = logging.getLogger('VoteFixLogLogger')
-vote_fix_logger.setLevel(logging.DEBUG)
-vote_fix_logger.propagate = False
-
-for handler in vote_fix_logger.handlers[:]:
-    vote_fix_logger.removeHandler(handler)
-    handler.close()
-
-file_handler_votefixlog = logging.FileHandler(VOTE_FIX_LOG_FILE, mode='w')
-print(f"ROUTES.API: FileHandler configured for {VOTE_FIX_LOG_FILE} with mode 'w'.", flush=True)
-formatter_votefixlog = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler_votefixlog.setFormatter(formatter_votefixlog)
-vote_fix_logger.addHandler(file_handler_votefixlog)
-print(f"ROUTES.API: FileHandler added to vote_fix_logger. Logger effective level: {vote_fix_logger.getEffectiveLevel()}", flush=True)
-
-print("ROUTES.API: Attempting to write initial test message to vote_fix_logger.", flush=True)
-vote_fix_logger.info("--- VoteFixLogLogger successfully initialized and configured in api.py ---")
-print("ROUTES.API: Initial test message sent to vote_fix_logger.", flush=True)
+from news_blink_backend.src.logger_config import app_logger as vote_fix_logger
 
 api_bp = Blueprint('api_bp', __name__)
 
@@ -77,23 +32,28 @@ def save_blink_data(blink_id, data):
 
 def calculate_interest(positive_votes, negative_votes):
     """Calcula el porcentaje de interés de un blink usando la fórmula revisada."""
+    vote_fix_logger.debug(f"Calculating interest for PV: {positive_votes}, NV: {negative_votes}")
     total_votes = positive_votes + negative_votes
 
     if total_votes == 0:
+        vote_fix_logger.debug("Total votes are 0, returning 50% interest.")
         return 50.0  # Noticia sin votos, 50% de interés
 
     # Fórmula: (Likes / (Likes + Dislikes)) * 100%
     interest = (positive_votes / total_votes) * 100.0
+    vote_fix_logger.debug(f"Calculated interest: {interest}% for PV: {positive_votes}, NV: {negative_votes}")
     return interest
 
 def compare_blinks(item1, item2):
     """Función de comparación para ordenar los blinks según las reglas especificadas."""
+    vote_fix_logger.debug(f"Comparing blink {item1.get('id', 'N/A')} (I:{item1.get('interest',0):.2f} L:{item1.get('positive_votes',0)} D:{item1.get('publication_date','N/A')}) with {item2.get('id', 'N/A')} (I:{item2.get('interest',0):.2f} L:{item2.get('positive_votes',0)} D:{item2.get('publication_date','N/A')})")
     # Criterio Principal: Porcentaje de la Barra de Interés (de mayor a menor)
     # Asegurarse de que los valores de interés sean números
     interest1 = item1.get('interest', 0.0)
     interest2 = item2.get('interest', 0.0)
 
     if interest1 != interest2:
+        vote_fix_logger.debug(f"Interest comparison: {interest1} vs {interest2}. Result: {'item1 > item2' if interest1 > interest2 else 'item2 > item1'}")
         return -1 if interest1 > interest2 else 1
 
     # Primer Desempate: Cantidad Absoluta de Likes (de mayor a menor)
@@ -101,6 +61,7 @@ def compare_blinks(item1, item2):
     likes2 = item2.get('positive_votes', 0)
 
     if likes1 != likes2:
+        vote_fix_logger.debug(f"Likes comparison: {likes1} vs {likes2}. Result: {'item1 > item2' if likes1 > likes2 else 'item2 > item1'}")
         return -1 if likes1 > likes2 else 1
 
     # Segundo Desempate: Novedad (más reciente primero)
@@ -115,8 +76,10 @@ def compare_blinks(item1, item2):
         date2 = datetime.min # Fallback para fechas inválidas
 
     if date1 != date2:
+        vote_fix_logger.debug(f"Date comparison: {date1.isoformat()} vs {date2.isoformat()}. Result: {'item1 > item2' if date1 > date2 else 'item2 > item1'}")
         return -1 if date1 > date2 else 1
 
+    vote_fix_logger.debug("Items are equal after all comparisons.")
     return 0 # Si todo es igual, el orden no importa
 
 @api_bp.route('/blinks', methods=['GET'])
@@ -146,6 +109,7 @@ def get_blinks():
                 # Adding "Pre-append" log
                 vote_fix_logger.info(f"Pre-append data for {blink_id}: PVotes={blink_data.get('positive_votes', 'NOT_SET')}, NVotes={blink_data.get('negative_votes', 'NOT_SET')}, Interest={blink_data.get('interest', 'NOT_SET')}, Keys={list(blink_data.keys())}")
                 all_blinks.append(blink_data)
+                vote_fix_logger.debug(f"Added to list: ID: {blink_data.get('id')}, Title: {blink_data.get('title_summary', 'N/A')[:30]}, PV: {blink_data.get('positive_votes',0)}, NV: {blink_data.get('negative_votes',0)}, I: {blink_data.get('interest',0.0):.2f}%, Date: {blink_data.get('publication_date')}")
             else:
                 vote_fix_logger.warning(f"No data found for blink_id: {blink_id} during get_blinks scan.")
 
@@ -155,9 +119,18 @@ def get_blinks():
             if sample_pre_sort:
                 vote_fix_logger.info(f"Sample blink data before sorting (first item): ID: {sample_pre_sort.get('id')}, Title: {sample_pre_sort.get('title_summary', 'N/A')}, Votes: +{sample_pre_sort.get('positive_votes',0)}/-{sample_pre_sort.get('negative_votes',0)}, Interest: {sample_pre_sort.get('interest',0.0)}%, Date: {sample_pre_sort.get('publication_date')}")
 
+        vote_fix_logger.info(f"--- Pre-sorting list of {len(all_blinks)} blinks ---")
+        for i, blink_item in enumerate(all_blinks):
+            vote_fix_logger.info(f"Pre-sort Item {i+1}: ID: {blink_item.get('id')}, I: {blink_item.get('interest', 0.0):.2f}%, L: {blink_item.get('positive_votes', 0)}, D: {blink_item.get('publication_date', 'N/A')}")
+        vote_fix_logger.info(f"--- End of pre-sorting list ---")
         vote_fix_logger.info(f"Calling sorted() with compare_blinks on {len(all_blinks)} blinks.")
         sorted_blinks = sorted(all_blinks, key=cmp_to_key(compare_blinks))
         vote_fix_logger.info("Sorting complete.")
+
+        vote_fix_logger.info(f"--- Post-sorting list of {len(sorted_blinks)} blinks ---")
+        for i, blink_item in enumerate(sorted_blinks):
+            vote_fix_logger.info(f"Post-sort Item {i+1}: ID: {blink_item.get('id')}, I: {blink_item.get('interest', 0.0):.2f}%, L: {blink_item.get('positive_votes', 0)}, D: {blink_item.get('publication_date', 'N/A')}")
+        vote_fix_logger.info(f"--- End of post-sorting list ---")
 
         # Log sample of sorted blinks and total count
         if sorted_blinks:
@@ -237,6 +210,7 @@ def vote_blink(id):
         current_positive_votes = blink_data.setdefault('positive_votes', 0)
         current_negative_votes = blink_data.setdefault('negative_votes', 0)
         vote_fix_logger.info(f"Current votes for {id}: +{current_positive_votes}/-{current_negative_votes}")
+        vote_fix_logger.info(f"Client reported previousVote for {id}: {previous_vote_status}")
 
         is_removing_vote = (vote_type == 'like' and previous_vote_status == 'like') or \
                           (vote_type == 'dislike' and previous_vote_status == 'dislike')
@@ -273,6 +247,7 @@ def vote_blink(id):
 
         vote_fix_logger.info(f"Vote processing action for {id}: {action_taken}. User: {user_id}, Vote: {vote_type}, PrevStatus: {previous_vote_status}")
         vote_fix_logger.info(f"New votes for {id}: +{blink_data['positive_votes']}/-{blink_data['negative_votes']}")
+        vote_fix_logger.info(f"Updated currentUserVoteStatus for {id} to: {blink_data.get('currentUserVoteStatus')}")
 
         save_blink_data(id, blink_data)
         vote_fix_logger.info(f"Saved blink_data for {id}.")

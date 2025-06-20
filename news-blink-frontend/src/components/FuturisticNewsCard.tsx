@@ -225,6 +225,8 @@ export const FuturisticNewsCard = memo(({ news, onCardClick }: FuturisticNewsCar
 
           {/* Vote system at bottom */}
           <div className="flex-shrink-0">
+            {/* Add log here */}
+            {console.log(`[FuturisticNewsCard][${news.id}] Passing to PowerBarVoteSystem: articleId=${news.id}, initialLikes=${news.votes?.likes || 0}, initialDislikes=${news.votes?.dislikes || 0}, displayInterest=${news.displayInterest}`)}
             <PowerBarVoteSystem
               articleId={news.id}
               initialLikes={news.votes?.likes || 0} // NewsItem has votes: {likes, dislikes}
