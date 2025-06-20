@@ -1,6 +1,14 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+print(f"DEBUG: Current working directory: {os.getcwd()}", flush=True)
+added_path = os.path.abspath(os.path.dirname(__file__))
+print(f"DEBUG: Path added to sys.path: {added_path}", flush=True)
+print(f"DEBUG: sys.path after modification: {sys.path}", flush=True)
+try:
+    print(f"DEBUG: Listing contents of '{added_path}': {os.listdir(added_path)}", flush=True)
+except Exception as e:
+    print(f"DEBUG: Error listing contents of '{added_path}': {e}", flush=True)
 
 import json
 import os
