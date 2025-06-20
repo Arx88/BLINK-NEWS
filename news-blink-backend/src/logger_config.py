@@ -7,11 +7,15 @@ def setup_logger():
     # Robust path to project_root/LOG from news-blink-backend/src/logger_config.py
     log_dir_relative_to_file = os.path.join(os.path.dirname(__file__), '..', '..', 'LOG')
     log_directory = os.path.abspath(log_dir_relative_to_file)
+    print(f"[LoggerSetup] Resolved log directory: {log_directory}", flush=True)
 
+    print(f"[LoggerSetup] Checking if log directory exists: {log_directory}", flush=True)
     if not os.path.exists(log_directory):
         os.makedirs(log_directory)
+        print(f"[LoggerSetup] Created log directory. Exists now: {os.path.exists(log_directory)}", flush=True)
 
     log_file_path = os.path.join(log_directory, "VoteFixLog.log")
+    print(f"[LoggerSetup] Resolved log file path: {log_file_path}", flush=True)
 
     # Get the logger
     logger = logging.getLogger("blink_backend") # Use a specific name for our app's logger
@@ -21,26 +25,37 @@ def setup_logger():
     if logger.hasHandlers():
         logger.handlers.clear()
 
-    # File Handler
-    # Overwrites the log file on each run.
-    file_handler = logging.FileHandler(log_file_path, mode='w', encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG) # Set level for file handler
-
-    # Console Handler (optional, good for development/debugging alongside file logs)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO) # Or DEBUG, depending on verbosity needed in console
-
-    # Log Formatter
+    # Log Formatter - Define formatter before try block for FileHandler
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s'
     )
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
 
-    # Add handlers to the logger
-    logger.addHandler(file_handler)
+    # File Handler
+    try:
+        print(f"[LoggerSetup] Attempting to create FileHandler for: {log_file_path}", flush=True)
+        # Overwrites the log file on each run.
+        file_handler = logging.FileHandler(log_file_path, mode='w', encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG) # Set level for file handler
+
+        file_handler.setFormatter(formatter)
+
+        logger.addHandler(file_handler)
+        print(f"[LoggerSetup] SUCCESSFULLY added FileHandler for {log_file_path}. Logger '{logger.name}' handlers: {[type(h).__name__ for h in logger.handlers]}", flush=True)
+    except Exception as e:
+        print(f"[LoggerSetup] !!! ERROR setting up FileHandler for {log_file_path}: {e} !!!", flush=True)
+        # Optionally, re-raise or handle as critical failure
+
+    # Console Handler (optional, good for development/debugging alongside file logs)
+    # This setup is outside the try-except for the FileHandler.
+    # If it also needs protection, it would require its own try-except.
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO) # Or DEBUG, depending on verbosity needed in console
+    console_handler.setFormatter(formatter) # Assuming same formatter is okay
+
     # logger.addHandler(console_handler) # Uncomment if console output is also desired
+    # If console_handler is added, the print statement above would need adjustment or another one added.
 
+    print(f"[LoggerSetup] setup_logger function complete. Returning logger '{logger.name}'.", flush=True)
     return logger
 
 # Create a logger instance to be imported by other modules
