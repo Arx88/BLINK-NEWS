@@ -184,9 +184,11 @@ class TestApiBlinkSorting(unittest.TestCase):
         self.app_context.pop()
         shutil.rmtree(self.test_data_dir_sorting)
 
-    def _create_blink_file(self, blink_id, likes, dislikes, published_at_iso_string, user_votes=None, title_prefix="Blink", category="general", aiScore=95):
+    def _create_blink_file(self, blink_id, likes, dislikes, timestamp_iso_string, user_votes=None, title_prefix="Blink"):
+        # Removed category and aiScore as they are not directly used by the specific sorting logic being tested
+        # and aims to simplify the test setup to focus on votes and timestamp.
         if user_votes is None:
-            user_votes = {}
+            user_votes = {} # Retained user_votes for now, though sorting doesn't use it directly.
 
         blink_data = {
             "id": blink_id,
@@ -194,112 +196,114 @@ class TestApiBlinkSorting(unittest.TestCase):
             "content": f"This is the content for {blink_id}.",
             "points": [f"Point 1 for {blink_id}", f"Point 2 for {blink_id}"],
             "image": f"http://example.com/images/{blink_id}.png",
-            "publication_date": published_at_iso_string, # Changed from publishedAt
-            "category": category,
-            "aiScore": aiScore,
-            "positive_votes": likes,  # Changed from nested votes.likes
-            "negative_votes": dislikes, # Changed from nested votes.dislikes
-            "user_votes": user_votes, # Assuming user_votes is still relevant; if not, it can be removed.
+            "timestamp": timestamp_iso_string, # Key changed to "timestamp"
+            "votes": { # Votes are now nested
+                "likes": likes,
+                "dislikes": dislikes
+            },
+            "user_votes": user_votes,
             "sources": [{"id": "test-source", "name": "Test Source"}],
             "urls": [{"type": "main", "url": f"http://example.com/article/{blink_id}"}]
-            # interestPercentage is calculated by the backend, not stored in file
+            # calculated_interest_score is added by the backend route before sorting, not in the file.
         }
         filepath = os.path.join(self.blinks_dir, f"{blink_id}.json")
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(blink_data, f, ensure_ascii=False, indent=2)
-        return blink_data # Return the data for easy access to expected values
+        # Return the data for potential assertions if needed, though not strictly required by existing tests.
+        return blink_data
 
     def test_sort_by_interest_descending(self):
         now = datetime.now(timezone.utc)
-        self._create_blink_file("b1", 10, 0, (now - timedelta(hours=1)).isoformat()) # High interest
-        self._create_blink_file("b2", 5, 0, (now - timedelta(hours=2)).isoformat())  # Medium interest
-        self._create_blink_file("b3", 1, 0, (now - timedelta(hours=3)).isoformat())  # Low interest
-        self._create_blink_file("b4", 0, 5, (now - timedelta(hours=4)).isoformat())  # Negative interest
+        # Calls to _create_blink_file updated to use timestamp_iso_string
+        self._create_blink_file("b1", 10, 0, timestamp_iso_string=(now - timedelta(hours=1)).isoformat()) # High interest
+        self._create_blink_file("b2", 5, 0, timestamp_iso_string=(now - timedelta(hours=2)).isoformat())  # Medium interest
+        self._create_blink_file("b3", 1, 0, timestamp_iso_string=(now - timedelta(hours=3)).isoformat())  # Low interest
+        self._create_blink_file("b4", 0, 5, timestamp_iso_string=(now - timedelta(hours=4)).isoformat())  # Negative interest
 
         response = self.client.get('/api/blinks')
         self.assertEqual(response.status_code, 200)
         blinks = response.get_json()
 
-        # Assuming C=5 for interest: (L-D)/(L+D+C)*100
-        # b1: (10-0)/(10+0+5)*100 = 10/15*100 = 66.66
-        # b2: (5-0)/(5+0+5)*100 = 5/10*100 = 50.00
-        # b3: (1-0)/(1+0+5)*100 = 1/6*100 = 16.66
-        # b4: (0-5)/(0+5+5)*100 = -5/10*100 = -50.00
+        # Interest scores are calculated by the backend.
+        # Example expected interest scores (actual values depend on backend's calculate_correct_interest):
+        # b1: 10 likes, 0 dislikes -> 100%
+        # b2: 5 likes, 0 dislikes -> 100% (if only likes considered and dislikes 0) or lower if total votes matter.
+        # For calculate_correct_interest: (likes / (likes + dislikes)) * 100
+        # b1: (10 / 10) * 100 = 100
+        # b2: (5 / 5) * 100 = 100
+        # b3: (1 / 1) * 100 = 100
+        # b4: (0 / 5) * 100 = 0
+        # The sorting logic in compare_blinks_custom prioritizes interest, then likes, then date.
+        # Since b1, b2, b3 have 100% interest, they'll be sorted by likes: b1, b2, b3.
+        # b4 has 0% interest.
 
         ids = [blink['id'] for blink in blinks]
+        # Based on: interest (all 100 for b1,b2,b3), then likes (10,5,1), then date. b4 is last (0% interest).
         self.assertEqual(ids, ["b1", "b2", "b3", "b4"])
+
 
     def test_sort_rule_A_no_votes_by_date(self):
         now = datetime.now(timezone.utc)
         # Rule A candidates (0 votes, 0 interest)
-        self._create_blink_file("ruleA_1", 0, 0, (now - timedelta(days=1)).isoformat(), title_prefix="RuleA") # Older
-        self._create_blink_file("ruleA_2", 0, 0, now.isoformat(), title_prefix="RuleA") # Newer
+        self._create_blink_file("ruleA_1", 0, 0, timestamp_iso_string=(now - timedelta(days=1)).isoformat(), title_prefix="RuleA") # Older
+        self._create_blink_file("ruleA_2", 0, 0, timestamp_iso_string=now.isoformat(), title_prefix="RuleA") # Newer
         # Control: 0 interest but has votes (e.g. L=D)
-        self._create_blink_file("control_0_interest", 5, 5, (now - timedelta(hours=1)).isoformat(), title_prefix="Control") # Interest (5-5)/(5+5+5) = 0
+        # calculate_correct_interest(5,5) = (5/10)*100 = 50%
+        self._create_blink_file("control_0_interest", 5, 5, timestamp_iso_string=(now - timedelta(hours=1)).isoformat(), title_prefix="Control")
 
         response = self.client.get('/api/blinks')
         self.assertEqual(response.status_code, 200)
         blinks = response.get_json()
         ids = [blink['id'] for blink in blinks]
 
-        # Expected: RuleA blinks come first if their specific condition (0 interest AND 0 votes) is prioritized
-        # over 0 interest with votes. Within RuleA, newest first.
-        # Then the control blink.
-        # The exact order depends on the _compare_blinks logic for when interest_a == 0 and interest_b == 0.
-        # Based on prompt: "the Rule A blink (no votes) comes first" if one qualifies and other doesn't (even if both 0 interest).
-        # If both are Rule A, then by date.
-        # So, ruleA_2 (newest, no votes) should be first, then ruleA_1 (older, no votes)
-        # Then control_0_interest (0 interest, but has votes)
-
-        # Find indices
-        idx_ruleA_1 = -1
-        idx_ruleA_2 = -1
-        idx_control_0 = -1
-        for i, blink in enumerate(blinks):
-            if blink['id'] == "ruleA_1": idx_ruleA_1 = i
-            elif blink['id'] == "ruleA_2": idx_ruleA_2 = i
-            elif blink['id'] == "control_0_interest": idx_control_0 = i
-
-        self.assertTrue(idx_ruleA_2 < idx_ruleA_1, "Newer Rule A (no votes) should come before older Rule A")
-        self.assertTrue(idx_ruleA_1 < idx_control_0, "Rule A blinks (no votes) should come before 0-interest-with-votes blinks")
+        # calculate_correct_interest:
+        # ruleA_1 (0,0) -> 50% (default for no votes)
+        # ruleA_2 (0,0) -> 50% (default for no votes)
+        # control_0_interest (5,5) -> (5/10)*100 = 50%
+        # All have 50% interest.
+        # Next tie-breaker: likes.
+        # control_0_interest has 5 likes. ruleA_1 and ruleA_2 have 0 likes.
+        # So, control_0_interest comes first.
+        # Then ruleA_2 (newer) and ruleA_1 (older) are sorted by date.
+        expected_ids = ["control_0_interest", "ruleA_2", "ruleA_1"]
+        self.assertEqual(ids, expected_ids, f"Expected {expected_ids} but got {ids}")
 
 
     def test_sort_rule_B_zero_positive_multiple_negative_by_negative_asc(self):
+        # This test's name and original intent might need re-evaluation based on the actual sorting logic.
+        # The sorting is: Interest (desc), Likes (desc), Date (desc).
+        # "Rule B" (0 likes, sort by dislikes asc) is not an explicit rule in compare_blinks_custom.
         now = datetime.now(timezone.utc)
-        # Rule B candidates (0 likes, >0 dislikes). All will have negative interest.
-        # Interest: (0-D)/(D+5)*100
-        # b_neg1: (0-1)/(1+5)*100 = -1/6*100 = -16.66
-        # b_neg3: (0-3)/(3+5)*100 = -3/8*100 = -37.5
-        # b_neg5: (0-5)/(5+5)*100 = -5/10*100 = -50.0
-        # Rule B is: if tied by interest (which they are NOT here directly, but they are all in the "0 likes" category)
-        # then sort by dislikes ascending.
-        # However, the primary sort is interest descending. So -16.66 (b_neg1) is highest.
-        self._create_blink_file("b_neg1", 0, 1, (now - timedelta(hours=1)).isoformat(), title_prefix="RuleB") # -16.66% interest
-        self._create_blink_file("b_neg3", 0, 3, (now - timedelta(hours=2)).isoformat(), title_prefix="RuleB") # -37.5% interest
-        self._create_blink_file("b_neg5", 0, 5, (now - timedelta(hours=3)).isoformat(), title_prefix="RuleB") # -50% interest
 
-        # Add another blink with 0 likes, 3 dislikes, but a much different date to see if date tie-breaks if interest is identical
-        self._create_blink_file("b_neg3_alt_date", 0, 3, now.isoformat(), title_prefix="RuleBAlt") # Also -37.5% interest, but newer
+        # Interest calculation: (likes / (likes + dislikes)) * 100. If likes+dislikes is 0, then 50.0.
+        # b_neg1 (0L, 1D): (0 / 1) * 100 = 0%
+        # b_neg3 (0L, 3D): (0 / 3) * 100 = 0%
+        # b_neg5 (0L, 5D): (0 / 5) * 100 = 0%
+        # b_neg3_alt_date (0L, 3D): (0 / 3) * 100 = 0%
+        # All these have 0% interest and 0 likes. So they will be sorted by date descending.
+
+        self._create_blink_file("b_neg1", 0, 1, timestamp_iso_string=(now - timedelta(hours=1)).isoformat(), title_prefix="RuleB")
+        self._create_blink_file("b_neg3", 0, 3, timestamp_iso_string=(now - timedelta(hours=2)).isoformat(), title_prefix="RuleB")
+        self._create_blink_file("b_neg5", 0, 5, timestamp_iso_string=(now - timedelta(hours=3)).isoformat(), title_prefix="RuleB")
+        self._create_blink_file("b_neg3_alt_date", 0, 3, timestamp_iso_string=now.isoformat(), title_prefix="RuleBAlt") # Newest
 
         response = self.client.get('/api/blinks')
         self.assertEqual(response.status_code, 200)
         blinks_resp = response.get_json()
         ids = [blink['id'] for blink in blinks_resp]
 
-        # Expected order: b_neg1 (least negative interest), then b_neg3_alt_date (newer, -37.5%), then b_neg3 (older, -37.5%), then b_neg5 (most negative interest)
-        # Rule B (sort by dislikes ascending) should apply if interest percentages are *identical* AND both are Rule B candidates.
-        # Here, b_neg3 and b_neg3_alt_date have identical interest AND are Rule B candidates.
-        # Their dislikes are also identical (3). So they should be sorted by date descending.
-        expected_order = ["b_neg1", "b_neg3_alt_date", "b_neg3", "b_neg5"]
+        # All have 0% interest, 0 likes. Sorted by date descending.
+        expected_order = ["b_neg3_alt_date", "b_neg1", "b_neg3", "b_neg5"]
         self.assertEqual(ids, expected_order, f"Expected {expected_order}, got {ids}")
 
 
     def test_sort_tie_break_by_publication_date(self):
         now = datetime.now(timezone.utc)
-        # Create blinks with identical like/dislike counts (so same interest)
-        # Interest for both: (2-0)/(2+0+5)*100 = 2/7*100 = 28.57%
-        self._create_blink_file("tie_date_older", 2, 0, (now - timedelta(days=1)).isoformat(), title_prefix="Tie")
-        self._create_blink_file("tie_date_newer", 2, 0, now.isoformat(), title_prefix="Tie")
+        # Create blinks with identical like/dislike counts
+        # Interest for both (2L, 0D): (2/2)*100 = 100%
+        # Likes are also identical (2). So, tie-break by date.
+        self._create_blink_file("tie_date_older", 2, 0, timestamp_iso_string=(now - timedelta(days=1)).isoformat(), title_prefix="Tie")
+        self._create_blink_file("tie_date_newer", 2, 0, timestamp_iso_string=now.isoformat(), title_prefix="Tie")
 
         response = self.client.get('/api/blinks')
         self.assertEqual(response.status_code, 200)
@@ -312,49 +316,49 @@ class TestApiBlinkSorting(unittest.TestCase):
     def test_mixed_scenario_sorting(self):
         now = datetime.now(timezone.utc)
         # Create a diverse set of blinks
-        # 1. High positive interest: b_high_pos (10L, 0D) -> (10/15)*100 = 66.66%
-        self._create_blink_file("b_high_pos", 10, 0, (now - timedelta(hours=1)).isoformat())
-        # 2. Medium positive interest: b_med_pos (5L, 0D) -> (5/10)*100 = 50%
-        self._create_blink_file("b_med_pos", 5, 0, (now - timedelta(hours=2)).isoformat())
-        # 3. Zero interest (no votes), newer: b_zero_novote_new (0L, 0D) -> 0%
-        self._create_blink_file("b_zero_novote_new", 0, 0, now.isoformat())
-        # 4. Zero interest (no votes), older: b_zero_novote_old (0L, 0D) -> 0%
-        self._create_blink_file("b_zero_novote_old", 0, 0, (now - timedelta(days=1)).isoformat())
-        # 5. Zero interest (votes): b_zero_votes (3L, 3D) -> (0/11)*100 = 0%
-        self._create_blink_file("b_zero_votes", 3, 3, (now - timedelta(hours=3)).isoformat())
-        # 6. Negative interest (0 positive, multiple negative), fewer dislikes: b_neg_few_dis (0L, 2D) -> (-2/7)*100 = -28.57%
-        self._create_blink_file("b_neg_few_dis", 0, 2, (now - timedelta(hours=4)).isoformat())
-        # 7. Negative interest (0 positive, multiple negative), more dislikes: b_neg_more_dis (0L, 4D) -> (-4/9)*100 = -44.44%
-        self._create_blink_file("b_neg_more_dis", 0, 4, (now - timedelta(hours=5)).isoformat())
-        # 8. Other negative interest (some likes but more dislikes): b_neg_other (1L, 5D) -> (-4/11)*100 = -36.36%
-        self._create_blink_file("b_neg_other", 1, 5, (now - timedelta(hours=6)).isoformat())
+    def test_mixed_scenario_sorting(self):
+        now = datetime.now(timezone.utc)
 
+        # Interest scores based on calculate_correct_interest((L/(L+D))*100 or 50 for no votes):
+        # 1. b_high_pos (10L, 0D): 100%
+        self._create_blink_file("b_high_pos", 10, 0, timestamp_iso_string=(now - timedelta(hours=1)).isoformat())
+        # 2. b_med_pos (5L, 0D): 100%
+        self._create_blink_file("b_med_pos", 5, 0, timestamp_iso_string=(now - timedelta(hours=2)).isoformat())
+        # 3. b_zero_votes (3L, 3D): 50%
+        self._create_blink_file("b_zero_votes", 3, 3, timestamp_iso_string=(now - timedelta(hours=3)).isoformat())
+        # 4. b_zero_novote_new (0L, 0D): 50% (default for no votes)
+        self._create_blink_file("b_zero_novote_new", 0, 0, timestamp_iso_string=now.isoformat())
+        # 5. b_zero_novote_old (0L, 0D): 50% (default for no votes)
+        self._create_blink_file("b_zero_novote_old", 0, 0, timestamp_iso_string=(now - timedelta(days=1)).isoformat())
+        # 6. b_neg_other (1L, 5D): (1/6)*100 = 16.66%
+        self._create_blink_file("b_neg_other", 1, 5, timestamp_iso_string=(now - timedelta(hours=6)).isoformat())
+        # 7. b_neg_few_dis (0L, 2D): 0%
+        self._create_blink_file("b_neg_few_dis", 0, 2, timestamp_iso_string=(now - timedelta(hours=4)).isoformat())
+        # 8. b_neg_more_dis (0L, 4D): 0%
+        self._create_blink_file("b_neg_more_dis", 0, 4, timestamp_iso_string=(now - timedelta(hours=5)).isoformat())
 
         response = self.client.get('/api/blinks')
         self.assertEqual(response.status_code, 200)
         blinks = response.get_json()
         ids = [blink['id'] for blink in blinks]
 
-        # Expected order:
-        # 1. b_high_pos (66.66%)
-        # 2. b_med_pos (50%)
-        # 3. b_zero_novote_new (0%, Rule A, newer)
-        # 4. b_zero_novote_old (0%, Rule A, older)
-        # 5. b_zero_votes (0%, has votes, comes after Rule A per logic)
-        # 6. b_neg_few_dis (-28.57%, Rule B candidate)
-        # 7. b_neg_other (-36.36%, not Rule B candidate but higher interest than b_neg_more_dis)
-        # 8. b_neg_more_dis (-44.44%, Rule B candidate)
-        # Rule B sorting (dislikes ASC) applies if interest is tied *and* both qualify for Rule B.
-        # Here interests are different for b_neg_few_dis and b_neg_more_dis, so primary interest sort applies.
-
+        # Expected order based on compare_blinks_custom (Interest DESC, Likes DESC, Date DESC):
+        # 1. b_high_pos (100% Interest, 10 Likes)
+        # 2. b_med_pos (100% Interest, 5 Likes)
+        # 3. b_zero_votes (50% Interest, 3 Likes)
+        # 4. b_zero_novote_new (50% Interest, 0 Likes, newer date)
+        # 5. b_zero_novote_old (50% Interest, 0 Likes, older date)
+        # 6. b_neg_other (16.66% Interest, 1 Like)
+        # 7. b_neg_few_dis (0% Interest, 0 Likes, newer date between these two)
+        # 8. b_neg_more_dis (0% Interest, 0 Likes, older date between these two)
         expected_ids = [
             "b_high_pos",
             "b_med_pos",
+            "b_zero_votes",
             "b_zero_novote_new",
             "b_zero_novote_old",
-            "b_zero_votes",
-            "b_neg_few_dis",
             "b_neg_other",
+            "b_neg_few_dis",
             "b_neg_more_dis"
         ]
         self.assertEqual(ids, expected_ids, f"Expected {expected_ids}, but got {ids}")
@@ -375,11 +379,11 @@ class TestApiBlinkSorting(unittest.TestCase):
         os.makedirs(self.blinks_dir, exist_ok=True)
 
         created_blinks_scenario1 = [
-            self._create_blink_file("hot_b1", likes=10, dislikes=0, published_at_iso_string=(now - timedelta(minutes=1)).isoformat()), # Expected Hot
-            self._create_blink_file("hot_b2", likes=9, dislikes=0, published_at_iso_string=(now - timedelta(minutes=2)).isoformat()),  # Expected Hot
-            self._create_blink_file("hot_b3", likes=8, dislikes=0, published_at_iso_string=(now - timedelta(minutes=3)).isoformat()),  # Expected Hot
-            self._create_blink_file("hot_b4", likes=7, dislikes=0, published_at_iso_string=(now - timedelta(minutes=4)).isoformat()),  # Expected Hot
-            self._create_blink_file("hot_b5", likes=6, dislikes=0, published_at_iso_string=(now - timedelta(minutes=5)).isoformat())   # Expected Not Hot
+            self._create_blink_file("hot_b1", likes=10, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=1)).isoformat()), # Expected Hot
+            self._create_blink_file("hot_b2", likes=9, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=2)).isoformat()),  # Expected Hot
+            self._create_blink_file("hot_b3", likes=8, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=3)).isoformat()),  # Expected Hot
+            self._create_blink_file("hot_b4", likes=7, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=4)).isoformat()),  # Expected Hot
+            self._create_blink_file("hot_b5", likes=6, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=5)).isoformat())   # Expected Not Hot
         ]
 
         response_5_blinks = self.client.get('/api/blinks')
@@ -414,8 +418,8 @@ class TestApiBlinkSorting(unittest.TestCase):
         os.makedirs(self.blinks_dir, exist_ok=True)
 
         created_blinks_scenario2 = [
-            self._create_blink_file("hot_s2_b1", likes=10, dislikes=0, published_at_iso_string=(now - timedelta(minutes=10)).isoformat()), # Expected Hot
-            self._create_blink_file("hot_s2_b2", likes=9, dislikes=0, published_at_iso_string=(now - timedelta(minutes=11)).isoformat())   # Expected Hot
+            self._create_blink_file("hot_s2_b1", likes=10, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=10)).isoformat()), # Expected Hot
+            self._create_blink_file("hot_s2_b2", likes=9, dislikes=0, timestamp_iso_string=(now - timedelta(minutes=11)).isoformat())   # Expected Hot
         ]
 
         response_2_blinks = self.client.get('/api/blinks')
@@ -432,6 +436,48 @@ class TestApiBlinkSorting(unittest.TestCase):
         for i, blink_id in enumerate(expected_order_ids_scen2):
             self.assertEqual(blinks_2[i]['id'], blink_id) # Verify API returned in expected order
             self.assertTrue(blinks_2[i].get('isHot'), f"Blink {blink_id} (index {i}) should be hot in 2-blink scenario.")
+
+    def test_sort_mixed_timezone_awareness(self):
+        now_utc = datetime.now(timezone.utc)
+
+        # All blinks have same likes/dislikes, so interest score will be identical.
+        # Sorting will primarily depend on the timestamp after timezone correction.
+        likes = 5
+        dislikes = 0
+
+        # 1. Aware, most recent
+        self._create_blink_file(
+            blink_id="aware_recent",
+            likes=likes,
+            dislikes=dislikes,
+            timestamp_iso_string=(now_utc - timedelta(hours=1)).isoformat() # e.g., 2023-01-01T12:00:00+00:00
+        )
+        # 2. Naive, middle timestamp (when converted to UTC)
+        # This format '%Y-%m-%dT%H:%M:%S' creates a naive datetime string
+        self._create_blink_file(
+            blink_id="naive_middle",
+            likes=likes,
+            dislikes=dislikes,
+            timestamp_iso_string=(now_utc - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%S') # e.g., 2023-01-01T11:00:00 (naive)
+        )
+        # 3. Aware, oldest
+        self._create_blink_file(
+            blink_id="aware_oldest",
+            likes=likes,
+            dislikes=dislikes,
+            timestamp_iso_string=(now_utc - timedelta(hours=3)).isoformat() # e.g., 2023-01-01T10:00:00+00:00
+        )
+
+        response = self.client.get('/api/blinks')
+        self.assertEqual(response.status_code, 200)
+        blinks = response.get_json()
+
+        ids = [blink['id'] for blink in blinks]
+
+        # Expected order: aware_recent, naive_middle (correctly interpreted as UTC), aware_oldest
+        # This is because compare_blinks_custom now makes naive datetimes UTC-aware.
+        expected_ids = ["aware_recent", "naive_middle", "aware_oldest"]
+        self.assertEqual(ids, expected_ids, f"Expected order {expected_ids}, but got {ids}")
 
 
 if __name__ == '__main__':

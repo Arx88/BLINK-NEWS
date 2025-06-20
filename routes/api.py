@@ -63,11 +63,15 @@ def compare_blinks_custom(item1, item2):
 
     try:
         date1 = datetime.fromisoformat(date1_str.replace('Z', '+00:00'))
+        if date1.tzinfo is None or date1.tzinfo.utcoffset(date1) is None:
+            date1 = date1.replace(tzinfo=timezone.utc)
     except ValueError:
         logger.warning(f"Invalid date format for item1 ID {item1.get('id')}: {date1_str}. Using fallback date.")
         date1 = datetime.min.replace(tzinfo=timezone.utc) # Ensure timezone aware for comparison
     try:
         date2 = datetime.fromisoformat(date2_str.replace('Z', '+00:00'))
+        if date2.tzinfo is None or date2.tzinfo.utcoffset(date2) is None:
+            date2 = date2.replace(tzinfo=timezone.utc)
     except ValueError:
         logger.warning(f"Invalid date format for item2 ID {item2.get('id')}: {date2_str}. Using fallback date.")
         date2 = datetime.min.replace(tzinfo=timezone.utc) # Ensure timezone aware
