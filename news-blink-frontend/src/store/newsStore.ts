@@ -46,17 +46,22 @@ export const useNewsStore = create<NewsState>((set, get) => ({
       // News items are now assumed to be sorted by the backend.
       // Client-side sorting is removed.
       const itemsWithDisplayInterest = newsItems.map(item => {
-        // Use item.interest (from backend, via transformBlinkToNewsItem) directly for displayInterest.
-        // Ensure it's a number and clamped between 0 and 100. Fallback to 50 if not a valid number.
-        const backendInterest = item.interest; // This is already processed by transformBlinkToNewsItem
+  const backendInterest = item.interest;
         const displayInterestValue = typeof backendInterest === 'number' && Number.isFinite(backendInterest)
           ? Math.max(0, Math.min(100, backendInterest))
           : 50; // Fallback if interest is not a valid number
 
+  // Explicitly get isHot from item
+  const isHot = item.isHot || false; // Default to false if undefined, though transformBlinkToNewsItem should handle this
+
         if (typeof backendInterest !== 'number' || !Number.isFinite(backendInterest)) {
             console.log(`${logPrefix} Item ID ${item.id}: 'interest' field is not a valid number ('${backendInterest}'), defaulting displayInterest to 50.`);
         }
-        return { ...item, displayInterest: displayInterestValue };
+  return {
+    ...item, // Spread existing properties first
+    isHot: isHot, // Explicitly set isHot
+    displayInterest: displayInterestValue
+  };
       });
       // console.log(`${logPrefix} Client-side sorting criteria: 1. Interest (desc), 2. Likes (desc), 3. Date (desc).`); // Removed as sorting is done by backend
 
@@ -65,12 +70,12 @@ export const useNewsStore = create<NewsState>((set, get) => ({
         const sampleProcessedItems = itemsWithDisplayInterest.slice(0, 2).map(item => ({
           id: item.id,
           title: item.title,
-          // Updated to correctly log nested votes from NewsItem type
           likes: item.votes?.likes,
           dislikes: item.votes?.dislikes,
-          currentUserVoteStatus: item.currentUserVoteStatus, // Already part of NewsItem
-          interest: item.interest, // Raw interest from backend
-          displayInterest: item.displayInterest // Calculated display interest
+  currentUserVoteStatus: item.currentUserVoteStatus,
+  interest: item.interest,
+  displayInterest: item.displayInterest,
+  isHot: item.isHot // Add isHot here
         }));
         console.log(`${logPrefix} Sample of itemsWithDisplayInterest (first 1-2, after processing, before setting state):`, JSON.stringify(sampleProcessedItems, null, 2));
       }
