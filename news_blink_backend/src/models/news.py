@@ -233,48 +233,59 @@ class News:
 
         server_known_user_vote = user_votes_map.get(user_id) # This is the true previous vote from server's perspective
 
-        app_logger.info(f"Processing vote for blink_id='{blink_id}', user_id='{user_id}'. Client wants to vote '{vote_type}'. Server known vote: '{server_known_user_vote}'. Client says previous was: '{previous_vote}'.")
-        vote_fix_logger.info(f"Initial votes for {blink_id}: Likes={likes}, Dislikes={dislikes}. User's current actual vote on server: {server_known_user_vote}")
+        # Log client's intention and server's known state for context
+        app_logger.debug(f"Vote context for blink {blink_id}, user {user_id}: Client vote_type='{vote_type}', client_previous_vote='{previous_vote}', server_known_user_vote='{server_known_user_vote}'")
+        vote_fix_logger.info(f"Initial state for {blink_id}: Likes={likes}, Dislikes={dislikes}. User '{user_id}' server_known_vote: {server_known_user_vote}")
 
-        action_description = "No change." # Default action description
+        action_taken_log = "No change initially." # Using variable name from pseudocode
 
-        if server_known_user_vote == vote_type:  # Clicked active button: remove vote
+        if server_known_user_vote == vote_type:  # User clicked an already active button
             if vote_type == 'like':
                 likes = max(0, likes - 1)
+                action_taken_log = f"User '{user_id}' UNLIKED."
             elif vote_type == 'dislike':
                 dislikes = max(0, dislikes - 1)
-            user_votes_map.pop(user_id, None) # Remove user from map
-            action_description = f"User '{user_id}' removed their '{vote_type}' vote."
+                action_taken_log = f"User '{user_id}' UNDISLIKED."
+            user_votes_map.pop(user_id, None)
 
-        elif server_known_user_vote is None: # New vote
+        elif server_known_user_vote is None:  # New vote by the user
             if vote_type == 'like':
                 likes += 1
-                action_description = f"User '{user_id}' added new 'like'."
+                action_taken_log = f"User '{user_id}' NEWLY LIKED."
             elif vote_type == 'dislike':
-                dislikes += 1
-                action_description = f"User '{user_id}' added new 'dislike'."
+                dislikes += 1 # Corrected: This MUST be increment for a new dislike
+                action_taken_log = f"User '{user_id}' NEWLY DISLIKED."
             user_votes_map[user_id] = vote_type
 
-        else: # server_known_user_vote is different from vote_type (switching vote)
-            if vote_type == 'like': # Switched to 'like' (was 'dislike')
+        else:  # User is switching their vote
+            if vote_type == 'like':  # Switching to 'like' (must have been 'dislike' previously)
                 likes += 1
                 dislikes = max(0, dislikes - 1)
-                action_description = f"User '{user_id}' changed vote from 'dislike' to 'like'."
-            elif vote_type == 'dislike': # Switched to 'dislike' (was 'like')
-                dislikes += 1
+                action_taken_log = f"User '{user_id}' SWITCHED vote from DISLIKE to LIKE."
+            elif vote_type == 'dislike':  # Switching to 'dislike' (must have been 'like' previously)
+                dislikes += 1 # Corrected: This MUST be increment for switching to a dislike
                 likes = max(0, likes - 1)
-                action_description = f"User '{user_id}' changed vote from 'like' to 'dislike'."
+                action_taken_log = f"User '{user_id}' SWITCHED vote from LIKE to DISLIKE."
             user_votes_map[user_id] = vote_type
 
-        app_logger.info(f"process_user_vote for {blink_id} by {user_id}: {action_description}. New counts L/D: {likes}/{dislikes}")
-        vote_fix_logger.info(f"Vote for {blink_id}, user {user_id}: {action_description}. L/D: {likes}/{dislikes}. User map now: {user_votes_map.get(user_id)}")
-
+        # Update article_data with new likes, dislikes, and user_votes_map
         article_data['votes']['likes'] = likes
         article_data['votes']['dislikes'] = dislikes
-        # user_votes_map is a reference to article_data['user_votes'], so it's already updated.
-        # article_data['user_votes'] = user_votes_map # Not strictly necessary if user_votes_map is a reference
+        article_data['user_votes'] = user_votes_map # Assign back, user_votes_map was a new dict from setdefault if key missing
 
-        # vote_fix_logger.info(f"Before saving {blink_id}: Likes={article_data['votes']['likes']}, Dislikes={article_data['votes']['dislikes']}, User vote for {user_id}: {article_data['user_votes'].get(user_id)}") # Already logged above
+        # Detailed logging BEFORE saving the file, including the client's original previous_vote for context
+        app_logger.info(
+            f"Vote processed for blink {blink_id} by user {user_id}. "
+            f"Action: {action_taken_log}. "
+            f"Final Counts: Likes={likes}, Dislikes={dislikes}. "
+            f"User vote status in map: {user_votes_map.get(user_id)}. "
+            f"Client's intended vote_type: {vote_type}, " # This is the current vote action from client
+            f"Client's stated previous vote: {previous_vote}, " # This is what client thought its vote was
+            f"Server's actual previous vote for user: {server_known_user_vote}."
+        )
+        # vote_fix_logger can have a similar detailed message or focus on specific aspects
+        vote_fix_logger.info(f"Vote for {blink_id}, user {user_id}: {action_taken_log}. L/D: {likes}/{dislikes}. User map now: {user_votes_map.get(user_id)}. Client previous: {previous_vote}, Server previous: {server_known_user_vote}")
+
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(article_data, f, ensure_ascii=False, indent=2)
