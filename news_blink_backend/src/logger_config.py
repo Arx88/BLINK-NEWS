@@ -34,7 +34,7 @@ def setup_logger():
     try:
         print(f"[LoggerSetup] Attempting to create FileHandler for: {log_file_path}", flush=True)
         # Overwrites the log file on each run.
-        file_handler = logging.FileHandler(log_file_path, mode='w', encoding='utf-8')
+        file_handler = logging.FileHandler(log_file_path, mode='a', encoding='utf-8')
         file_handler.setLevel(logging.DEBUG) # Set level for file handler
 
         file_handler.setFormatter(formatter)
