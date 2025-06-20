@@ -3,7 +3,8 @@ from flask_cors import CORS
 import os
 import json
 import glob # Added glob as requested
-from datetime import datetime
+from datetime import datetime, timezone # Added timezone
+from functools import cmp_to_key # Added cmp_to_key
 import threading
 import time
 import hashlib
@@ -17,6 +18,22 @@ from models.news import News
 # Crear blueprint para las rutas de la API
 api_bp = Blueprint('api', __name__)
 
+def calculate_correct_interest(likes, dislikes):
+    # Ensure likes and dislikes are integers
+    try:
+        likes = int(likes)
+    except (ValueError, TypeError):
+        likes = 0
+    try:
+        dislikes = int(dislikes)
+    except (ValueError, TypeError):
+        dislikes = 0
+
+    total_votes = likes + dislikes
+    if total_votes == 0:
+        return 50.0  # 50% for no votes
+    return (likes / total_votes) * 100.0
+
 # Directorio para almacenar datos
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -29,56 +46,55 @@ blink_generator = BlinkGenerator()
 
 # Removed duplicated similarity function
 
-# Key function for sorting blinks, extracted for clarity and testability
-def _sort_blinks_key(blink):
-    votes = blink.get('votes', {})
-    blink_id = blink.get('id', 'unknown_id') # Get blink ID for logging, default if not found
-    warnings_logger = logging.getLogger('blink_sorting_warnings') # Get the dedicated logger
+def compare_blinks_custom(item1, item2):
+    logger = current_app.logger # Use Flask's app logger
 
-    raw_likes = votes.get('likes', 0)
+    # Ensure 'calculated_interest_score' and votes are present, use defaults if not
+    interest1 = item1.get('calculated_interest_score', 0.0)
+    interest2 = item2.get('calculated_interest_score', 0.0)
+
+    likes1 = item1.get('votes', {}).get('likes', 0)
+    likes2 = item2.get('votes', {}).get('likes', 0)
+
+    # Safely parse publication dates (assuming 'timestamp' field)
+    # Default to a very old date if timestamp is missing or invalid
+    date1_str = item1.get('timestamp', '1970-01-01T00:00:00Z')
+    date2_str = item2.get('timestamp', '1970-01-01T00:00:00Z')
+
     try:
-        likes = int(raw_likes)
-    except (ValueError, TypeError) as e:
-        warnings_logger.warning(
-            f"Blink {blink_id}: Failed to convert 'likes' value '{raw_likes}' to int. Defaulting to 0. Error: {e}"
-        )
-        likes = 0
-
-    raw_dislikes = votes.get('dislikes', 0)
+        date1 = datetime.fromisoformat(date1_str.replace('Z', '+00:00'))
+    except ValueError:
+        logger.warning(f"Invalid date format for item1 ID {item1.get('id')}: {date1_str}. Using fallback date.")
+        date1 = datetime.min.replace(tzinfo=timezone.utc) # Ensure timezone aware for comparison
     try:
-        dislikes = int(raw_dislikes)
-    except (ValueError, TypeError) as e:
-        warnings_logger.warning(
-            f"Blink {blink_id}: Failed to convert 'dislikes' value '{raw_dislikes}' to int. Defaulting to 0. Error: {e}"
-        )
-        dislikes = 0
+        date2 = datetime.fromisoformat(date2_str.replace('Z', '+00:00'))
+    except ValueError:
+        logger.warning(f"Invalid date format for item2 ID {item2.get('id')}: {date2_str}. Using fallback date.")
+        date2 = datetime.min.replace(tzinfo=timezone.utc) # Ensure timezone aware
 
-    total_votes = likes + dislikes
-    interest_score = 0.0
+    # Log the items being compared (optional, can be very verbose)
+    # logger.debug(f"Comparing ID {item1.get('id')} (I:{interest1:.2f}, L:{likes1}, D:{date1.isoformat()}) with ID {item2.get('id')} (I:{interest2:.2f}, L:{likes2}, D:{date2.isoformat()})")
 
-    if total_votes > 0: # Calculate interest if there are any votes
-        interest_score = float(likes) / total_votes
-    # If total_votes is 0 (i.e., likes == 0 and dislikes == 0), interest_score remains 0.0
+    # 1. Primary: Interest Score (Descending)
+    if interest1 != interest2:
+        result = -1 if interest1 > interest2 else 1
+        # logger.debug(f"  Interest diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({interest1} vs {interest2})")
+        return result
 
-    raw_timestamp = blink.get('timestamp', 0)
-    try:
-        timestamp_val = float(raw_timestamp)
-    except (ValueError, TypeError):
-        timestamp_val = 0.0
+    # 2. Tie-breaker: Likes (Descending)
+    if likes1 != likes2:
+        result = -1 if likes1 > likes2 else 1
+        # logger.debug(f"  Interest tied. Likes diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({likes1} vs {likes2})")
+        return result
 
-    # The main sort call uses reverse=True
-    if interest_score == 0.0:
-        # For 0% interest (includes 0/0 votes and 0/N votes):
-        # 1. Interest score is 0.0 (neutral for primary sort when all are 0.0).
-        # 2. Dislikes (ascending, so key returns -dislikes due to reverse=True).
-        # 3. Timestamp (ascending, so key returns -timestamp_val due to reverse=True).
-        return (0.0, -dislikes, -timestamp_val)
-    else:
-        # For >0% interest blinks:
-        # 1. Interest score (descending, so key returns interest_score).
-        # 2. Likes (descending, so key returns likes).
-        # 3. Timestamp (descending, so key returns timestamp_val).
-        return (interest_score, likes, timestamp_val)
+    # 3. Tie-breaker: Publication Date (Most Recent First - Descending)
+    if date1 != date2:
+        result = -1 if date1 > date2 else 1
+        # logger.debug(f"  Interest & Likes tied. Date diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({date1.isoformat()} vs {date2.isoformat()})")
+        return result
+
+    # logger.debug("  Items are equal by all criteria.")
+    return 0
 
 @api_bp.route('/news', methods=['GET'])
 def get_news():
@@ -137,91 +153,128 @@ def vote_on_blink(blink_id):
     Records a vote (like or dislike) for a specific blink.
     Accepts blink_id from URL path and voteType from JSON body.
     """
-    warnings_logger = logging.getLogger('blink_sorting_warnings') # Get the dedicated logger
+    logger = current_app.logger
     data = request.get_json()
+
+    logger.info(f"Enter vote_on_blink for ID '{blink_id}'. Payload: {data}")
+
     if not data or 'voteType' not in data:
+        logger.warning(f"vote_on_blink for ID '{blink_id}': Missing 'voteType' in payload.")
         return jsonify({'error': 'Missing voteType in request body'}), 400
 
     vote_type = data.get('voteType')
+    user_id = data.get('userId') # Assuming userId is passed in payload
+    previous_vote_from_client = data.get('previousVote') # Informational
+
     if vote_type not in ['like', 'dislike']:
+        logger.warning(f"vote_on_blink for ID '{blink_id}': Invalid 'voteType': {vote_type}")
         return jsonify({'error': 'Invalid voteType. Must be "like" or "dislike"'}), 400
 
-    current_app.logger.info(f"Vote request received for blink_id: {blink_id}, voteType: {vote_type}")
+    if not user_id:
+        logger.warning(f"vote_on_blink for ID '{blink_id}': Missing 'userId' in payload.")
+        return jsonify({'error': 'Missing userId in request body'}), 400
+
 
     # Construct the file path for the blink
     blink_file_path = os.path.join(news_model.blinks_dir, f"{blink_id}.json")
 
     if not os.path.exists(blink_file_path):
-        current_app.logger.error(f"Blink file not found for blink_id: {blink_id} at path: {blink_file_path}")
+        logger.error(f"Blink file not found for blink_id: {blink_id} at path: {blink_file_path}")
         return jsonify({'error': 'Blink not found'}), 404
 
     try:
-        current_app.logger.info(f"Attempting to read/write file: {blink_file_path}")
+        logger.info(f"Attempting to read/write file: {blink_file_path}")
         with open(blink_file_path, 'r+', encoding='utf-8') as f:
             blink_data = json.load(f)
-            current_app.logger.info(f"Data loaded for {blink_id}: {blink_data}")
 
-            # Initialize votes if not present
-            if 'votes' not in blink_data:
-                blink_data['votes'] = {'likes': 0, 'dislikes': 0}
+            # Initialize votes and user_votes if not present
+            blink_data.setdefault('votes', {'likes': 0, 'dislikes': 0})
+            blink_data.setdefault('user_votes', {})
+
+            logger.debug(f"Blink {blink_id} state before vote: Votes={blink_data['votes']}, UserVotesMap={blink_data.get('user_votes')}")
 
             current_likes = blink_data['votes'].get('likes', 0)
             current_dislikes = blink_data['votes'].get('dislikes', 0)
+            previous_vote_on_server = blink_data.get('user_votes', {}).get(user_id)
+            logger.debug(f"User {user_id}'s previous vote on server for {blink_id}: {previous_vote_on_server}. Client said: {previous_vote_from_client}")
 
-            new_likes = current_likes
-            new_dislikes = current_dislikes
-
+            action_taken = "No change determined (should not happen if previous_vote_on_server is handled)."
+            # If user clicks 'like'
             if vote_type == 'like':
-                new_likes = current_likes + 1
-                if current_dislikes > 0: # User is switching from dislike to like
-                    new_dislikes = current_dislikes - 1
+                if previous_vote_on_server == 'like': # Clicked like again (remove like)
+                    blink_data['votes']['likes'] = max(0, current_likes - 1)
+                    blink_data['user_votes'].pop(user_id, None)
+                    action_taken = f"User '{user_id}' removed their 'like'."
+                elif previous_vote_on_server == 'dislike': # Was disliked, now liked (change vote)
+                    blink_data['votes']['likes'] = current_likes + 1
+                    blink_data['votes']['dislikes'] = max(0, current_dislikes - 1)
+                    blink_data['user_votes'][user_id] = 'like'
+                    action_taken = f"User '{user_id}' changed vote from 'dislike' to 'like'."
+                else: # No previous vote or previous was None (new like)
+                    blink_data['votes']['likes'] = current_likes + 1
+                    blink_data['user_votes'][user_id] = 'like'
+                    action_taken = f"User '{user_id}' added new 'like'."
+            # If user clicks 'dislike'
             elif vote_type == 'dislike':
-                new_dislikes = current_dislikes + 1
-                if current_likes > 0: # User is switching from like to dislike
-                    new_likes = current_likes - 1
+                if previous_vote_on_server == 'dislike': # Clicked dislike again (remove dislike)
+                    blink_data['votes']['dislikes'] = max(0, current_dislikes - 1)
+                    blink_data['user_votes'].pop(user_id, None)
+                    action_taken = f"User '{user_id}' removed their 'dislike'."
+                elif previous_vote_on_server == 'like': # Was liked, now disliked (change vote)
+                    blink_data['votes']['dislikes'] = current_dislikes + 1
+                    blink_data['votes']['likes'] = max(0, current_likes - 1)
+                    blink_data['user_votes'][user_id] = 'dislike'
+                    action_taken = f"User '{user_id}' changed vote from 'like' to 'dislike'."
+                else: # No previous vote or previous was None (new dislike)
+                    blink_data['votes']['dislikes'] = current_dislikes + 1
+                    blink_data['user_votes'][user_id] = 'dislike'
+                    action_taken = f"User '{user_id}' added new 'dislike'."
 
-            blink_data['votes']['likes'] = max(0, new_likes)
-            blink_data['votes']['dislikes'] = max(0, new_dislikes)
+            logger.info(f"Vote action for blink {blink_id} by user {user_id}: {action_taken}")
+            logger.debug(f"Blink {blink_id} state after vote logic: Votes={blink_data['votes']}, UserVotesMap={blink_data.get('user_votes')}")
 
             # Write updated data back
-            # current_app.logger.info(f"Attempting to write data for {blink_id} to blink file: {blink_data}") # Replaced by warnings_logger below
-            warnings_logger.info(f"[vote_on_blink] Attempting to write to file {blink_file_path}. Data being written for ID {blink_id}: {blink_data}")
+            logger.info(f"[vote_on_blink] Attempting to write to file {blink_file_path}. Data being written for ID {blink_id}: {blink_data}")
             f.seek(0)
             json.dump(blink_data, f, ensure_ascii=False, indent=2)
             f.truncate()
-            # current_app.logger.info(f"Successfully wrote data for {blink_id} to blink file.") # Replaced by warnings_logger below
-            warnings_logger.info(f"[vote_on_blink] Successfully wrote and truncated file {blink_file_path} for ID {blink_id}.")
+            logger.info(f"[vote_on_blink] Successfully wrote and truncated file {blink_file_path} for ID {blink_id}.")
 
         # Also update the corresponding article file if it exists
         # This part mimics the behavior of news_model.update_vote
         article_file_path = os.path.join(news_model.articles_dir, f"{blink_id}.json")
         if os.path.exists(article_file_path):
-            current_app.logger.info(f"Attempting to update votes in corresponding article file: {article_file_path} for blink_id: {blink_id}")
+            logger.info(f"Attempting to update votes in corresponding article file: {article_file_path} for blink_id: {blink_id}")
             try:
                 with open(article_file_path, 'r+', encoding='utf-8') as f_article:
                     article_data = json.load(f_article)
-                    article_data['votes'] = blink_data['votes'] # Sync votes
+                    # Sync votes and user_votes map to the article file
+                    article_data['votes'] = blink_data['votes'].copy()
+                    article_data['user_votes'] = blink_data.get('user_votes', {}).copy()
                     f_article.seek(0)
                     json.dump(article_data, f_article, ensure_ascii=False, indent=2)
                     f_article.truncate()
-                    current_app.logger.info(f"Successfully updated votes in article file for blink_id: {blink_id}")
+                    logger.info(f"Successfully updated votes in article file for blink_id: {blink_id}")
             except Exception as e:
                 # Log this error, but the primary operation on blink was successful
-                current_app.logger.error(f"Error updating votes in corresponding article {article_file_path} for blink_id {blink_id}: {e}")
+                logger.error(f"Error updating votes in corresponding article {article_file_path} for blink_id {blink_id}: {e}", exc_info=True)
 
+        blink_data['calculated_interest_score'] = calculate_correct_interest(blink_data['votes']['likes'], blink_data['votes']['dislikes'])
+        blink_data['currentUserVoteStatus'] = blink_data.get('user_votes', {}).get(user_id) # 'like', 'dislike', or None
+        logger.info(f"Returning updated blink data for {blink_id}: Interest={blink_data['calculated_interest_score']:.2f}%, UserVoteStatus={blink_data['currentUserVoteStatus']}")
         return jsonify({"message": "Vote recorded", "data": blink_data}), 200
 
     except json.JSONDecodeError as e:
-        current_app.logger.error(f"Invalid JSON data in blink file for {blink_id}: {e}")
-        warnings_logger.error(f"[vote_on_blink] JSONDecodeError for ID {blink_id} in file {blink_file_path}: {e}")
+        logger.error(f"Invalid JSON data in blink file for {blink_id}: {e}", exc_info=True)
+        logger.error(f"[vote_on_blink] JSONDecodeError for ID {blink_id} in file {blink_file_path}: {e}")
         return jsonify({'error': 'Invalid JSON data in blink file'}), 500
     except IOError as e:
         current_app.logger.error(f"IOError during vote operation for {blink_id}: {e}")
-        warnings_logger.error(f"[vote_on_blink] IOError for ID {blink_id} in file {blink_file_path}: {e}")
+        logger.error(f"[vote_on_blink] IOError for ID {blink_id} in file {blink_file_path}: {e}")
         return jsonify({'error': 'File operation failed'}), 500
     except Exception as e:
         current_app.logger.error(f"Unexpected error during vote operation for {blink_id}: {e}")
-        warnings_logger.error(f"[vote_on_blink] Unexpected Exception for ID {blink_id} in file {blink_file_path}: {e}")
+        logger.error(f"[vote_on_blink] Unexpected Exception for ID {blink_id} in file {blink_file_path}: {e}")
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @api_bp.route('/blinks/<blink_id>', methods=['GET'])
@@ -241,56 +294,44 @@ def get_all_blinks_sorted():
     Retrieves all blinks, sorts them, and returns as JSON.
     Sort primary: votes.likes (desc), secondary: timestamp (desc).
     """
-    warnings_logger = logging.getLogger('blink_sorting_warnings') # Get the dedicated logger
+    logger = current_app.logger
+    logger.info("Enter get_all_blinks_sorted: Fetching and sorting blinks.")
     blinks_path = news_model.blinks_dir
     all_blinks_data = []
 
-    # Using glob to find all json files as per general instruction, though news_model.get_all_blinks() also works
     blink_files = glob.glob(os.path.join(blinks_path, "*.json"))
-
-    # For logging purposes
-    logged_count = 0
-    max_logs = 3 # Log details for a few blinks
 
     for blink_file in blink_files:
         try:
             with open(blink_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-                # Ensure 'votes' field exists with a default structure
-                if 'votes' not in data or not isinstance(data['votes'], dict):
-                    data['votes'] = {'likes': 0, 'dislikes': 0}
-                else:
-                    # Ensure 'likes' and 'dislikes' keys exist within data['votes']
-                    if 'likes' not in data['votes']:
-                        data['votes']['likes'] = 0
-                    if 'dislikes' not in data['votes']:
-                        data['votes']['dislikes'] = 0
+                current_likes = data.get('votes', {}).get('likes', 0)
+                current_dislikes = data.get('votes', {}).get('dislikes', 0)
+                data['calculated_interest_score'] = calculate_correct_interest(current_likes, current_dislikes)
 
+                logger.debug(f"Pre-sort data for blink ID {data.get('id', 'N/A')}: Likes={current_likes}, Dislikes={current_dislikes}, PubDate={data.get('timestamp', 'N/A')}, Interest={data['calculated_interest_score']:.2f}%")
                 all_blinks_data.append(data)
-
-                if logged_count < max_logs:
-                    blink_id_for_log = data.get('id', 'unknown_id')
-                    votes_for_log = data.get('votes', 'No votes field')
-                    warnings_logger.info(f"[API /blinks] Loaded blink ID: {blink_id_for_log}, Votes: {votes_for_log}, File: {os.path.basename(blink_file)}")
-                    logged_count += 1
         except json.JSONDecodeError:
-            current_app.logger.error(f"Error decoding JSON from file {blink_file}")
-            # Decide: skip this file or return an error for the whole request? For now, skip.
+            logger.error(f"Error decoding JSON from file {blink_file}")
             continue
         except IOError as e:
-            current_app.logger.error(f"IOError reading file {blink_file}: {e}")
+            logger.error(f"IOError reading file {blink_file}: {e}")
+            continue
+        except Exception as e: # Catch any other potential errors during file processing
+            logger.error(f"Unexpected error processing file {blink_file}: {e}", exc_info=True)
             continue
 
-    if not blink_files:
-        warnings_logger.info("[API /blinks] No blink files found.")
-    elif logged_count == 0 and blink_files: # If files exist but none were logged (e.g. all failed to load)
-        warnings_logger.info(f"[API /blinks] Found {len(blink_files)} files, but failed to load/log details for any.")
+    logger.debug("--- Blinks before sorting (sample) ---")
+    for i, blink_sample in enumerate(all_blinks_data[:5]):
+        logger.debug(f"  {i+1}. ID: {blink_sample.get('id')}, Title: {blink_sample.get('title', 'N/A')[:30]}, Interest: {blink_sample.get('calculated_interest_score', 0.0):.2f}%, Likes: {blink_sample.get('votes',{}).get('likes',0)}, Timestamp: {blink_sample.get('timestamp')}")
 
-    # Sort the blinks using the extracted key function
-    all_blinks_data.sort(key=_sort_blinks_key, reverse=True)
+    all_blinks_data.sort(key=cmp_to_key(compare_blinks_custom))
 
-    warnings_logger.info(f"[API /blinks] Returning {len(all_blinks_data)} blinks after processing and sorting.")
+    logger.debug("--- Blinks after sorting (sample) ---")
+    for i, blink_sample in enumerate(all_blinks_data[:5]):
+        logger.debug(f"  {i+1}. ID: {blink_sample.get('id')}, Title: {blink_sample.get('title', 'N/A')[:30]}, Interest: {blink_sample.get('calculated_interest_score', 0.0):.2f}%, Likes: {blink_sample.get('votes',{}).get('likes',0)}, Timestamp: {blink_sample.get('timestamp')}")
+    logger.info(f"Finished get_all_blinks_sorted. Returning {len(all_blinks_data)} blinks.")
     return jsonify(all_blinks_data)
 
 # --- New Blink Endpoints End ---
