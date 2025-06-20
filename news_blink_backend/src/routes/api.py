@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from flask import Blueprint, jsonify, request
-from datetime import datetime
+from datetime import datetime, timezone # Added timezone
 from ..logger_config import app_logger
 from ..models.news import News # Import News model
 
@@ -62,43 +62,70 @@ def get_blinks():
         all_processed_blinks = news_instance.get_all_blinks(user_id=user_id)
         app_logger.info(f"Retrieved {len(all_processed_blinks)} blinks from News model.")
 
-        # Rename interestPercentage to interest for frontend compatibility
-        # and ensure essential fields.
-        blinks_for_frontend = []
-        for blink in all_processed_blinks:
-            blink['interest'] = blink.pop('interestPercentage', 0.0)
-            # Ensure other fields the frontend might expect directly on the item
-            # 'isHot' will be applied next.
-            # 'id', 'positive_votes', 'negative_votes', 'publication_date', 'currentUserVoteStatus'
-            # are expected to be part of the NewsItem structure from news.py
-            blinks_for_frontend.append(blink)
+        # Transform processed_blinks for the API response
+        api_response_blinks = []
+        for blink_from_news_py in all_processed_blinks:
+            # Create a new dictionary for the API response
+            api_blink = blink_from_news_py.copy()
+
+            # Rename 'interestPercentage' to 'interest'
+            if 'interestPercentage' in api_blink:
+                api_blink['interest'] = api_blink.pop('interestPercentage')
+            else:
+                api_blink['interest'] = 0.0
+
+            # Ensure essential fields for the frontend are present, falling back if necessary
+            api_blink.setdefault('id', blink_from_news_py.get('id', 'unknown_id'))
+            api_blink.setdefault('title', blink_from_news_py.get('title', 'No Title'))
+
+            # NewsItem from news.py provides 'votes' (a dict) and also top-level 'positive_votes', 'negative_votes'.
+            # Ensure these are robustly handled for the API.
+            # Frontend typically uses item.votes.likes and item.votes.dislikes, but also top-level for some components.
+            # The NewsItem from news.py already contains a 'votes' dictionary like {'likes': ..., 'dislikes': ...}
+            # and separate 'positive_votes' and 'negative_votes'. We ensure they are present.
+            api_blink.setdefault('votes', blink_from_news_py.get('votes', {'likes': 0, 'dislikes': 0}))
+            api_blink['positive_votes'] = api_blink.get('positive_votes', api_blink['votes'].get('likes', 0))
+            api_blink['negative_votes'] = api_blink.get('negative_votes', api_blink['votes'].get('dislikes', 0))
+
+            # Ensure publication_date is present, using 'publication_date' from NewsItem
+            api_blink.setdefault('publication_date', blink_from_news_py.get('publication_date', datetime(1970, 1, 1, tzinfo=timezone.utc).isoformat()))
+
+            # Other fields like 'summary', 'source', 'image_url', 'currentUserVoteStatus'
+            # are assumed to be passed through from blink_from_news_py if they exist.
+
+            api_response_blinks.append(api_blink)
+
+        app_logger.info(f"Transformed {len(api_response_blinks)} blinks for API response.")
 
         app_logger.info("Applying isHot logic to the top 4 items.")
-        for i, blink_item in enumerate(blinks_for_frontend):
-            if i < 4: # Apply based on the order from News model
+        for i, blink_item in enumerate(api_response_blinks):
+            if i < 4: # Top 4 based on news.py's sorting
                 blink_item['isHot'] = True
             else:
-                blink_item['isHot'] = blink_item.get('isHot', False) # Preserve if already set, else False
+                # If isHot was potentially set by news.py (e.g. for curated items), preserve it.
+                # Otherwise, default to False.
+                blink_item['isHot'] = blink_item.get('isHot', False)
         app_logger.info("isHot logic application complete.")
 
-        if blinks_for_frontend:
-            sample_size = min(5, len(blinks_for_frontend))
-            app_logger.info(f"--- DIAGNOSTIC LOG: First {sample_size} blinks PRE-JSONIFY (from News model) ---")
+        if api_response_blinks:
+            sample_size = min(5, len(api_response_blinks))
+            app_logger.info(f"--- DIAGNOSTIC LOG: First {sample_size} blinks PRE-JSONIFY (api_response_blinks) ---")
             for i in range(sample_size):
-                bi = blinks_for_frontend[i]
+                bi = api_response_blinks[i]
                 log_output = {
                     "id": bi.get("id"), "title_snippet": bi.get("title", "")[:30],
-                    "interest": bi.get("interest"), # This is the renamed field
-                    "isHot": bi.get("isHot", False), # Default to False for logging if somehow missing
+                    "interest": bi.get("interest"),
+                    "isHot": bi.get("isHot", False),
                     "positive_votes": bi.get("positive_votes"),
                     "negative_votes": bi.get("negative_votes"),
-                    "currentUserVoteStatus": bi.get("currentUserVoteStatus")
+                    "currentUserVoteStatus": bi.get("currentUserVoteStatus"),
+                    "votes_dict": bi.get("votes")
                 }
                 app_logger.info(f"Item {i+1}: {log_output}")
             app_logger.info(f"--- END DIAGNOSTIC LOG ---")
 
-        app_logger.info(f"Returning {len(blinks_for_frontend)} blinks.")
-        return jsonify(blinks_for_frontend)
+        app_logger.info(f"Returning {len(api_response_blinks)} blinks.")
+        return jsonify(api_response_blinks)
     except Exception as e:
         app_logger.error(f"Error in get_blinks: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch blinks"}), 500
