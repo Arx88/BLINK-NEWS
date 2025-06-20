@@ -15,38 +15,21 @@ from string import Template
 # from models.image_generator import ImageGenerator # <-- LÍNEA COMENTADA
 import ollama
 
-# Setup logger
-logger = logging.getLogger(__name__)
-
-def setup_file_logger(log_dir_name="LOG"):
-    if not logger.handlers: # Check if handlers are already configured
-        logger.setLevel(logging.DEBUG) # Set logger level
-
-        # Create log directory
-        # Assuming /app is the WORKDIR in Dockerfile, so logs go to /app/LOG
-        log_dir_path = os.path.join("/app", log_dir_name)
-        os.makedirs(log_dir_path, exist_ok=True)
-
-        # Create timestamped log file
-        log_file_name = f"blink_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        log_file_path = os.path.join(log_dir_path, log_file_name)
-
-        # Create file handler
-        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
-        file_handler.setLevel(logging.DEBUG)
-
-        # Create formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
-
-        # Add handler to the logger
-        logger.addHandler(file_handler)
-
-        logger.info("File logger setup complete. Logging to: " + log_file_path)
-    else:
-        logger.info("File logger already configured.")
-
-setup_file_logger() # Call it once at module level
+# Attempt to import the central app_logger
+try:
+    from news_blink_backend.src.logger_config import app_logger as logger
+    logger.info("Successfully imported 'app_logger' from 'news_blink_backend.src.logger_config' in models/blink_generator.py.")
+except ImportError:
+    # import logging # logging is already imported at the top
+    logger = logging.getLogger(__name__) # Fallback to module-specific logger
+    logger.warning("Failed to import 'app_logger' from 'news_blink_backend.src.logger_config'. Using fallback logger for 'models.blink_generator'.")
+    # Add a basic console handler to the fallback for visibility if no handlers exist
+    if not logger.handlers:
+        ch = logging.StreamHandler()
+        # Using a simpler formatter for the fallback console to distinguish it
+        ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - [BLINK_GENERATOR_FALLBACK] - %(message)s'))
+        logger.addHandler(ch)
+        logger.info("Fallback console handler added for models.blink_generator logger.")
 
 ALLOWED_CATEGORIES = ["tecnología", "deportes", "entretenimiento", "política", "economía", "salud", "ciencia", "mundo", "cultura", "general"]
 
