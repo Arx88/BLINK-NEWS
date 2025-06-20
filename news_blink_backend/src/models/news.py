@@ -161,17 +161,19 @@ class News:
                     # Log for general purpose when no user_id is present
                     vote_fix_logger_model_level.debug(f"get_blink for general purpose: id='{blink_id}', no user_id. Votes: {data.get('votes')}")
 
-        # Calculate and add interestPercentage for consistency
-        data['interestPercentage'] = self.calculate_interest_percentage(data)
-        app_logger.debug(f"Successfully loaded blink_id='{blink_id}'. Votes: {data.get('votes')}, UserVote: {data.get('currentUserVoteStatus')}, Interest: {data.get('interestPercentage')}")
-                return data
+                # Calculate and add interestPercentage for consistency - MOVED INSIDE TRY
+                data['interestPercentage'] = self.calculate_interest_percentage(data)
+                app_logger.debug(f"Successfully loaded blink_id='{blink_id}'. Votes: {data.get('votes')}, UserVote: {data.get('currentUserVoteStatus')}, Interest: {data.get('interestPercentage')}")
+                return data # This is the return for the successful try block
             except Exception as e:
                 app_logger.error(f"Error reading or processing blink_id='{blink_id}' from {filepath}: {e}", exc_info=True)
                 # Optionally, add a VoteFixLogLogger error here too if this specific log file needs to capture this error
                 vote_fix_logger_model_level.error(f"Error reading or processing blink_id='{blink_id}' in get_blink: {e}", exc_info=True)
-        else:
+                # For an exception during processing, we fall through to the final 'return None'
+        else: # This corresponds to 'if os.path.exists(filepath):'
             app_logger.warning(f"Blink file not found for blink_id='{blink_id}' at {filepath}")
-        return None
+
+        return None # Common return for file not found or exception during processing
 
     def save_article(self, article_id, article_data):
         filepath = os.path.join(self.articles_dir, f"{article_id}.json")
