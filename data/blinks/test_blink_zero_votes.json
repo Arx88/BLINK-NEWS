@@ -1,0 +1,9 @@
+{
+    "id": "test_blink_zero_votes",
+    "title": "Blink test_blink_zero_votes",
+    "positive_votes": 1,
+    "negative_votes": 0,
+    "currentUserVoteStatus": "like",
+    "publication_date": "2023-01-01T10:00:00Z",
+    "content": "Content for test_blink_zero_votes"
+}

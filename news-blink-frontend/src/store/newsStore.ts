@@ -61,8 +61,19 @@ export const useNewsStore = create<NewsState>((set, get) => ({
       // console.log(`${logPrefix} Client-side sorting criteria: 1. Interest (desc), 2. Likes (desc), 3. Date (desc).`); // Removed as sorting is done by backend
 
       if (itemsWithDisplayInterest.length > 0) {
-        const sampleProcessedItems = itemsWithDisplayInterest.slice(0, 2).map(item => ({id: item.id, title: item.title, interest: item.interest, displayInterest: item.displayInterest, likes: item.likes, date: item.date }));
-        console.log(`${logPrefix} Sample of newsItems after assigning displayInterest (first 1-2, order from backend):`, sampleProcessedItems);
+        // Enhanced Log: Sample of itemsWithDisplayInterest with more vote details
+        const sampleProcessedItems = itemsWithDisplayInterest.slice(0, 2).map(item => ({
+          id: item.id,
+          title: item.title,
+          // Assuming item.likes and item.dislikes are the correct fields based on current NewsItem type
+          // If they are nested under 'votes', it would be item.votes?.likes, item.votes?.dislikes
+          likes: item.likes,
+          dislikes: item.dislikes,
+          currentUserVoteStatus: item.currentUserVoteStatus, // Already part of NewsItem
+          interest: item.interest, // Raw interest from backend
+          displayInterest: item.displayInterest // Calculated display interest
+        }));
+        console.log(`${logPrefix} Sample of itemsWithDisplayInterest (first 1-2, after processing, before setting state):`, JSON.stringify(sampleProcessedItems, null, 2));
       }
 
       const heroBlink = itemsWithDisplayInterest.length > 0 ? itemsWithDisplayInterest[0] : null;
@@ -104,12 +115,23 @@ export const useNewsStore = create<NewsState>((set, get) => ({
 
       console.log(`${logPrefix} apiVoteOnBlink successful for blinkId: ${blinkId}.`);
       if (updatedBlinkData) {
-        const summary = { id: updatedBlinkData.id, title: updatedBlinkData.title, likes: updatedBlinkData.likes, dislikes: updatedBlinkData.dislikes, interest: updatedBlinkData.interest, currentUserVoteStatus: updatedBlinkData.currentUserVoteStatus };
-        console.log(`${logPrefix} Updated blink data from API response (summary):`, summary);
+        // Enhanced Log: Match API response structure (positive_votes, negative_votes)
+        const summary = {
+          id: updatedBlinkData.id,
+          // title: updatedBlinkData.title, // Title not usually in vote response, keep concise
+          positive_votes: updatedBlinkData.positive_votes,
+          negative_votes: updatedBlinkData.negative_votes,
+          interest: updatedBlinkData.interest,
+          currentUserVoteStatus: updatedBlinkData.currentUserVoteStatus
+        };
+        console.log(`${logPrefix} API response data summary for ${blinkId}:`, JSON.stringify(summary, null, 2));
+      } else {
+        console.log(`${logPrefix} apiVoteOnBlink for ${blinkId} did not return data.`);
       }
 
-      console.log(`${logPrefix} Calling fetchBlinks to refresh all data.`);
+      console.log(`${logPrefix} About to call fetchBlinks() to refresh all data after vote on ${blinkId}.`);
       await get().fetchBlinks();
+      console.log(`${logPrefix} fetchBlinks() completed after vote on ${blinkId}.`);
 
     } catch (error) {
       console.error(`${logPrefix} Error voting on blink ${blinkId}:`, error);
