@@ -48,9 +48,11 @@ export const PowerBarVoteSystem = ({
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
     const previousVoteStatus = userVoteStatusFromStore; // Capture before any changes
-    console.log(`${handleVoteLogPrefix} Called with voteType: ${voteType}. Current isVoting: ${isVotingInternal}, userVoteStatusFromStore: ${previousVoteStatus}`);
+    // Corrected: Log the actual state variable 'isVoting' instead of the setter 'isVotingInternal'
+    console.log(`${handleVoteLogPrefix} Called with voteType: ${voteType}. Current isVoting: ${isVoting}, userVoteStatusFromStore: ${previousVoteStatus}`);
 
-    if (isVotingInternal) {
+    // Corrected: Use the actual state variable 'isVoting' for the check
+    if (isVoting) {
       console.log(`${handleVoteLogPrefix} Already voting, exiting.`);
       return;
     }
@@ -147,7 +149,7 @@ export const PowerBarVoteSystem = ({
     percentageToShow: percentageToShow.toFixed(2),
     barWidthPercentage: barWidthPercentage.toFixed(2),
     userVoteStatusFromStore,
-    isVoting: isVotingInternal
+    isVoting: isVoting // Corrected: Log the actual state variable 'isVoting'
   });
 
   return (
@@ -188,7 +190,7 @@ export const PowerBarVoteSystem = ({
       <div className="flex items-center justify-between gap-6">
         <button
           onClick={(e) => { e.stopPropagation(); handleVote('like'); }}
-          disabled={isVoting}
+          disabled={isVoting} // This was already correct, using the state variable 'isVoting'
           className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
             userVoteStatusFromStore === 'positive'
               ? isDarkMode
@@ -205,7 +207,7 @@ export const PowerBarVoteSystem = ({
 
         <button
           onClick={(e) => { e.stopPropagation(); handleVote('dislike'); }}
-          disabled={isVoting}
+          disabled={isVoting} // This was already correct, using the state variable 'isVoting'
           className={`flex items-center justify-center space-x-4 px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex-1 transform hover:scale-[1.02] active:scale-[0.98] ${
             userVoteStatusFromStore === 'negative'
               ? isDarkMode
