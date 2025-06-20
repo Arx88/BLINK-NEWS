@@ -66,6 +66,17 @@ except Exception as e:
 
 print("DEBUG: --- Finished Step-wise Import Test ---", flush=True)
 
+# --- BEGIN SYS.PATH MODIFICATION FOR routes.api ---
+# This is added to help routes.api find models inside news_blink_backend.src
+# Assumes this app.py is at the root of the project (/app).
+# sys and os are already imported at the top of the file.
+src_path = os.path.join(os.path.dirname(__file__), 'news_blink_backend', 'src')
+if src_path not in sys.path:
+    sys.path.insert(0, src_path) # Insert at the beginning to give it priority
+print(f"DEBUG: Modified sys.path in app.py to include: {src_path}", flush=True)
+print(f"DEBUG: Full sys.path after modification: {sys.path}", flush=True)
+# --- END SYS.PATH MODIFICATION ---
+
 from routes.api import init_api
 from routes.topic_search import topic_search_bp
 
