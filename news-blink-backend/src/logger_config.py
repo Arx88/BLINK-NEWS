@@ -1,6 +1,5 @@
 import logging
 import os
-from logging.handlers import RotatingFileHandler
 
 def setup_logger():
     """Sets up a rotating file logger for the backend application."""
@@ -12,7 +11,7 @@ def setup_logger():
     if not os.path.exists(log_directory):
         os.makedirs(log_directory)
 
-    log_file_path = os.path.join(log_directory, "backend.log")
+    log_file_path = os.path.join(log_directory, "VoteFixLog.log")
 
     # Get the logger
     logger = logging.getLogger("blink_backend") # Use a specific name for our app's logger
@@ -23,8 +22,8 @@ def setup_logger():
         logger.handlers.clear()
 
     # File Handler
-    # Rotates logs at 5MB, keeping up to 5 backup logs.
-    file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5, encoding='utf-8')
+    # Overwrites the log file on each run.
+    file_handler = logging.FileHandler(log_file_path, mode='w', encoding='utf-8')
     file_handler.setLevel(logging.DEBUG) # Set level for file handler
 
     # Console Handler (optional, good for development/debugging alongside file logs)
@@ -54,7 +53,7 @@ if __name__ == '__main__':
     # For testing the relative path from project root, run this script from the project root.
     # However, the 'app_logger' instance will use the robust path when imported.
 
-    current_file_dir_log_path = os.path.join(os.path.dirname(__file__), '..', '..', 'LOG', 'backend.log')
+    current_file_dir_log_path = os.path.join(os.path.dirname(__file__), '..', '..', 'LOG', 'VoteFixLog.log')
     current_file_dir_log_path = os.path.abspath(current_file_dir_log_path)
 
     test_logger = setup_logger() # This will re-setup using the same name, clearing handlers
