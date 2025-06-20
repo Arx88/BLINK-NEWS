@@ -157,6 +157,26 @@ def get_blinks():
             vote_fix_logger.info("--- DIAGNOSTIC LOG (Detail): sorted_blinks list is empty PRE-JSONIFY ---")
         # END DIAGNOSTIC LOGGING BLOCK
 
+        # --- ADDING NEW FINAL DATA SAMPLE LOGGING BLOCK ---
+        if sorted_blinks:
+            sample_size = min(3, len(sorted_blinks)) # Log up to 3 samples
+            vote_fix_logger.info(f"--- FINAL DATA SAMPLE PRE-JSONIFY for /blinks (first {sample_size} of {len(sorted_blinks)}) ---")
+            for i in range(sample_size):
+                blink_to_log = sorted_blinks[i]
+                log_output = {
+                    "id": blink_to_log.get("id", "N/A"),
+                    "title_snippet": blink_to_log.get("title", "N/A")[:30], # Snippet of title
+                    "positive_votes": blink_to_log.get("positive_votes", "MISSING_OR_UNDEFINED"),
+                    "negative_votes": blink_to_log.get("negative_votes", "MISSING_OR_UNDEFINED"),
+                    "interest": blink_to_log.get("interest", "MISSING_OR_UNDEFINED"),
+                    "publication_date": blink_to_log.get("publication_date", "N/A")
+                }
+                vote_fix_logger.info(f"Item {i+1}: {log_output}")
+            vote_fix_logger.info(f"--- END FINAL DATA SAMPLE ---")
+        else:
+            vote_fix_logger.info("--- FINAL DATA PRE-JSONIFY for /blinks: sorted_blinks list is empty ---")
+        # --- END OF NEW FINAL DATA SAMPLE LOGGING BLOCK ---
+
         vote_fix_logger.info(f"Returning {len(sorted_blinks)} blinks.")
         return jsonify(sorted_blinks)
     except Exception as e:
