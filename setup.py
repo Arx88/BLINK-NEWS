@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='news-blink-backend',
+    name='news_blink_backend',
     version='0.1.0',
     # Corrected package_dir and find_packages path
-    packages=find_packages(where='news-blink-backend/src'),
-    package_dir={'': 'news-blink-backend/src'},
+    packages=find_packages(where='news_blink_backend/src'),
+    package_dir={'': 'news_blink_backend/src'},
     include_package_data=True,
     install_requires=[
         'Flask==2.3.3',
