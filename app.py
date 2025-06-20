@@ -1,24 +1,27 @@
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+import os # Ensure os is imported for os.getcwd(), os.listdir()
+import sys # Ensure sys is imported for sys.path
 print(f"DEBUG: Current working directory: {os.getcwd()}", flush=True)
-added_path = os.path.abspath(os.path.dirname(__file__))
-print(f"DEBUG: Path added to sys.path: {added_path}", flush=True)
-print(f"DEBUG: sys.path after modification: {sys.path}", flush=True)
+# 'added_path' was related to the removed sys.path.insert, so we'll use os.getcwd() or a relevant path
+# For listing, let's list the current working directory.
+current_dir_to_list = os.getcwd() # Or use os.path.abspath(os.path.dirname(__file__)) if that's more relevant
+print(f"DEBUG: Path whose contents will be listed: {current_dir_to_list}", flush=True)
+print(f"DEBUG: sys.path at startup: {sys.path}", flush=True)
 try:
-    print(f"DEBUG: Listing contents of '{added_path}': {os.listdir(added_path)}", flush=True)
+    print(f"DEBUG: Listing contents of '{current_dir_to_list}': {os.listdir(current_dir_to_list)}", flush=True)
 except Exception as e:
-    print(f"DEBUG: Error listing contents of '{added_path}': {e}", flush=True)
+    print(f"DEBUG: Error listing contents of '{current_dir_to_list}': {e}", flush=True)
 
 import json
-import os
+# import os # os is already imported above for the diagnostic block
 import logging
 import logging.handlers
 from flask import Flask
 from flask_cors import CORS
+# news_blink_backend.src.logger_config should be found if app.py is run from project root
+# and news-blink-backend has __init__.py , and src has __init__.py
 from news_blink_backend.src.logger_config import app_logger as configured_app_logger
-from routes.api import init_api
-from routes.topic_search import topic_search_bp
+from routes.api import init_api # This import assumes 'routes' is a top-level directory or findable via sys.path
+from routes.topic_search import topic_search_bp # Same assumption for this
 
 CONFIG_FILE_PATH = 'config.json'
 
