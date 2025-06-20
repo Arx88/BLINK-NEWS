@@ -56,17 +56,17 @@ const API_LOG_PREFIX = '[API Util Log]';
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => {
   const transformLogPrefix = `${API_LOG_PREFIX} transformBlinkToNewsItem`;
-  console.log(`${transformLogPrefix}: Called. Input blink object (summary):`, { id: blink?.id, title: blink?.title, positive_votes: blink?.positive_votes, negative_votes: blink?.negative_votes, interest: blink?.interest, publishedAt: blink?.publishedAt, category: blink?.category, categories: blink?.categories, image: blink?.image });
+  console.log(`${transformLogPrefix}: Called. Input blink object (summary):`, { id: blink?.id, title: blink?.title, votes: blink?.votes, calculated_interest_score: blink?.calculated_interest_score, interest: blink?.interest, publishedAt: blink?.publishedAt, category: blink?.category, categories: blink?.categories, image: blink?.image });
   // For more detail, uncomment the next line, but be wary of large objects in production logs
   // console.log(`${transformLogPrefix}: Full input blink object:`, JSON.parse(JSON.stringify(blink)));
 
 
   const finalVotes = {
-    likes: typeof blink.positive_votes === 'number' ? blink.positive_votes : 0,
-    dislikes: typeof blink.negative_votes === 'number' ? blink.negative_votes : 0
+    likes: typeof blink.votes?.likes === 'number' ? blink.votes.likes : 0,
+    dislikes: typeof blink.votes?.dislikes === 'number' ? blink.votes.dislikes : 0
   };
-  if (typeof blink.positive_votes === 'undefined' || typeof blink.negative_votes === 'undefined') {
-    console.log(`${transformLogPrefix}: positive_votes or negative_votes missing, defaulted to 0. Input likes: ${blink.positive_votes}, dislikes: ${blink.negative_votes}`);
+  if (typeof blink.votes?.likes === 'undefined' || typeof blink.votes?.dislikes === 'undefined') {
+    console.log(`${transformLogPrefix}: blink.votes.likes or blink.votes.dislikes missing, defaulted to 0. Input votes:`, blink.votes);
   }
 
   let publishedAtDate = new Date().toISOString();
@@ -122,7 +122,7 @@ export const transformBlinkToNewsItem = (blink: any): NewsItem => {
     votes: finalVotes,
     sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []),
     content: blink.content || '',
-    interest: typeof blink.interest === 'number' ? blink.interest : 0.0,
+    interest: typeof blink.calculated_interest_score === 'number' ? blink.calculated_interest_score : (typeof blink.interest === 'number' ? blink.interest : 0.0),
     currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null,
   };
   console.log(`${transformLogPrefix}: Transformation complete. Output NewsItem (summary):`, { id: newsItemResult.id, title: newsItemResult.title, votes: newsItemResult.votes, interest: newsItemResult.interest, publishedAt: newsItemResult.publishedAt, category: newsItemResult.category, image: newsItemResult.image, currentUserVoteStatus: newsItemResult.currentUserVoteStatus });
@@ -145,7 +145,7 @@ export const fetchNews = async (): Promise<NewsItem[]> => {
       throw new Error(`API error: ${response.status} ${response.statusText}. Body: ${errorText}`);
     }
     const blinks = await response.json();
-    console.log(`${fetchLogPrefix}: Raw blinks data received from backend. Count: ${blinks?.length || 0}. Sample (first 1-2):`, blinks?.slice(0, 2)?.map((b: any) => ({ id: b.id, title: b.title, interest: b.interest, positive_votes: b.positive_votes, negative_votes: b.negative_votes })));
+    console.log(`${fetchLogPrefix}: Raw blinks data received from backend. Count: ${blinks?.length || 0}. Sample (first 1-2):`, blinks?.slice(0, 2)?.map((b: any) => ({ id: b.id, title: b.title, interest: b.calculated_interest_score ?? b.interest, votes: b.votes })));
 
     if (Array.isArray(blinks)) {
       const transformedBlinks = blinks.map(transformBlinkToNewsItem);

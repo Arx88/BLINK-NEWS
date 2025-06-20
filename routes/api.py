@@ -49,12 +49,22 @@ blink_generator = BlinkGenerator()
 def compare_blinks_custom(item1, item2):
     logger = current_app.logger # Use Flask's app logger
 
-    # Ensure 'calculated_interest_score' and votes are present, use defaults if not
-    interest1 = item1.get('calculated_interest_score', 0.0)
-    interest2 = item2.get('calculated_interest_score', 0.0)
-
+    # Extract likes and dislikes for sorting calculation
     likes1 = item1.get('votes', {}).get('likes', 0)
+    dislikes1 = item1.get('votes', {}).get('dislikes', 0)
     likes2 = item2.get('votes', {}).get('likes', 0)
+    dislikes2 = item2.get('votes', {}).get('dislikes', 0)
+
+    # 1. Interest Calculation for Sorting (as per new requirement)
+    if likes1 + dislikes1 == 0:
+        interest1_calculated = 50.0
+    else:
+        interest1_calculated = (likes1 / (likes1 + dislikes1)) * 100.0
+
+    if likes2 + dislikes2 == 0:
+        interest2_calculated = 50.0
+    else:
+        interest2_calculated = (likes2 / (likes2 + dislikes2)) * 100.0
 
     # Safely parse publication dates (assuming 'timestamp' field)
     # Default to a very old date if timestamp is missing or invalid
@@ -77,21 +87,22 @@ def compare_blinks_custom(item1, item2):
         date2 = datetime.min.replace(tzinfo=timezone.utc) # Ensure timezone aware
 
     # Log the items being compared (optional, can be very verbose)
-    # logger.debug(f"Comparing ID {item1.get('id')} (I:{interest1:.2f}, L:{likes1}, D:{date1.isoformat()}) with ID {item2.get('id')} (I:{interest2:.2f}, L:{likes2}, D:{date2.isoformat()})")
+    # logger.debug(f"Comparing ID {item1.get('id')} (CalcI:{interest1_calculated:.2f}, L:{likes1}, D:{date1.isoformat()}) with ID {item2.get('id')} (CalcI:{interest2_calculated:.2f}, L:{likes2}, D:{date2.isoformat()})")
 
-    # 1. Primary: Interest Score (Descending)
-    if interest1 != interest2:
-        result = -1 if interest1 > interest2 else 1
-        # logger.debug(f"  Interest diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({interest1} vs {interest2})")
+    # 1. Primary Sort: Calculated Interest Percentage (Descending)
+    if interest1_calculated != interest2_calculated:
+        result = -1 if interest1_calculated > interest2_calculated else 1
+        # logger.debug(f"  Calculated Interest diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({interest1_calculated} vs {interest2_calculated})")
         return result
 
-    # 2. Tie-breaker: Likes (Descending)
+    # 2. Secondary Sort: Absolute Likes (Descending)
     if likes1 != likes2:
         result = -1 if likes1 > likes2 else 1
-        # logger.debug(f"  Interest tied. Likes diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({likes1} vs {likes2})")
+        # logger.debug(f"  Calculated Interest tied. Likes diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({likes1} vs {likes2})")
         return result
 
-    # 3. Tie-breaker: Publication Date (Most Recent First - Descending)
+    # 3. Tertiary Sort: Publication Date (Most Recent First - Descending)
+    # Date parsing is done after primary and secondary checks to optimize
     if date1 != date2:
         result = -1 if date1 > date2 else 1
         # logger.debug(f"  Interest & Likes tied. Date diff: {item1.get('id') if result == -1 else item2.get('id')} wins ({date1.isoformat()} vs {date2.isoformat()})")
@@ -206,8 +217,11 @@ def vote_on_blink(blink_id):
             # If user clicks 'like'
             if vote_type == 'like':
                 if previous_vote_on_server == 'like': # Clicked like again (remove like)
+                    logger.info(f"VOTE CANCELLATION (unlike): User {user_id} is removing their 'like' for blink {blink_id}.")
+                    logger.debug(f"Blink {blink_id} before 'unlike': Likes={current_likes}, Dislikes={current_dislikes}, UserVotesMap={blink_data.get('user_votes')}")
                     blink_data['votes']['likes'] = max(0, current_likes - 1)
                     blink_data['user_votes'].pop(user_id, None)
+                    logger.debug(f"Blink {blink_id} after 'unlike': Likes={blink_data['votes']['likes']}, UserVotesMap={blink_data.get('user_votes')}")
                     action_taken = f"User '{user_id}' removed their 'like'."
                 elif previous_vote_on_server == 'dislike': # Was disliked, now liked (change vote)
                     blink_data['votes']['likes'] = current_likes + 1
@@ -221,8 +235,11 @@ def vote_on_blink(blink_id):
             # If user clicks 'dislike'
             elif vote_type == 'dislike':
                 if previous_vote_on_server == 'dislike': # Clicked dislike again (remove dislike)
+                    logger.info(f"VOTE CANCELLATION (undislike): User {user_id} is removing their 'dislike' for blink {blink_id}.")
+                    logger.debug(f"Blink {blink_id} before 'undislike': Likes={current_likes}, Dislikes={current_dislikes}, UserVotesMap={blink_data.get('user_votes')}")
                     blink_data['votes']['dislikes'] = max(0, current_dislikes - 1)
                     blink_data['user_votes'].pop(user_id, None)
+                    logger.debug(f"Blink {blink_id} after 'undislike': Dislikes={blink_data['votes']['dislikes']}, UserVotesMap={blink_data.get('user_votes')}")
                     action_taken = f"User '{user_id}' removed their 'dislike'."
                 elif previous_vote_on_server == 'like': # Was liked, now disliked (change vote)
                     blink_data['votes']['dislikes'] = current_dislikes + 1

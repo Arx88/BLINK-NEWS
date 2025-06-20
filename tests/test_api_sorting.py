@@ -158,6 +158,56 @@ class TestApiVoting(unittest.TestCase):
         response = self.client.post(f'/api/blinks/{blink_id}/vote', json={'voteType': 'like', 'previousVote': None})
         self.assertEqual(response.status_code, 400)
 
+    def test_vote_remove_like(self):
+        blink_id = "remove_like_test"
+        # Setup: User has already liked this blink
+        self._create_test_blink_file(blink_id=blink_id, likes=1, dislikes=0, user_votes={self.test_user_id: "like"})
+
+        # Action: User clicks 'like' again to remove their vote
+        response = self.client.post(f'/api/blinks/{blink_id}/vote', json={
+            'userId': self.test_user_id,
+            'voteType': 'like', # Intends to set 'like', but server sees previous 'like'
+            'previousVote': 'like' # Client correctly indicates its last known state for this user
+        })
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.get_json()
+
+        # Assertions for response
+        self.assertEqual(response_data['data']['votes']['likes'], 0, "Likes should be decremented in response")
+        self.assertNotIn(self.test_user_id, response_data['data']['user_votes'], "User ID should be removed from user_votes in response")
+
+        # Assertions for file data
+        file_data = self._read_blink_file_data(blink_id)
+        self.assertIsNotNone(file_data, "Blink file should exist")
+        self.assertEqual(file_data['votes']['likes'], 0, "Likes should be decremented in file")
+        self.assertNotIn(self.test_user_id, file_data['user_votes'], "User ID should be removed from user_votes in file")
+
+    def test_vote_remove_dislike(self):
+        blink_id = "remove_dislike_test"
+        # Setup: User has already disliked this blink
+        self._create_test_blink_file(blink_id=blink_id, likes=0, dislikes=1, user_votes={self.test_user_id: "dislike"})
+
+        # Action: User clicks 'dislike' again to remove their vote
+        response = self.client.post(f'/api/blinks/{blink_id}/vote', json={
+            'userId': self.test_user_id,
+            'voteType': 'dislike', # Intends to set 'dislike', but server sees previous 'dislike'
+            'previousVote': 'dislike' # Client correctly indicates its last known state for this user
+        })
+
+        self.assertEqual(response.status_code, 200)
+        response_data = response.get_json()
+
+        # Assertions for response
+        self.assertEqual(response_data['data']['votes']['dislikes'], 0, "Dislikes should be decremented in response")
+        self.assertNotIn(self.test_user_id, response_data['data']['user_votes'], "User ID should be removed from user_votes in response")
+
+        # Assertions for file data
+        file_data = self._read_blink_file_data(blink_id)
+        self.assertIsNotNone(file_data, "Blink file should exist")
+        self.assertEqual(file_data['votes']['dislikes'], 0, "Dislikes should be decremented in file")
+        self.assertNotIn(self.test_user_id, file_data['user_votes'], "User ID should be removed from user_votes in file")
+
 
 class TestApiBlinkSorting(unittest.TestCase):
     def setUp(self):
