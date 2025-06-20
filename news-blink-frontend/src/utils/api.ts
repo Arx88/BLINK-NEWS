@@ -51,125 +51,184 @@ export interface NewsItem {
   displayInterest?: number; // New field
 }
 
+const API_LOG_PREFIX = '[API Util Log]';
+
 // Helper function to transform backend blink data to NewsItem
 export const transformBlinkToNewsItem = (blink: any): NewsItem => {
-  console.log('[transformBlinkToNewsItem] Received blink object:', blink);
-  console.log('[transformBlinkToNewsItem] Received blink keys:', Object.keys(blink));
-  console.log(`[utils/api.ts transformBlinkToNewsItem] Input blink (ID: ${blink?.id}): interest = ${blink?.interest}`);
+  const transformLogPrefix = `${API_LOG_PREFIX} transformBlinkToNewsItem`;
+  console.log(`${transformLogPrefix}: Called. Input blink object (summary):`, { id: blink?.id, title: blink?.title, positive_votes: blink?.positive_votes, negative_votes: blink?.negative_votes, interest: blink?.interest, publishedAt: blink?.publishedAt, category: blink?.category, categories: blink?.categories, image: blink?.image });
+  // For more detail, uncomment the next line, but be wary of large objects in production logs
+  // console.log(`${transformLogPrefix}: Full input blink object:`, JSON.parse(JSON.stringify(blink)));
 
-  // Correctly map positive_votes and negative_votes from backend
+
   const finalVotes = {
     likes: typeof blink.positive_votes === 'number' ? blink.positive_votes : 0,
     dislikes: typeof blink.negative_votes === 'number' ? blink.negative_votes : 0
   };
+  if (typeof blink.positive_votes === 'undefined' || typeof blink.negative_votes === 'undefined') {
+    console.log(`${transformLogPrefix}: positive_votes or negative_votes missing, defaulted to 0. Input likes: ${blink.positive_votes}, dislikes: ${blink.negative_votes}`);
+  }
 
-  let publishedAtDate = new Date().toISOString(); // Default to now
+  let publishedAtDate = new Date().toISOString();
+  let dateSource = "default (now)";
   if (blink.publishedAt) {
       const parsedDate = new Date(blink.publishedAt);
       if (!isNaN(parsedDate.getTime())) {
           publishedAtDate = parsedDate.toISOString();
+          dateSource = "publishedAt";
+      } else {
+        dateSource = "publishedAt (invalid, used default)";
       }
-  } else if (blink.timestamp) { // Fallback to timestamp if publishedAt is missing
+  } else if (blink.timestamp) {
       if (typeof blink.timestamp === 'number') {
           publishedAtDate = new Date(blink.timestamp * 1000).toISOString();
+          dateSource = "timestamp (number)";
       } else if (typeof blink.timestamp === 'string') {
           const parsedTsDate = new Date(blink.timestamp);
           if (!isNaN(parsedTsDate.getTime())) {
               publishedAtDate = parsedTsDate.toISOString();
+              dateSource = "timestamp (string)";
+          } else {
+            dateSource = "timestamp (string, invalid, used default)";
           }
+      } else {
+        dateSource = "timestamp (invalid type, used default)";
       }
   }
+  console.log(`${transformLogPrefix}: Parsed publishedAt. Original: ${blink.publishedAt}, Timestamp: ${blink.timestamp}. Determined date: ${publishedAtDate} (source: ${dateSource})`);
 
-  return {
-    id: blink.id || String(blink._id) || '', // Handle MongoDB _id if present
+  const image = blink.image || '/placeholder.svg';
+  if (!blink.image) {
+    console.log(`${transformLogPrefix}: Image missing, defaulted to placeholder: ${image}`);
+  }
+
+  const category = (Array.isArray(blink.categories) && blink.categories.length > 0 ? blink.categories[0] : blink.category) || 'general';
+  if (!blink.category && (!Array.isArray(blink.categories) || blink.categories.length === 0)) {
+     console.log(`${transformLogPrefix}: Category missing, defaulted to 'general'.`);
+  }
+
+
+  const newsItemResult: NewsItem = {
+    id: blink.id || String(blink._id) || '',
     title: blink.title || 'No Title Provided',
     summary: blink.summary || '',
-    image: blink.image || '/placeholder.svg', // Use a local placeholder
+    image: image,
     points: Array.isArray(blink.points) ? blink.points : [],
-    category: (Array.isArray(blink.categories) && blink.categories.length > 0 ? blink.categories[0] : blink.category) || 'general',
-    isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false, // Or derive from interestPercentage later
+    category: category,
+    isHot: typeof blink.isHot === 'boolean' ? blink.isHot : false,
     readTime: formatTimeAgo(publishedAtDate),
     publishedAt: publishedAtDate,
     aiScore: typeof blink.aiScore === 'number' ? blink.aiScore : undefined,
     votes: finalVotes,
     sources: Array.isArray(blink.sources) ? blink.sources : (blink.urls || []),
     content: blink.content || '',
-    // Changed from interestPercentage to interest
     interest: typeof blink.interest === 'number' ? blink.interest : 0.0,
-    currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null, // Ensure correct assignment
+    currentUserVoteStatus: blink.currentUserVoteStatus === 'like' || blink.currentUserVoteStatus === 'dislike' ? blink.currentUserVoteStatus : null,
   };
-  // console.log(`[utils/api.ts transformBlinkToNewsItem] Output NewsItem (ID: ${blink.id}): interest = ${blink.interest}`);
+  console.log(`${transformLogPrefix}: Transformation complete. Output NewsItem (summary):`, { id: newsItemResult.id, title: newsItemResult.title, votes: newsItemResult.votes, interest: newsItemResult.interest, publishedAt: newsItemResult.publishedAt, category: newsItemResult.category, image: newsItemResult.image, currentUserVoteStatus: newsItemResult.currentUserVoteStatus });
+  return newsItemResult;
 };
 
 export const fetchNews = async (): Promise<NewsItem[]> => {
+  const fetchLogPrefix = `${API_LOG_PREFIX} fetchNews`;
   const userId = getUserId();
+  console.log(`${fetchLogPrefix}: Called. Using userId: ${userId}`);
+  const apiUrl = `/api/blinks?userId=${encodeURIComponent(userId)}`;
+  console.log(`${fetchLogPrefix}: Requesting URL: ${apiUrl}`);
+
   try {
-    // Backend now handles sorting and provides interest & currentUserVoteStatus
-    const response = await fetch(`/api/blinks?userId=${encodeURIComponent(userId)}`);
+    const response = await fetch(apiUrl);
+    console.log(`${fetchLogPrefix}: Response received. Status: ${response.status}, StatusText: ${response.statusText}`);
     if (!response.ok) {
-      console.error(`API error fetching news: ${response.status} ${response.statusText}`);
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text().catch(() => "Could not retrieve error text from response.");
+      console.error(`${fetchLogPrefix}: API error. Status: ${response.status}, Text: ${errorText}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}. Body: ${errorText}`);
     }
     const blinks = await response.json();
-    console.log('[utils/api.ts fetchNews] Raw blinks from backend (first 3):', blinks?.slice(0, 3)?.map((b: NewsItem) => ({ id: b.id, interest: b.interest, votes: b.votes })));
+    console.log(`${fetchLogPrefix}: Raw blinks data received from backend. Count: ${blinks?.length || 0}. Sample (first 1-2):`, blinks?.slice(0, 2)?.map((b: any) => ({ id: b.id, title: b.title, interest: b.interest, positive_votes: b.positive_votes, negative_votes: b.negative_votes })));
+
     if (Array.isArray(blinks)) {
-      return blinks.map(transformBlinkToNewsItem);
+      const transformedBlinks = blinks.map(transformBlinkToNewsItem);
+      console.log(`${fetchLogPrefix}: Transformation complete. Returning ${transformedBlinks.length} items.`);
+      return transformedBlinks;
     }
+    console.log(`${fetchLogPrefix}: No array received or empty. Returning empty array.`);
     return [];
   } catch (error) {
-    console.error('Error fetching news:', error);
-    throw error;
+    console.error(`${fetchLogPrefix}: Error during fetch or processing:`, error);
+    throw error; // Re-throw to be caught by the caller (e.g., store)
   }
 };
 
 export const fetchArticleById = async (id: string): Promise<NewsItem | null> => {
+  const fetchByIdLogPrefix = `${API_LOG_PREFIX} fetchArticleById`;
   const userId = getUserId();
+  console.log(`${fetchByIdLogPrefix}: Called with id: ${id}. Using userId: ${userId}`);
+  const apiUrl = `/api/blinks/${id}?userId=${encodeURIComponent(userId)}`;
+  console.log(`${fetchByIdLogPrefix}: Requesting URL: ${apiUrl}`);
+
   try {
-    const response = await fetch(`/api/blinks/${id}?userId=${encodeURIComponent(userId)}`);
+    const response = await fetch(apiUrl);
+    console.log(`${fetchByIdLogPrefix}: Response received. Status: ${response.status}, StatusText: ${response.statusText}`);
     if (!response.ok) {
-      if (response.status === 404) return null; // Not found
-      console.error(`API error fetching article ${id}: ${response.status} ${response.statusText}`);
-      return null;
+      if (response.status === 404) {
+        console.log(`${fetchByIdLogPrefix}: Article not found (404).`);
+        return null;
+      }
+      const errorText = await response.text().catch(() => "Could not retrieve error text from response.");
+      console.error(`${fetchByIdLogPrefix}: API error. Status: ${response.status}, Text: ${errorText}`);
+      return null; // Or throw new Error as in fetchNews if store should handle this
     }
     const blink = await response.json();
-    return transformBlinkToNewsItem(blink);
+    console.log(`${fetchByIdLogPrefix}: Raw blink data received from backend:`, blink);
+    const transformedItem = transformBlinkToNewsItem(blink);
+    console.log(`${fetchByIdLogPrefix}: Transformation complete. Returning NewsItem:`, {id: transformedItem.id, title: transformedItem.title});
+    return transformedItem;
   } catch (error) {
-    console.error(`Error fetching article ${id} from API:`, error);
-    return null;
+    console.error(`${fetchByIdLogPrefix}: Error during fetch or processing for id ${id}:`, error);
+    return null; // Or throw
   }
 };
 
 export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike', previousVote: 'positive' | 'negative' | null): Promise<NewsItem | null> => {
+  const voteLogPrefix = `${API_LOG_PREFIX} voteOnArticle`;
   const userId = getUserId();
+  console.log(`${voteLogPrefix}: Called with articleId: ${articleId}, voteType: ${voteType}, previousVote: ${previousVote}. Using userId: ${userId}`);
+
   const apiUrl = `/api/blinks/${articleId}/vote`;
-  // Convertir previousVote al formato esperado por el backend
   const previousVoteForBackend = previousVote === 'positive' ? 'like' : previousVote === 'negative' ? 'dislike' : null;
   const requestBody = { userId, voteType, previousVote: previousVoteForBackend };
+  console.log(`${voteLogPrefix}: API URL: ${apiUrl}. Request body:`, requestBody);
 
   try {
+    console.log(`${voteLogPrefix}: Attempting POST to ${apiUrl} with body:`, JSON.stringify(requestBody));
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     });
+    console.log(`${voteLogPrefix}: Response received. Status: ${response.status}, StatusText: ${response.statusText}`);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[utils/api.ts] Error voting on article ${articleId}: ${response.status} ${response.statusText}. Response: ${errorText}`);
+      const errorText = await response.text().catch(() => "Could not retrieve error text from response.");
+      console.error(`${voteLogPrefix}: Error voting. Status: ${response.status}, Text: ${errorText}. Request body was:`, requestBody);
       return null;
     }
 
-    const responseData = await response.json(); // Backend returns the full updated blink
+    const responseData = await response.json();
+    console.log(`${voteLogPrefix}: Raw responseData from backend:`, responseData);
+
     if (responseData && responseData.data) {
-      return transformBlinkToNewsItem(responseData.data); // Transform it for the frontend
+      console.log(`${voteLogPrefix}: Response data contains 'data' field. Passing to transformBlinkToNewsItem.`);
+      const transformedItem = transformBlinkToNewsItem(responseData.data);
+      console.log(`${voteLogPrefix}: Transformation complete. Returning NewsItem:`, {id: transformedItem.id, title: transformedItem.title, votes: transformedItem.votes, currentUserVoteStatus: transformedItem.currentUserVoteStatus});
+      return transformedItem;
     } else {
-      console.error(`[utils/api.ts] voteOnArticle - Error: Response data or responseData.data is missing. Raw response:`, responseData);
+      console.error(`${voteLogPrefix}: Response data or responseData.data is missing. Raw response:`, responseData);
       return null;
     }
   } catch (error: any) {
-    console.error(`[utils/api.ts] Network or other error voting on article ${articleId}:`, error.message || error);
+    console.error(`${voteLogPrefix}: Network or other error voting. ArticleId: ${articleId}. Error:`, error.message || error);
     return null;
   }
 };

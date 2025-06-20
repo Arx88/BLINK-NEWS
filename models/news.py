@@ -68,6 +68,9 @@ except ImportError:
     # The original warning about failing to import the main logger is still good.
     app_logger.warning("Failed to import 'app_logger' from 'news_blink_backend.src.logger_config'. Using fallback logger for 'models.news'.")
 
+import logging # Ensure logging is imported for getLogger
+vote_fix_logger_model_level = logging.getLogger('VoteFixLogLogger') # Define once at model level if preferred, or locally in methods
+
 class News:
     def __init__(self, data_dir):
         self.data_dir = data_dir
@@ -98,8 +101,15 @@ class News:
         log_data_subset = {
             'id': blink_data.get('id'),
             'title': blink_data.get('title_for_logging', blink_data.get('title', 'N/A')[:50]), # Avoid overly long titles in logs
-            'votes': blink_data.get('votes')
+            'votes': blink_data.get('votes'),
+            'user_votes': blink_data.get('user_votes') # Added for vote context
         }
+        # Specific log for VoteFixLog when saving related to votes
+        # This requires context; let's assume if 'user_votes' is present and non-empty, it might be vote related.
+        # A more robust way would be a flag passed to save_blink if the save is due to a vote.
+        if blink_data.get('user_votes'): # Heuristic: if user_votes are present, it might be relevant
+            vote_fix_logger_model_level.info(f"Saving blink_id='{blink_id}' (potentially after vote). Votes: {log_data_subset.get('votes')}, UserVotes sample: {list(log_data_subset.get('user_votes', {}).items())[:2]}")
+
         app_logger.debug(f"Attempting to save blink_id='{blink_id}' to {filepath}. Data subset: {json.dumps(log_data_subset)}")
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -125,8 +135,12 @@ class News:
                 # Add currentUserVoteStatus
                 if user_id:
                     data['currentUserVoteStatus'] = self._get_user_vote_status(data, user_id)
+            # Specific log for VoteFixLog when getting blink for a user (likely for voting/display)
+            vote_fix_logger_model_level.info(f"get_blink for voting/display: id='{blink_id}', user_id='{user_id}'. Votes: {data.get('votes')}, UserVotes: {data.get('user_votes', {}).get(user_id, 'N/A')}, Determined status: {data['currentUserVoteStatus']}")
                 else:
                     data['currentUserVoteStatus'] = None
+            vote_fix_logger_model_level.debug(f"get_blink for general purpose: id='{blink_id}', no user_id. Votes: {data.get('votes')}")
+
 
                 app_logger.debug(f"Successfully loaded blink_id='{blink_id}'. Votes: {data.get('votes')}, UserVote: {data.get('currentUserVoteStatus')}")
                 return data
@@ -171,6 +185,8 @@ class News:
         """
         Processes a user's vote on a blink, expecting 'like'/'dislike' terminology.
         """
+        vote_fix_logger = logging.getLogger('VoteFixLogLogger')
+        vote_fix_logger.info(f"process_user_vote entry: blink_id='{blink_id}', user_id='{user_id}', vote_type='{vote_type}', previous_vote='{previous_vote}'")
         filepath = os.path.join(self.blinks_dir, f"{blink_id}.json")
         app_logger.info(f"process_user_vote: blink_id='{blink_id}', user_id='{user_id}', vote_type='{vote_type}', previous_vote='{previous_vote}'")
 
@@ -189,18 +205,22 @@ class News:
         likes = article_data['votes'].get('likes', 0)
         dislikes = article_data['votes'].get('dislikes', 0)
         article_data.setdefault('user_votes', {})
+        vote_fix_logger.info(f"Initial votes for {blink_id}: Likes={likes}, Dislikes={dislikes}. User's current vote in user_votes: {article_data['user_votes'].get(user_id)}")
 
         app_logger.debug(f"process_user_vote: Current votes for {blink_id}: L={likes}, D={dislikes}. User's previous vote: '{previous_vote}'")
 
         vote_changed_or_new = False
+        action_description = "No change: user re-clicked same vote type."
         if previous_vote == vote_type: # User clicked the same button again
             app_logger.info(f"process_user_vote: User '{user_id}' re-voted '{vote_type}' for blink_id='{blink_id}'. No change in vote counts or user_vote record.")
             # Vote does not change, user_vote record also does not change.
         elif previous_vote is None:
             if vote_type == 'like':
                 likes += 1
-            elif vote_type == 'dislike': # Assuming vote_type must be 'like' or 'dislike' by now
+                action_description = f"New vote: user '{user_id}' liked."
+            elif vote_type == 'dislike':
                 dislikes += 1
+                action_description = f"New vote: user '{user_id}' disliked."
             article_data['user_votes'][user_id] = vote_type
             vote_changed_or_new = True
         elif previous_vote == 'like' and vote_type == 'dislike':
@@ -208,33 +228,31 @@ class News:
             dislikes += 1
             article_data['user_votes'][user_id] = vote_type
             vote_changed_or_new = True
+            action_description = f"Vote change: user '{user_id}' changed from like to dislike."
         elif previous_vote == 'dislike' and vote_type == 'like':
             dislikes = max(0, dislikes - 1)
             likes += 1
             article_data['user_votes'][user_id] = vote_type
             vote_changed_or_new = True
-        # Case: User explicitly removes their vote by voting for the same type again (e.g. from "like" to "neutral")
-        # This case is handled by `previous_vote == vote_type` if the API sends the *same* voteType to signify removal.
-        # If API sends a *different* signal for removal (e.g. vote_type=None or 'neutral'), more logic is needed here.
-        # Based on current prompt, "previous_vote == vote_type means user clicked same button again", implies no removal logic by re-clicking.
-        # If the intention is that re-clicking removes the vote, the logic for previous_vote == vote_type should be:
-        # if vote_type == 'like': likes = max(0, likes - 1)
-        # elif vote_type == 'dislike': dislikes = max(0, dislikes - 1)
-        # del article_data['user_votes'][user_id]
-        # vote_changed_or_new = True
-        # current_vote_for_user_response = None # vote removed
+            action_description = f"Vote change: user '{user_id}' changed from dislike to like."
+
+        vote_fix_logger.info(f"Vote processing for {blink_id}, user '{user_id}': {action_description}")
 
         if vote_changed_or_new:
              app_logger.info(f"process_user_vote: Vote change for blink_id='{blink_id}', user_id='{user_id}'. From '{previous_vote}' to '{vote_type}'. New counts L/D: {likes}/{dislikes}")
+             vote_fix_logger.info(f"Updated vote counts for {blink_id}: Likes={likes}, Dislikes={dislikes}. User '{user_id}' vote set to: {article_data['user_votes'].get(user_id)}")
 
         article_data['votes']['likes'] = likes
         article_data['votes']['dislikes'] = dislikes
 
+        vote_fix_logger.info(f"Before saving {blink_id}: Likes={article_data['votes']['likes']}, Dislikes={article_data['votes']['dislikes']}, User vote for {user_id}: {article_data['user_votes'].get(user_id)}")
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(article_data, f, ensure_ascii=False, indent=2)
             app_logger.info(f"process_user_vote: Successfully saved updated blink_id='{blink_id}' to {filepath}")
+            vote_fix_logger.info(f"Successfully saved blink_id='{blink_id}' after vote processing.")
         except IOError as e:
+            vote_fix_logger.error(f"IOError saving blink_id='{blink_id}' in process_user_vote: {e}", exc_info=True)
             app_logger.error(f"process_user_vote: IOError saving blink_id='{blink_id}' to {filepath}: {e}", exc_info=True)
             return None
 
@@ -265,28 +283,53 @@ class News:
         return status
 
     def calculate_interest_percentage(self, blink_data, confidence_factor_c=5):
+        vote_fix_logger = logging.getLogger('VoteFixLogLogger')
+        blink_id_for_log = blink_data.get('id', 'N/A') if isinstance(blink_data, dict) else 'N/A'
+        current_likes_for_log = blink_data.get('votes', {}).get('likes', 0) if isinstance(blink_data, dict) else 0
+        current_dislikes_for_log = blink_data.get('votes', {}).get('dislikes', 0) if isinstance(blink_data, dict) else 0
+        vote_fix_logger.info(f"calculate_interest_percentage entry: blink_id='{blink_id_for_log}', current_likes={current_likes_for_log}, current_dislikes={current_dislikes_for_log}, C={confidence_factor_c}")
+
         if not isinstance(blink_data, dict) or 'votes' not in blink_data:
-            app_logger.warning(f"calculate_interest_percentage: Invalid blink_data or missing 'votes'. ID: {blink_data.get('id', 'N/A')}. Returning 0.0 interest.")
+            app_logger.warning(f"calculate_interest_percentage: Invalid blink_data or missing 'votes'. ID: {blink_id_for_log}. Returning 0.0 interest.")
+            vote_fix_logger.warning(f"calculate_interest_percentage: Invalid blink_data or missing 'votes' for ID='{blink_id_for_log}'. Returning 0.0.")
             return 0.0
 
         current_votes = blink_data['votes']
-        # Use 'likes' and 'dislikes'
         likes = current_votes.get('likes', 0)
         dislikes = current_votes.get('dislikes', 0)
 
         total_votes = likes + dislikes
-        net_vote_difference = likes - dislikes # Standard: positive - negative
+        net_vote_difference = likes - dislikes
+
+        vote_fix_logger.debug(f"calculate_interest_percentage ({blink_id_for_log}): Likes={likes}, Dislikes={dislikes}, TotalVotes={total_votes}, NetVoteDiff={net_vote_difference}")
 
         if total_votes == 0:
             interest = 0.0
         else:
+            # Original formula: (net_vote_difference / (total_votes + confidence_factor_c)) * 100.0
+            # Corrected based on api.py: (likes / total_votes) * 100.0 if total_votes > 0, else 50.0
+            # Sticking to formula in this file, as subtask is about logging this file's logic.
+            # The api.py calculate_interest is different.
             interest = (net_vote_difference / (total_votes + confidence_factor_c)) * 100.0
 
-        app_logger.debug(f"calculate_interest_percentage for ID {blink_data.get('id', 'N/A')}: L={likes}, D={dislikes}, Total={total_votes}, NetDiff={net_vote_difference}, C={confidence_factor_c} -> Interest={interest:.2f}%")
+
+        app_logger.debug(f"calculate_interest_percentage for ID {blink_id_for_log}: L={likes}, D={dislikes}, Total={total_votes}, NetDiff={net_vote_difference}, C={confidence_factor_c} -> Interest={interest:.2f}%")
+        vote_fix_logger.info(f"calculate_interest_percentage result for ID='{blink_id_for_log}': Calculated Interest={interest:.2f}%")
         return interest
 
     def _compare_blinks(self, blink_a, blink_b):
-        # Helper to parse 'publishedAt' safely
+        vote_fix_logger = logging.getLogger('VoteFixLogLogger')
+        # Prepare summaries for logging
+        summary_a = {
+            'id': blink_a.get('id', 'N/A'), 'interestP': blink_a.get('interestPercentage', 0.0),
+            'likes': blink_a.get('votes', {}).get('likes', 0), 'date': blink_a.get('publishedAt', 'N/A')
+        }
+        summary_b = {
+            'id': blink_b.get('id', 'N/A'), 'interestP': blink_b.get('interestPercentage', 0.0),
+            'likes': blink_b.get('votes', {}).get('likes', 0), 'date': blink_b.get('publishedAt', 'N/A')
+        }
+        vote_fix_logger.debug(f"_compare_blinks entry: Blink A summary: {summary_a}, Blink B summary: {summary_b}")
+
         def parse_datetime(published_at_str):
             try:
                 # Attempt to parse ISO format, common in JSON. Handle 'Z' for UTC.
@@ -302,71 +345,60 @@ class News:
         # Retrieve interestPercentage, default to 0.0 if missing
         interest_a = blink_a.get('interestPercentage', 0.0)
         interest_b = blink_b.get('interestPercentage', 0.0)
+        vote_fix_logger.debug(f"Comparing interest: A({summary_a['id']})={interest_a:.2f}%, B({summary_b['id']})={interest_b:.2f}%")
 
-        # Compare interestPercentage (descending)
         if interest_a > interest_b:
-            # app_logger.debug(f"Sort: {blink_a.get('id')} ({interest_a}%) > {blink_b.get('id')} ({interest_b}%) by interest.")
+            vote_fix_logger.debug(f"Outcome: A > B by interest ({interest_a:.2f}% > {interest_b:.2f}%)")
             return -1
         if interest_a < interest_b:
-            # app_logger.debug(f"Sort: {blink_a.get('id')} ({interest_a}%) < {blink_b.get('id')} ({interest_b}%) by interest.")
+            vote_fix_logger.debug(f"Outcome: A < B by interest ({interest_a:.2f}% < {interest_b:.2f}%)")
             return 1
 
-        # app_logger.debug(f"Sort: Interest tied for {blink_a.get('id')} and {blink_b.get('id')} ({interest_a}%). Proceeding to tie-breakers.")
-
-        # If interestPercentage is tied, parse publishedAt dates
-        # These are parsed early as they are used in multiple rules or as a final tie-breaker
+        vote_fix_logger.debug(f"Interest tied at {interest_a:.2f}%. Proceeding to tie-breakers.")
         date_a = parse_datetime(blink_a.get('publishedAt'))
         date_b = parse_datetime(blink_b.get('publishedAt'))
 
-        # Ensure votes structure and default likes/dislikes
-        votes_a = blink_a.get('votes', {})
-        likes_a = votes_a.get('likes', 0)
-        dislikes_a = votes_a.get('dislikes', 0)
+        votes_a_data = blink_a.get('votes', {})
+        likes_a = votes_a_data.get('likes', 0)
+        dislikes_a = votes_a_data.get('dislikes', 0)
+        votes_b_data = blink_b.get('votes', {})
+        likes_b = votes_b_data.get('likes', 0)
+        dislikes_b = votes_b_data.get('dislikes', 0)
+        vote_fix_logger.debug(f"Tie-breaker data: A_likes={likes_a}, A_dislikes={dislikes_a}, A_date={date_a.isoformat()}; B_likes={likes_b}, B_dislikes={dislikes_b}, B_date={date_b.isoformat()}")
 
-        votes_b = blink_b.get('votes', {})
-        likes_b = votes_b.get('likes', 0)
-        dislikes_b = votes_b.get('dislikes', 0)
+        is_rule_a_candidate_a = (likes_a == 0 and dislikes_a == 0)
+        is_rule_a_candidate_b = (likes_b == 0 and dislikes_b == 0)
 
-        # Regla A (Noticias sin votos)
-        # A blink qualifies if it has 0 interest (already established by tie), 0 likes, and 0 dislikes.
-        is_rule_a_candidate_a = (likes_a == 0 and dislikes_a == 0) # interest_a == 0.0 is implicit due to tie
-        is_rule_a_candidate_b = (likes_b == 0 and dislikes_b == 0) # interest_b == 0.0 is implicit
-
-        if interest_a == 0.0: # This check ensures Rule A is only applied when common interest is truly zero
+        if interest_a == 0.0:
+            vote_fix_logger.debug("Common interest is 0.0, evaluating Rule A (no votes).")
             if is_rule_a_candidate_a and not is_rule_a_candidate_b:
-                # app_logger.debug(f"Sort Rule A: {blink_a.get('id')} (no votes) vs {blink_b.get('id')} (has votes/activity). A comes first.")
-                return -1 # A qualifies for Rule A and B doesn't (B might have votes but still 0 interest)
+                vote_fix_logger.debug("Outcome Rule A: A (no votes) > B (has activity).")
+                return -1
             if not is_rule_a_candidate_a and is_rule_a_candidate_b:
-                # app_logger.debug(f"Sort Rule A: {blink_a.get('id')} (has votes/activity) vs {blink_b.get('id')} (no votes). B comes first.")
-                return 1  # B qualifies for Rule A and A doesn't
+                vote_fix_logger.debug("Outcome Rule A: A (has activity) < B (no votes).")
+                return 1
             if is_rule_a_candidate_a and is_rule_a_candidate_b:
-                # Both qualify for Rule A (0 interest, 0 likes, 0 dislikes), sort by publishedAt (descending)
-                # app_logger.debug(f"Sort Rule A (Both): {blink_a.get('id')} vs {blink_b.get('id')}. Comparing dates: {date_a} vs {date_b}.")
-                if date_a > date_b: return -1
-                if date_a < date_b: return 1
-                # app_logger.debug(f"Sort Rule A (Both): Dates tied for {blink_a.get('id')} and {blink_b.get('id')}. Proceeding.")
-                # Fall through to default date comparison if dates are identical, though unlikely for different blinks
+                vote_fix_logger.debug("Rule A (Both no votes): Comparing dates. A_date vs B_date.")
+                if date_a > date_b: vote_fix_logger.debug("Outcome Rule A (Both): A > B by date."); return -1
+                if date_a < date_b: vote_fix_logger.debug("Outcome Rule A (Both): A < B by date."); return 1
+                vote_fix_logger.debug("Rule A (Both): Dates tied.")
 
-        # Regla B (Noticias con 0 positivos y varios negativos)
-        # This rule applies if items are tied by interestPercentage (which they are at this point).
-        # A blink qualifies if it has 0 likes and >0 dislikes.
         is_rule_b_candidate_a = (likes_a == 0 and dislikes_a > 0)
         is_rule_b_candidate_b = (likes_b == 0 and dislikes_b > 0)
-
+        vote_fix_logger.debug(f"Rule B check (0 likes, >0 dislikes): A_candidate={is_rule_b_candidate_a}, B_candidate={is_rule_b_candidate_b}")
         if is_rule_b_candidate_a and is_rule_b_candidate_b:
-            # Both qualify for Rule B, compare dislikes (ascending - fewer dislikes is better)
-            # app_logger.debug(f"Sort Rule B (Both): {blink_a.get('id')} ({dislikes_a} dislikes) vs {blink_b.get('id')} ({dislikes_b} dislikes). Comparing dislikes.")
-            if dislikes_a < dislikes_b: return -1
-            if dislikes_a > dislikes_b: return 1
-            # app_logger.debug(f"Sort Rule B (Both): Dislikes tied for {blink_a.get('id')} and {blink_b.get('id')}. Proceeding to date tie-breaker.")
-            # If dislikes are also tied, fall through to default date comparison
+            vote_fix_logger.debug("Rule B (Both 0 likes, >0 dislikes): Comparing dislikes (ascending). A_dislikes vs B_dislikes.")
+            if dislikes_a < dislikes_b: vote_fix_logger.debug(f"Outcome Rule B (Both): A ({dislikes_a}) < B ({dislikes_b}) by dislikes (fewer is better)."); return -1
+            if dislikes_a > dislikes_b: vote_fix_logger.debug(f"Outcome Rule B (Both): A ({dislikes_a}) > B ({dislikes_b}) by dislikes."); return 1
+            vote_fix_logger.debug("Rule B (Both): Dislikes tied.")
+        # Note: Original logic did not have specific outcomes if only one candidate met Rule B and the other didn't (but wasn't Rule A either)
+        # The current logic falls through to date comparison if Rule B doesn't resolve for two candidates.
 
-        # Default Tie-Breaker: Compare by publishedAt (descending)
-        # app_logger.debug(f"Sort Default Tie-Break: {blink_a.get('id')} vs {blink_b.get('id')}. Comparing dates: {date_a} vs {date_b}.")
-        if date_a > date_b: return -1
-        if date_a < date_b: return 1
+        vote_fix_logger.debug("Default Tie-Breaker: Comparing dates (descending). A_date vs B_date.")
+        if date_a > date_b: vote_fix_logger.debug("Outcome Default: A > B by date."); return -1
+        if date_a < date_b: vote_fix_logger.debug("Outcome Default: A < B by date."); return 1
 
-        # app_logger.debug(f"Sort Ultimate Tie: {blink_a.get('id')} vs {blink_b.get('id')}. IDs: {blink_a.get('id')} vs {blink_b.get('id')}. Considered equal.")
+        vote_fix_logger.debug(f"Ultimate Tie: A ({summary_a['id']}) and B ({summary_b['id']}) considered equal.")
         return 0
 
     def get_all_blinks(self, user_id=None):

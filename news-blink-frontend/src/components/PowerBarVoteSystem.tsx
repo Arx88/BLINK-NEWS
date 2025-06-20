@@ -16,82 +16,140 @@ export const PowerBarVoteSystem = ({
   initialDislikes = 0,
   displayInterest
 }: PowerBarVoteSystemProps) => {
-  console.log(`[PowerBarVoteSystem Props - ${articleId}] initialLikes:`, initialLikes, 'initialDislikes:', initialDislikes, 'displayInterest:', displayInterest);
+  const logPrefix = `[PowerBarVoteSystem Log - ${articleId}]`;
+  const handleVoteLogPrefix = `[PowerBarVoteSystem HandleVote - ${articleId}]`;
+
+  console.log(`${logPrefix} Props received:`, { articleId, initialLikes, initialDislikes, displayInterest });
   const { isDarkMode } = useTheme();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
-  const [isVoting, setIsVoting] = useState(false);
+  const [isVoting, setIsVotingInternal] = useState(false);
+
+  // Wrapper for setIsVoting to log changes
+  const setIsVoting = (votingStatus: boolean) => {
+    console.log(`${logPrefix} Setting isVoting to: ${votingStatus}`);
+    setIsVotingInternal(votingStatus);
+  };
 
   const handleVoteFromStore = useNewsStore((state) => state.handleVote);
   const userVoteStatusFromStore = useNewsStore((state) => state.userVotes[articleId] || null);
 
   // Ensure local state is always in sync with props
   useEffect(() => {
+    console.log(`${logPrefix} useEffect: Syncing local state with props. New initialLikes: ${initialLikes}, New initialDislikes: ${initialDislikes}`);
     setLikes(initialLikes);
     setDislikes(initialDislikes);
-  }, [initialLikes, initialDislikes]);
+  }, [initialLikes, initialDislikes, articleId, logPrefix]);
 
   const total = likes + dislikes;
-  // Calculate percentage based on current local state of likes/dislikes
   const calculatedLikePercentage = total > 0 ? (likes / total) * 100 : 50;
-
-  // Use displayInterest from props if available, otherwise use calculated percentage
   const percentageToShow = typeof displayInterest === 'number' ? displayInterest : calculatedLikePercentage;
   const barWidthPercentage = typeof displayInterest === 'number' ? Math.max(0, Math.min(100, displayInterest)) : calculatedLikePercentage;
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
-    console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Called with voteType:`, voteType, 'Current isVoting:', isVoting, 'Current userVoteStatusFromStore:', userVoteStatusFromStore);
-    if (isVoting) return;
+    const previousVoteStatus = userVoteStatusFromStore; // Capture before any changes
+    console.log(`${handleVoteLogPrefix} Called with voteType: ${voteType}. Current isVoting: ${isVotingInternal}, userVoteStatusFromStore: ${previousVoteStatus}`);
+
+    if (isVotingInternal) {
+      console.log(`${handleVoteLogPrefix} Already voting, exiting.`);
+      return;
+    }
 
     setIsVoting(true);
-    const previousVoteStatus = userVoteStatusFromStore;
 
-    // Determinar si se está quitando un voto (hacer clic en el mismo botón activo)
-    const isRemovingVote = (voteType === 'like' && userVoteStatusFromStore === 'positive') || 
-                          (voteType === 'dislike' && userVoteStatusFromStore === 'negative');
+    const isRemovingVote = (voteType === 'like' && previousVoteStatus === 'positive') ||
+                          (voteType === 'dislike' && previousVoteStatus === 'negative');
+    const isChangingVote = (voteType === 'like' && previousVoteStatus === 'negative') ||
+                           (voteType === 'dislike' && previousVoteStatus === 'positive');
 
-    // Determinar si se está cambiando un voto (hacer clic en el botón opuesto)
-    const isChangingVote = (voteType === 'like' && userVoteStatusFromStore === 'negative') || 
-                           (voteType === 'dislike' && userVoteStatusFromStore === 'positive');
+    console.log(`${handleVoteLogPrefix} Vote conditions: isRemovingVote: ${isRemovingVote}, isChangingVote: ${isChangingVote}, previousVoteStatus: ${previousVoteStatus}`);
+
+    const storeVoteType = voteType === 'like' ? 'positive' : 'negative';
+    console.log(`${handleVoteLogPrefix} Preparing to call handleVoteFromStore with articleId: ${articleId}, voteType (for store): ${storeVoteType}`);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Llamar al store con el tipo de voto correcto
-      handleVoteFromStore(articleId, voteType === 'like' ? 'positive' : 'negative');
-
-      // Actualizar el estado local optimísticamente
+      // Optimistic UI updates
       if (isRemovingVote) {
+        console.log(`${handleVoteLogPrefix} Optimistic update: Removing vote. Vote type: ${voteType}`);
         if (voteType === 'like') {
-          setLikes(prevLikes => Math.max(0, prevLikes - 1));
+          setLikes(prevLikes => {
+            const newLikes = Math.max(0, prevLikes - 1);
+            console.log(`${handleVoteLogPrefix} Optimistically setting likes from ${prevLikes} to ${newLikes}`);
+            return newLikes;
+          });
         } else {
-          setDislikes(prevDislikes => Math.max(0, prevDislikes - 1));
+          setDislikes(prevDislikes => {
+            const newDislikes = Math.max(0, prevDislikes - 1);
+            console.log(`${handleVoteLogPrefix} Optimistically setting dislikes from ${prevDislikes} to ${newDislikes}`);
+            return newDislikes;
+          });
         }
       } else if (isChangingVote) {
-        if (voteType === 'like') {
-          setLikes(prevLikes => prevLikes + 1);
-          setDislikes(prevDislikes => Math.max(0, prevDislikes - 1));
-        } else {
-          setDislikes(prevDislikes => prevDislikes + 1);
-          setLikes(prevLikes => Math.max(0, prevLikes - 1));
+        console.log(`${handleVoteLogPrefix} Optimistic update: Changing vote. Vote type: ${voteType}`);
+        if (voteType === 'like') { // Changing from dislike to like
+          setLikes(prevLikes => {
+            const newLikes = prevLikes + 1;
+            console.log(`${handleVoteLogPrefix} Optimistically setting likes from ${prevLikes} to ${newLikes}`);
+            return newLikes;
+          });
+          setDislikes(prevDislikes => {
+            const newDislikes = Math.max(0, prevDislikes - 1);
+            console.log(`${handleVoteLogPrefix} Optimistically setting dislikes from ${prevDislikes} to ${newDislikes}`);
+            return newDislikes;
+          });
+        } else { // Changing from like to dislike
+          setDislikes(prevDislikes => {
+            const newDislikes = prevDislikes + 1;
+            console.log(`${handleVoteLogPrefix} Optimistically setting dislikes from ${prevDislikes} to ${newDislikes}`);
+            return newDislikes;
+          });
+          setLikes(prevLikes => {
+            const newLikes = Math.max(0, prevLikes - 1);
+            console.log(`${handleVoteLogPrefix} Optimistically setting likes from ${prevLikes} to ${newLikes}`);
+            return newLikes;
+          });
         }
       } else { // Adding a new vote
+        console.log(`${handleVoteLogPrefix} Optimistic update: Adding new vote. Vote type: ${voteType}`);
         if (voteType === 'like') {
-          setLikes(prevLikes => prevLikes + 1);
+          setLikes(prevLikes => {
+            const newLikes = prevLikes + 1;
+            console.log(`${handleVoteLogPrefix} Optimistically setting likes from ${prevLikes} to ${newLikes}`);
+            return newLikes;
+          });
         } else {
-          setDislikes(prevDislikes => prevDislikes + 1);
+          setDislikes(prevDislikes => {
+            const newDislikes = prevDislikes + 1;
+            console.log(`${handleVoteLogPrefix} Optimistically setting dislikes from ${prevDislikes} to ${newDislikes}`);
+            return newDislikes;
+          });
         }
       }
       
-      console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Local state updated for ${voteType}, isRemovingVote: ${isRemovingVote}`);
+      // Simulating API call delay as in original code for optimistic updates to be visible
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      handleVoteFromStore(articleId, storeVoteType);
+      console.log(`${handleVoteLogPrefix} handleVoteFromStore called for articleId: ${articleId}, voteType: ${storeVoteType}.`);
+
     } catch (error) {
-      console.error('Error al votar:', error);
+      console.error(`${handleVoteLogPrefix} Error during voting process:`, error);
+      // Potentially revert optimistic updates here if needed
     } finally {
+      console.log(`${handleVoteLogPrefix} Finally block: Setting isVoting to false.`);
       setIsVoting(false);
     }
   };
 
-  console.log(`[PowerBarVoteSystem Render State - ${articleId}] likes:`, likes, 'dislikes:', dislikes, 'isVoting:', isVoting, 'userVoteStatus (from store):', userVoteStatusFromStore);
+  console.log(`${logPrefix} State before render:`, {
+    likes, dislikes, total,
+    calculatedLikePercentage: calculatedLikePercentage.toFixed(2),
+    percentageToShow: percentageToShow.toFixed(2),
+    barWidthPercentage: barWidthPercentage.toFixed(2),
+    userVoteStatusFromStore,
+    isVoting: isVotingInternal
+  });
+
   return (
     <div className="space-y-8">
       {/* Power Bar */}
