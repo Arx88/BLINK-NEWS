@@ -2,9 +2,10 @@ import os
 import json
 import logging
 from flask import Blueprint, jsonify, request
-from datetime import datetime, timezone # Added timezone
+from datetime import datetime, timezone
+from functools import cmp_to_key # Import cmp_to_key
 from ..logger_config import app_logger
-from ..models.news import News # Import News model
+from ..models.news import News # Import News model - still used by other routes
 
 api_bp = Blueprint('api_bp', __name__)
 
@@ -46,86 +47,144 @@ ARTICLES_DIR = os.path.join(DATA_DIR, 'articles')
 #     with open(file_path, 'w', encoding='utf-8') as f:
 #         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# calculate_interest and compare_blinks are removed as News model handles this.
+# calculate_interest and compare_blinks are removed as News model handles this. - This comment is now outdated.
+
+# --- Local Interest Calculation and Sorting Logic ---
+def calculate_interest_simple(likes, dislikes):
+    if likes + dislikes == 0:
+        return 50.0
+    return (likes / (likes + dislikes)) * 100.0
+
+def parse_datetime_for_sort(iso_str):
+    if not iso_str or iso_str == 'N/A': # Handle missing or N/A dates
+        return datetime.min.replace(tzinfo=timezone.utc)
+    try:
+        # Attempt to parse, handling potential 'Z' for UTC
+        if isinstance(iso_str, str):
+            return datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
+        elif isinstance(iso_str, datetime): # If it's already a datetime object
+            if iso_str.tzinfo is None: # Ensure it's timezone-aware for comparison
+                return iso_str.replace(tzinfo=timezone.utc)
+            return iso_str
+    except ValueError: # Fallback for unparseable strings
+        app_logger.warning(f"Could not parse date string: {iso_str}, using min datetime.")
+        return datetime.min.replace(tzinfo=timezone.utc)
+    # Fallback if not string or datetime (should not happen with good data)
+    app_logger.warning(f"Unexpected date type: {type(iso_str)}, using min datetime.")
+    return datetime.min.replace(tzinfo=timezone.utc)
+
+
+def compare_blinks_simple(item1, item2):
+    # 1. Interest (desc)
+    interest1 = item1.get('interest', 0.0)
+    interest2 = item2.get('interest', 0.0)
+    if interest1 != interest2:
+        return -1 if interest1 > interest2 else 1
+
+    # 2. Likes (desc) - Assuming 'positive_votes' holds the like count
+    likes1 = item1.get('positive_votes', 0)
+    likes2 = item2.get('positive_votes', 0)
+    if likes1 != likes2:
+        return -1 if likes1 > likes2 else 1
+
+    # 3. Publication Date (desc)
+    date1 = parse_datetime_for_sort(item1.get('publication_date'))
+    date2 = parse_datetime_for_sort(item2.get('publication_date'))
+    if date1 != date2:
+        return -1 if date1 > date2 else 1
+    return 0
+# --- End Local Logic ---
 
 @api_bp.route('/blinks', methods=['GET'])
 def get_blinks():
-    app_logger.info(f"get_blinks called. Query parameters: {request.args}")
+    app_logger.info(f"get_blinks called with local file processing logic. Query parameters: {request.args}")
+    # user_id = request.args.get('userId') # Not directly used in this version for list generation
+                                          # but could be used if we need to set currentUserVoteStatus later.
     try:
-        user_id = request.args.get('userId')
-        news_instance = News(data_dir=DATA_DIR)
+        all_blinks_data = []
+        blink_files = [f for f in os.listdir(BLINKS_DIR) if f.endswith('.json')]
+        app_logger.info(f"Found {len(blink_files)} JSON files in {BLINKS_DIR} for local processing.")
 
-        # Get blinks, already sorted and with interestPercentage
-        # The NewsItem typed dict includes: id, title, summary, source, publication_date,
-        # positive_votes, negative_votes, comments_count, interestPercentage,
-        # currentUserVoteStatus, image_url, isHot (optional initially)
-        all_processed_blinks = news_instance.get_all_blinks(user_id=user_id)
-        app_logger.info(f"Retrieved {len(all_processed_blinks)} blinks from News model.")
+        for filename in blink_files:
+            blink_id = filename.split('.')[0]
+            file_path = os.path.join(BLINKS_DIR, filename)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    blink_data_from_file = json.load(f)
 
-        # Transform processed_blinks for the API response
-        api_response_blinks = []
-        for blink_from_news_py in all_processed_blinks:
-            # Create a new dictionary for the API response
-            api_blink = blink_from_news_py.copy()
+                # Extract positive_votes and negative_votes
+                # Common patterns: direct keys or nested under 'votes'
+                positive_votes = blink_data_from_file.get('positive_votes', 0)
+                negative_votes = blink_data_from_file.get('negative_votes', 0)
+                if 'votes' in blink_data_from_file and isinstance(blink_data_from_file['votes'], dict):
+                    positive_votes = blink_data_from_file['votes'].get('likes', positive_votes)
+                    negative_votes = blink_data_from_file['votes'].get('dislikes', negative_votes)
 
-            # Rename 'interestPercentage' to 'interest'
-            if 'interestPercentage' in api_blink:
-                api_blink['interest'] = api_blink.pop('interestPercentage')
-            else:
-                api_blink['interest'] = 0.0
+                # Calculate interest using the local simple function
+                interest = calculate_interest_simple(positive_votes, negative_votes)
 
-            # Ensure essential fields for the frontend are present, falling back if necessary
-            api_blink.setdefault('id', blink_from_news_py.get('id', 'unknown_id'))
-            api_blink.setdefault('title', blink_from_news_py.get('title', 'No Title'))
+                # Extract publication_date (handle potential variations like 'timestamp', 'publishedAt')
+                pub_date_str = blink_data_from_file.get('publication_date',
+                                   blink_data_from_file.get('timestamp',
+                                       blink_data_from_file.get('publishedAt')))
+                if not pub_date_str: # Default if no date field found
+                    pub_date_str = datetime(1970, 1, 1, tzinfo=timezone.utc).isoformat()
 
-            # NewsItem from news.py provides 'votes' (a dict) and also top-level 'positive_votes', 'negative_votes'.
-            # Ensure these are robustly handled for the API.
-            # Frontend typically uses item.votes.likes and item.votes.dislikes, but also top-level for some components.
-            # The NewsItem from news.py already contains a 'votes' dictionary like {'likes': ..., 'dislikes': ...}
-            # and separate 'positive_votes' and 'negative_votes'. We ensure they are present.
-            api_blink.setdefault('votes', blink_from_news_py.get('votes', {'likes': 0, 'dislikes': 0}))
-            api_blink['positive_votes'] = api_blink.get('positive_votes', api_blink['votes'].get('likes', 0))
-            api_blink['negative_votes'] = api_blink.get('negative_votes', api_blink['votes'].get('dislikes', 0))
+                # Create a dictionary for the current blink
+                current_blink_api_item = {
+                    'id': blink_id,
+                    'title': blink_data_from_file.get('title', 'No Title'),
+                    'summary': blink_data_from_file.get('summary', ''), # Frontend expects summary
+                    'source': blink_data_from_file.get('source', 'Unknown Source'), # Frontend expects source
+                    'image_url': blink_data_from_file.get('image_url', ''), # Frontend expects image_url
+                    'positive_votes': positive_votes,
+                    'negative_votes': negative_votes,
+                    'votes': {'likes': positive_votes, 'dislikes': negative_votes}, # Frontend expects this structure too
+                    'interest': interest,
+                    'publication_date': pub_date_str,
+                    # currentUserVoteStatus would require user_id and loading user_votes from file,
+                    # or integration with News model logic if kept for that.
+                    # For now, omitting it to keep this get_blinks self-contained for list generation.
+                    'currentUserVoteStatus': None
+                }
+                all_blinks_data.append(current_blink_api_item)
 
-            # Ensure publication_date is present, using 'publication_date' from NewsItem
-            api_blink.setdefault('publication_date', blink_from_news_py.get('publication_date', datetime(1970, 1, 1, tzinfo=timezone.utc).isoformat()))
+            except FileNotFoundError:
+                app_logger.warning(f"Blink file not found during iteration: {filename}")
+            except json.JSONDecodeError:
+                app_logger.warning(f"Error decoding JSON for blink file: {filename}")
+            except Exception as e:
+                app_logger.error(f"Error processing blink file {filename}: {e}", exc_info=True)
 
-            # Other fields like 'summary', 'source', 'image_url', 'currentUserVoteStatus'
-            # are assumed to be passed through from blink_from_news_py if they exist.
+        app_logger.info(f"Processed {len(all_blinks_data)} blinks from files for sorting.")
 
-            api_response_blinks.append(api_blink)
-
-        app_logger.info(f"Transformed {len(api_response_blinks)} blinks for API response.")
+        # Sort the blinks using the local comparison function
+        sorted_blinks = sorted(all_blinks_data, key=cmp_to_key(compare_blinks_simple))
+        app_logger.info("Local sorting complete.")
 
         app_logger.info("Applying isHot logic to the top 4 items.")
-        for i, blink_item in enumerate(api_response_blinks):
-            if i < 4: # Top 4 based on news.py's sorting
-                blink_item['isHot'] = True
-            else:
-                # If isHot was potentially set by news.py (e.g. for curated items), preserve it.
-                # Otherwise, default to False.
-                blink_item['isHot'] = blink_item.get('isHot', False)
+        for i, blink_item in enumerate(sorted_blinks):
+            blink_item['isHot'] = i < 4
         app_logger.info("isHot logic application complete.")
 
-        if api_response_blinks:
-            sample_size = min(5, len(api_response_blinks))
-            app_logger.info(f"--- DIAGNOSTIC LOG: First {sample_size} blinks PRE-JSONIFY (api_response_blinks) ---")
+        if sorted_blinks:
+            sample_size = min(5, len(sorted_blinks))
+            app_logger.info(f"--- DIAGNOSTIC LOG (LOCAL PROCESSING): First {sample_size} blinks PRE-JSONIFY ---")
             for i in range(sample_size):
-                bi = api_response_blinks[i]
+                bi = sorted_blinks[i]
                 log_output = {
                     "id": bi.get("id"), "title_snippet": bi.get("title", "")[:30],
                     "interest": bi.get("interest"),
                     "isHot": bi.get("isHot", False),
                     "positive_votes": bi.get("positive_votes"),
                     "negative_votes": bi.get("negative_votes"),
-                    "currentUserVoteStatus": bi.get("currentUserVoteStatus"),
-                    "votes_dict": bi.get("votes")
+                    "publication_date_for_sort": parse_datetime_for_sort(bi.get('publication_date')).isoformat()
                 }
                 app_logger.info(f"Item {i+1}: {log_output}")
-            app_logger.info(f"--- END DIAGNOSTIC LOG ---")
+            app_logger.info(f"--- END DIAGNOSTIC LOG (LOCAL PROCESSING) ---")
 
-        app_logger.info(f"Returning {len(api_response_blinks)} blinks.")
-        return jsonify(api_response_blinks)
+        app_logger.info(f"Returning {len(sorted_blinks)} blinks (processed locally).")
+        return jsonify(sorted_blinks)
     except Exception as e:
         app_logger.error(f"Error in get_blinks: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch blinks"}), 500
