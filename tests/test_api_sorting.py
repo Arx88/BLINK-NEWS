@@ -194,11 +194,12 @@ class TestApiBlinkSorting(unittest.TestCase):
             "content": f"This is the content for {blink_id}.",
             "points": [f"Point 1 for {blink_id}", f"Point 2 for {blink_id}"],
             "image": f"http://example.com/images/{blink_id}.png",
-            "publishedAt": published_at_iso_string,
+            "publication_date": published_at_iso_string, # Changed from publishedAt
             "category": category,
             "aiScore": aiScore,
-            "votes": {"likes": likes, "dislikes": dislikes},
-            "user_votes": user_votes,
+            "positive_votes": likes,  # Changed from nested votes.likes
+            "negative_votes": dislikes, # Changed from nested votes.dislikes
+            "user_votes": user_votes, # Assuming user_votes is still relevant; if not, it can be removed.
             "sources": [{"id": "test-source", "name": "Test Source"}],
             "urls": [{"type": "main", "url": f"http://example.com/article/{blink_id}"}]
             # interestPercentage is calculated by the backend, not stored in file
