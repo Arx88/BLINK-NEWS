@@ -24,49 +24,66 @@ export const PowerBarVoteSystem = ({
 
   const handleVoteFromStore = useNewsStore((state) => state.handleVote);
   const userVoteStatusFromStore = useNewsStore((state) => state.userVotes[articleId] || null);
-  console.log(`[PowerBarVoteSystem Store - ${articleId}] userVoteStatusFromStore:`, userVoteStatusFromStore);
 
+  // Ensure local state is always in sync with props
   useEffect(() => {
     setLikes(initialLikes);
     setDislikes(initialDislikes);
   }, [initialLikes, initialDislikes]);
 
   const total = likes + dislikes;
-  const likePercentage = total > 0 ? (likes / total) * 100 : 50; // Fallback for text
-  const positivePercentage = total > 0 ? (likes / total) * 100 : 50; // Fallback for bar width (as per original understanding)
+  // Calculate percentage based on current local state of likes/dislikes
+  const calculatedLikePercentage = total > 0 ? (likes / total) * 100 : 50;
 
-  const percentageToShow = typeof displayInterest === 'number' ? displayInterest : likePercentage;
-  const barWidthPercentage = typeof displayInterest === 'number' ? Math.max(0, Math.min(100, displayInterest)) : positivePercentage;
+  // Use displayInterest from props if available, otherwise use calculated percentage
+  const percentageToShow = typeof displayInterest === 'number' ? displayInterest : calculatedLikePercentage;
+  const barWidthPercentage = typeof displayInterest === 'number' ? Math.max(0, Math.min(100, displayInterest)) : calculatedLikePercentage;
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
     console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Called with voteType:`, voteType, 'Current isVoting:', isVoting, 'Current userVoteStatusFromStore:', userVoteStatusFromStore);
     if (isVoting) return;
-    if ((voteType === 'like' && userVoteStatusFromStore === 'positive') || (voteType === 'dislike' && userVoteStatusFromStore === 'negative')) {
-      return;
-    }
 
     setIsVoting(true);
     const previousVoteStatus = userVoteStatusFromStore;
 
+    // Determinar si se está quitando un voto (hacer clic en el mismo botón activo)
+    const isRemovingVote = (voteType === 'like' && userVoteStatusFromStore === 'positive') || 
+                          (voteType === 'dislike' && userVoteStatusFromStore === 'negative');
+
+    // Determinar si se está cambiando un voto (hacer clic en el botón opuesto)
+    const isChangingVote = (voteType === 'like' && userVoteStatusFromStore === 'negative') || 
+                           (voteType === 'dislike' && userVoteStatusFromStore === 'positive');
+
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
-      console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Calling handleVoteFromStore with articleId:`, articleId, 'and voteType (adjusted):', voteType === 'like' ? 'positive' : 'negative');
-      console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Previous vote status was:`, previousVoteStatus);
+      
+      // Llamar al store con el tipo de voto correcto
       handleVoteFromStore(articleId, voteType === 'like' ? 'positive' : 'negative');
 
-      if (voteType === 'like') {
-        setLikes(prevLikes => prevLikes + 1);
-        if (previousVoteStatus === 'negative') {
+      // Actualizar el estado local optimísticamente
+      if (isRemovingVote) {
+        if (voteType === 'like') {
+          setLikes(prevLikes => Math.max(0, prevLikes - 1));
+        } else {
           setDislikes(prevDislikes => Math.max(0, prevDislikes - 1));
         }
-        console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Attempted local state update for 'like'.`);
-      } else { // voteType === 'dislike'
-        setDislikes(prevDislikes => prevDislikes + 1);
-        if (previousVoteStatus === 'positive') {
+      } else if (isChangingVote) {
+        if (voteType === 'like') {
+          setLikes(prevLikes => prevLikes + 1);
+          setDislikes(prevDislikes => Math.max(0, prevDislikes - 1));
+        } else {
+          setDislikes(prevDislikes => prevDislikes + 1);
           setLikes(prevLikes => Math.max(0, prevLikes - 1));
         }
-        console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Attempted local state update for 'dislike'.`);
+      } else { // Adding a new vote
+        if (voteType === 'like') {
+          setLikes(prevLikes => prevLikes + 1);
+        } else {
+          setDislikes(prevDislikes => prevDislikes + 1);
+        }
       }
+      
+      console.log(`[PowerBarVoteSystem handleVote - ${articleId}] Local state updated for ${voteType}, isRemovingVote: ${isRemovingVote}`);
     } catch (error) {
       console.error('Error al votar:', error);
     } finally {

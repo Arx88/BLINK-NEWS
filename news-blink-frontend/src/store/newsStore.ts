@@ -39,13 +39,38 @@ export const useNewsStore = create<NewsState>((set, get) => ({
         // Use (item.interest || 0) to default to 0 if item.interest is null, undefined, or NaN,
         // although item.interest should ideally always be a number from the backend.
         const currentInterest = typeof item.interest === 'number' && Number.isFinite(item.interest) ? item.interest : 0;
-        newDisplayInterest = Math.max(0, Math.min(100, currentInterest));
+        // Calculate interest based on likes and dislikes, with 50% fallback for no votes
+        const totalVotes = item.likes + item.dislikes;
+        let calculatedInterest = 50; // Default for no votes
+        if (totalVotes > 0) {
+          calculatedInterest = (item.likes / totalVotes) * 100;
+        }
+        newDisplayInterest = Math.max(0, Math.min(100, calculatedInterest));
 
         return {
           ...item,
           displayInterest: newDisplayInterest
         };
-      });
+      }).sort((a, b) => {
+          // Primary criterion: Interest Bar Percentage (descending)
+          const interestA = typeof a.displayInterest === 'number' ? a.displayInterest : 50;
+          const interestB = typeof b.displayInterest === 'number' ? b.displayInterest : 50;
+          if (interestB !== interestA) {
+            return interestB - interestA;
+          }
+
+          // Secondary criterion: Absolute number of Likes (descending)
+          if (b.likes !== a.likes) {
+            return b.likes - a.likes;
+          }
+
+          // Tertiary criterion: Novelty (most recent first, assuming 'date' is comparable)
+          // Assuming 'date' is a string or number that can be directly compared for recency.
+          // If 'date' is a string, ensure it's in a sortable format (e.g., ISO 8601).
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA;
+        });
 
       set({
         blinks: processedNewsItems,
@@ -62,25 +87,30 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   handleVote: async (blinkId: string, newVoteType: 'positive' | 'negative') => {
     const previousVoteStatus = get().userVotes[blinkId] || null;
 
-    // Optimistically update UI for instant feedback
-    get().setUserVote(blinkId, newVoteType);
+    // Determinar si se está quitando un voto (hacer clic en el mismo botón activo)
+    const isRemovingVote = (newVoteType === 'positive' && previousVoteStatus === 'positive') || 
+                          (newVoteType === 'negative' && previousVoteStatus === 'negative');
+
+    // Actualizar optimísticamente el estado del usuario
+    if (isRemovingVote) {
+      get().setUserVote(blinkId, null); // Quitar voto
+    } else {
+      get().setUserVote(blinkId, newVoteType); // Añadir o cambiar voto
+    }
 
     try {
       const apiVoteType = newVoteType === 'positive' ? 'like' : 'dislike';
-      // Call the API to vote. The backend will handle vote logic and persistence.
-      // The previousVoteStatus is sent to help backend decide if it's a new vote, a change, or a removal.
+      // Llamar a la API para votar
       await apiVoteOnBlink(blinkId, apiVoteType, previousVoteStatus);
 
-      // If API call is successful, then fetch blinks to get updated counts/order
-      // This ensures the UI reflects the correct state from the single source of truth (backend).
+      // Si la llamada a la API es exitosa, recargar los blinks para obtener el estado actualizado
       await get().fetchBlinks();
 
     } catch (error) {
       console.error(`Failed to vote on blink ${blinkId}:`, error);
-      // If API call fails, revert the optimistic UI update for vote status
+      // Si la llamada a la API falla, revertir la actualización optimista
       get().setUserVote(blinkId, previousVoteStatus);
       set({ error: `Failed to cast vote for blink ${blinkId}. Please try again.` });
-      // Importantly, do NOT call fetchBlinks() on error.
     }
   },
 

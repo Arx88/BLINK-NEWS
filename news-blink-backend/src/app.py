@@ -1,7 +1,10 @@
 from flask import Flask
+from flask_cors import CORS
 from .routes.api import api_bp
 from .routes.topic_search import topic_search_bp # Import the new blueprint
-from .config import Config
+
+class Config:
+    DEBUG = True
 
 def create_app():
     """
@@ -9,6 +12,9 @@ def create_app():
     """
     app = Flask(__name__)
     app.config.from_object(Config)
+    
+    # Enable CORS for all routes
+    CORS(app)
 
     # Register blueprints
     app.register_blueprint(api_bp, url_prefix='/api')
@@ -21,3 +27,4 @@ if __name__ == '__main__':
     # For production, use a WSGI server like Gunicorn.
     app = create_app()
     app.run(debug=True, host='0.0.0.0', port=5000)
+

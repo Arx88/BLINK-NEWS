@@ -139,11 +139,12 @@ export const fetchArticleById = async (id: string): Promise<NewsItem | null> => 
   }
 };
 
-export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike', previousVote: 'like' | 'dislike' | null): Promise<NewsItem | null> => {
+export const voteOnArticle = async (articleId: string, voteType: 'like' | 'dislike', previousVote: 'positive' | 'negative' | null): Promise<NewsItem | null> => {
   const userId = getUserId();
   const apiUrl = `/api/blinks/${articleId}/vote`;
-  // Backend now expects 'like' or 'dislike' as voteType, and previousVote
-  const requestBody = { userId, voteType, previousVote };
+  // Convertir previousVote al formato esperado por el backend
+  const previousVoteForBackend = previousVote === 'positive' ? 'like' : previousVote === 'negative' ? 'dislike' : null;
+  const requestBody = { userId, voteType, previousVote: previousVoteForBackend };
 
   try {
     const response = await fetch(apiUrl, {
