@@ -30,97 +30,108 @@ export const useNewsStore = create<NewsState>((set, get) => ({
   error: null,
 
   fetchBlinks: async () => {
+    const logPrefix = '[NewsStore fetchBlinks]';
+    console.log(`${logPrefix} Started.`);
     set({ isLoading: true, error: null });
     try {
+      console.log(`${logPrefix} Attempting to fetch news via apiFetchBlinks.`);
       const newsItems = await apiFetchBlinks(); // apiFetchBlinks returns NewsItem[]
+      console.log(`${logPrefix} Received ${newsItems.length} raw newsItems.`);
+      if (newsItems.length > 0) {
+        const sampleItems = newsItems.slice(0, 2).map(item => ({id: item.id, title: item.title, likes: item.likes, dislikes: item.dislikes, interest: item.interest }));
+        console.log(`${logPrefix} Sample of raw newsItems (first 1-2):`, sampleItems);
+      }
 
-      const processedNewsItems = newsItems.map(item => {
-        let newDisplayInterest = 0;
-        // Use (item.interest || 0) to default to 0 if item.interest is null, undefined, or NaN,
-        // although item.interest should ideally always be a number from the backend.
-        const currentInterest = typeof item.interest === 'number' && Number.isFinite(item.interest) ? item.interest : 0;
-        // Calculate interest based on likes and dislikes, with 50% fallback for no votes
-        const totalVotes = item.likes + item.dislikes;
-        let calculatedInterest = 50; // Default for no votes
-        if (totalVotes > 0) {
-          calculatedInterest = (item.likes / totalVotes) * 100;
+      console.log(`${logPrefix} Starting client-side processing (assigning displayInterest from backend interest).`);
+      // News items are now assumed to be sorted by the backend.
+      // Client-side sorting is removed.
+      const itemsWithDisplayInterest = newsItems.map(item => {
+        // Use item.interest (from backend, via transformBlinkToNewsItem) directly for displayInterest.
+        // Ensure it's a number and clamped between 0 and 100. Fallback to 50 if not a valid number.
+        const backendInterest = item.interest; // This is already processed by transformBlinkToNewsItem
+        const displayInterestValue = typeof backendInterest === 'number' && Number.isFinite(backendInterest)
+          ? Math.max(0, Math.min(100, backendInterest))
+          : 50; // Fallback if interest is not a valid number
+
+        if (typeof backendInterest !== 'number' || !Number.isFinite(backendInterest)) {
+            console.log(`${logPrefix} Item ID ${item.id}: 'interest' field is not a valid number ('${backendInterest}'), defaulting displayInterest to 50.`);
         }
-        newDisplayInterest = Math.max(0, Math.min(100, calculatedInterest));
+        return { ...item, displayInterest: displayInterestValue };
+      });
+      // console.log(`${logPrefix} Client-side sorting criteria: 1. Interest (desc), 2. Likes (desc), 3. Date (desc).`); // Removed as sorting is done by backend
 
-        return {
-          ...item,
-          displayInterest: newDisplayInterest
-        };
-      }).sort((a, b) => {
-          // Primary criterion: Interest Bar Percentage (descending)
-          const interestA = typeof a.displayInterest === 'number' ? a.displayInterest : 50;
-          const interestB = typeof b.displayInterest === 'number' ? b.displayInterest : 50;
-          if (interestB !== interestA) {
-            return interestB - interestA;
-          }
+      if (itemsWithDisplayInterest.length > 0) {
+        const sampleProcessedItems = itemsWithDisplayInterest.slice(0, 2).map(item => ({id: item.id, title: item.title, interest: item.interest, displayInterest: item.displayInterest, likes: item.likes, date: item.date }));
+        console.log(`${logPrefix} Sample of newsItems after assigning displayInterest (first 1-2, order from backend):`, sampleProcessedItems);
+      }
 
-          // Secondary criterion: Absolute number of Likes (descending)
-          if (b.likes !== a.likes) {
-            return b.likes - a.likes;
-          }
-
-          // Tertiary criterion: Novelty (most recent first, assuming 'date' is comparable)
-          // Assuming 'date' is a string or number that can be directly compared for recency.
-          // If 'date' is a string, ensure it's in a sortable format (e.g., ISO 8601).
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
-          return dateB - dateA;
-        });
+      const heroBlink = itemsWithDisplayInterest.length > 0 ? itemsWithDisplayInterest[0] : null;
+      const lastBlink = itemsWithDisplayInterest.length > 1 ? itemsWithDisplayInterest[itemsWithDisplayInterest.length - 1] : null;
+      console.log(`${logPrefix} Number of itemsWithDisplayInterest: ${itemsWithDisplayInterest.length}. HeroBlink ID: ${heroBlink?.id || 'None'}. LastBlink ID: ${lastBlink?.id || 'None'}.`);
 
       set({
-        blinks: processedNewsItems,
-        heroBlink: processedNewsItems.length > 0 ? processedNewsItems[0] : null,
-        lastBlink: processedNewsItems.length > 1 ? processedNewsItems[processedNewsItems.length - 1] : null,
+        blinks: itemsWithDisplayInterest,
+        heroBlink,
+        lastBlink,
         isLoading: false,
       });
     } catch (error) {
-      console.error("Failed to fetch blinks:", error);
+      console.error(`${logPrefix} Error:`, error);
       set({ error: 'Failed to load blinks.', isLoading: false });
+    } finally {
+      console.log(`${logPrefix} Finished.`);
     }
   },
 
   handleVote: async (blinkId: string, newVoteType: 'positive' | 'negative') => {
+    const logPrefix = '[NewsStore handleVote]';
+    console.log(`${logPrefix} Called with blinkId: ${blinkId}, newVoteType: ${newVoteType}`);
     const previousVoteStatus = get().userVotes[blinkId] || null;
+    console.log(`${logPrefix} Previous vote status for blinkId ${blinkId}: ${previousVoteStatus}`);
 
-    // Determinar si se está quitando un voto (hacer clic en el mismo botón activo)
     const isRemovingVote = (newVoteType === 'positive' && previousVoteStatus === 'positive') || 
                           (newVoteType === 'negative' && previousVoteStatus === 'negative');
+    console.log(`${logPrefix} Determined isRemovingVote: ${isRemovingVote}`);
 
-    // Actualizar optimísticamente el estado del usuario
-    if (isRemovingVote) {
-      get().setUserVote(blinkId, null); // Quitar voto
-    } else {
-      get().setUserVote(blinkId, newVoteType); // Añadir o cambiar voto
-    }
+    const newOptimisticVoteStatus = isRemovingVote ? null : newVoteType;
+    console.log(`${logPrefix} Optimistically calling setUserVote for blinkId: ${blinkId} with new status: ${newOptimisticVoteStatus}`);
+    get().setUserVote(blinkId, newOptimisticVoteStatus);
 
     try {
       const apiVoteType = newVoteType === 'positive' ? 'like' : 'dislike';
-      // Llamar a la API para votar
-      await apiVoteOnBlink(blinkId, apiVoteType, previousVoteStatus);
+      console.log(`${logPrefix} Attempting to call apiVoteOnBlink for blinkId: ${blinkId}, apiVoteType: ${apiVoteType}, previousVoteStatus (for API): ${previousVoteStatus}`);
+      const updatedBlinkData = await apiVoteOnBlink(blinkId, apiVoteType, previousVoteStatus); // Assuming apiVoteOnBlink might return updated item
 
-      // Si la llamada a la API es exitosa, recargar los blinks para obtener el estado actualizado
+      console.log(`${logPrefix} apiVoteOnBlink successful for blinkId: ${blinkId}.`);
+      if (updatedBlinkData) {
+        const summary = { id: updatedBlinkData.id, title: updatedBlinkData.title, likes: updatedBlinkData.likes, dislikes: updatedBlinkData.dislikes, interest: updatedBlinkData.interest, currentUserVoteStatus: updatedBlinkData.currentUserVoteStatus };
+        console.log(`${logPrefix} Updated blink data from API response (summary):`, summary);
+      }
+
+      console.log(`${logPrefix} Calling fetchBlinks to refresh all data.`);
       await get().fetchBlinks();
 
     } catch (error) {
-      console.error(`Failed to vote on blink ${blinkId}:`, error);
-      // Si la llamada a la API falla, revertir la actualización optimista
+      console.error(`${logPrefix} Error voting on blink ${blinkId}:`, error);
+      console.log(`${logPrefix} Reverting optimistic update for blinkId: ${blinkId}. Setting vote back to: ${previousVoteStatus}`);
       get().setUserVote(blinkId, previousVoteStatus);
       set({ error: `Failed to cast vote for blink ${blinkId}. Please try again.` });
     }
   },
 
   setUserVote: (blinkId, voteStatus) => {
-    set(state => ({
-      userVotes: {
+    const logPrefix = '[NewsStore setUserVote]';
+    console.log(`${logPrefix} Called with blinkId: ${blinkId}, new voteStatus: ${voteStatus}`);
+    const oldVoteStatusForId = get().userVotes[blinkId] || null;
+
+    set(state => {
+      const updatedUserVotes = {
         ...state.userVotes,
         [blinkId]: voteStatus,
-      },
-    }));
+      };
+      console.log(`${logPrefix} For blinkId: ${blinkId}, vote changed from: ${oldVoteStatusForId} to: ${updatedUserVotes[blinkId]}. Full userVotes (sample of current change): { ${blinkId}: "${updatedUserVotes[blinkId]}" }`);
+      return { userVotes: updatedUserVotes };
+    });
   },
 }));
 

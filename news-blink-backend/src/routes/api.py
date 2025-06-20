@@ -9,22 +9,22 @@ from datetime import datetime
 LOG_DIR_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
 if not os.path.exists(LOG_DIR_PATH):
     os.makedirs(LOG_DIR_PATH)
-VOTE_BAR_FIX_LOG_FILE = os.path.join(LOG_DIR_PATH, 'VoteBarFix.log')
+VOTE_FIX_LOG_FILE = os.path.join(LOG_DIR_PATH, 'VoteFixLog.log') # Renamed variable and filename
 
-vote_bar_fix_logger = logging.getLogger('VoteBarFixLogger')
-vote_bar_fix_logger.setLevel(logging.DEBUG)
+vote_fix_logger = logging.getLogger('VoteFixLogLogger') # Renamed logger instance and logger name
+vote_fix_logger.setLevel(logging.DEBUG)
 # Prevent duplicate logs if root logger is also configured for file output
-vote_bar_fix_logger.propagate = False
+vote_fix_logger.propagate = False
 
 # Remove any existing handlers to avoid duplication during reloads/multiple calls
-for handler in vote_bar_fix_logger.handlers[:]:
-    vote_bar_fix_logger.removeHandler(handler)
+for handler in vote_fix_logger.handlers[:]:
+    vote_fix_logger.removeHandler(handler)
     handler.close()
 
-file_handler_votebarfix = logging.FileHandler(VOTE_BAR_FIX_LOG_FILE, mode='w') # mode='w' to overwrite
-formatter_votebarfix = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler_votebarfix.setFormatter(formatter_votebarfix)
-vote_bar_fix_logger.addHandler(file_handler_votebarfix)
+file_handler_votefixlog = logging.FileHandler(VOTE_FIX_LOG_FILE, mode='w') # Renamed handler, use new log file variable, ensure mode='w'
+formatter_votefixlog = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s') # Renamed formatter
+file_handler_votefixlog.setFormatter(formatter_votefixlog) # Use new formatter name
+vote_fix_logger.addHandler(file_handler_votefixlog) # Add new handler name to new logger name
 
 api_bp = Blueprint('api_bp', __name__)
 
@@ -96,132 +96,190 @@ def compare_blinks(item1, item2):
 @api_bp.route('/blinks', methods=['GET'])
 def get_blinks():
     """Obtiene todos los blinks, calcula su interés y los ordena."""
+    vote_fix_logger.info(f"get_blinks called. Query parameters: {request.args}")
     try:
         all_blinks = []
-        for filename in os.listdir(BLINKS_DIR):
-            if filename.endswith('.json'):
-                blink_id = filename.split('.')[0]
-                blink_data = get_blink_data(blink_id)
-                if blink_data:
-                    # Asegurar que los contadores de votos existen
-                    positive_votes = blink_data.setdefault('positive_votes', 0)
-                    negative_votes = blink_data.setdefault('negative_votes', 0)
-                    # Calcular y añadir el interés a cada blink
-                    blink_data['interest'] = calculate_interest(positive_votes, negative_votes)
-                    all_blinks.append(blink_data)
+        vote_fix_logger.info(f"Scanning BLINKS_DIR: {BLINKS_DIR}")
+        blink_files = [f for f in os.listdir(BLINKS_DIR) if f.endswith('.json')]
+        vote_fix_logger.info(f"Found {len(blink_files)} raw .json files in {BLINKS_DIR}")
 
-        # Ordenar la lista de blinks usando la función de comparación personalizada
+        for filename in blink_files:
+            blink_id = filename.split('.')[0]
+            vote_fix_logger.info(f"Processing blink_id: {blink_id}")
+            blink_data = get_blink_data(blink_id)
+            if blink_data:
+                # Log raw blink_data (summary)
+                blink_summary = {k: blink_data[k] for k in ('id', 'title', 'url', 'publication_date') if k in blink_data}
+                vote_fix_logger.info(f"Raw blink_data for {blink_id} (summary): {blink_summary}")
+
+                positive_votes = blink_data.setdefault('positive_votes', 0)
+                negative_votes = blink_data.setdefault('negative_votes', 0)
+
+                blink_data['interest'] = calculate_interest(positive_votes, negative_votes)
+                vote_fix_logger.info(f"Calculated interest for {blink_id}: {blink_data['interest']}%")
+                all_blinks.append(blink_data)
+            else:
+                vote_fix_logger.warning(f"No data found for blink_id: {blink_id} during get_blinks scan.")
+
+        vote_fix_logger.info(f"Processed {len(all_blinks)} blinks for sorting.")
+        if all_blinks:
+            sample_pre_sort = all_blinks[0] if all_blinks else None
+            if sample_pre_sort:
+                vote_fix_logger.info(f"Sample blink data before sorting (first item): ID: {sample_pre_sort.get('id')}, Title: {sample_pre_sort.get('title_summary', 'N/A')}, Votes: +{sample_pre_sort.get('positive_votes',0)}/-{sample_pre_sort.get('negative_votes',0)}, Interest: {sample_pre_sort.get('interest',0.0)}%, Date: {sample_pre_sort.get('publication_date')}")
+
+        vote_fix_logger.info(f"Calling sorted() with compare_blinks on {len(all_blinks)} blinks.")
         sorted_blinks = sorted(all_blinks, key=cmp_to_key(compare_blinks))
+        vote_fix_logger.info("Sorting complete.")
 
-        # START DIAGNOSTIC LOGGING BLOCK (using vote_bar_fix_logger)
+        # Log sample of sorted blinks and total count
         if sorted_blinks:
+            vote_fix_logger.info(f"Total blinks being returned after sorting: {len(sorted_blinks)}")
+            sample_post_sort = sorted_blinks[0] if sorted_blinks else None
+            if sample_post_sort:
+                 vote_fix_logger.info(f"Sample blink data after sorting (first item): ID: {sample_post_sort.get('id')}, Title: {sample_post_sort.get('title_summary', 'N/A')}, Votes: +{sample_post_sort.get('positive_votes',0)}/-{sample_post_sort.get('negative_votes',0)}, Interest: {sample_post_sort.get('interest',0.0)}%, Date: {sample_post_sort.get('publication_date')}")
+            # The existing diagnostic log block can serve as further detailed sample logging
+            # START DIAGNOSTIC LOGGING BLOCK (using vote_fix_logger) - Retained for detailed sample
             sample_size = min(3, len(sorted_blinks))
-            vote_bar_fix_logger.info(f"--- DIAGNOSTIC LOG: Data for first {sample_size} of {len(sorted_blinks)} blinks PRE-JSONIFY ---")
+            vote_fix_logger.info(f"--- DIAGNOSTIC LOG (Detail): Data for first {sample_size} of {len(sorted_blinks)} blinks PRE-JSONIFY ---")
             for i in range(sample_size):
                 blink_to_log = sorted_blinks[i]
                 log_output = {
                     "id": blink_to_log.get("id", "N/A"),
-                    "title": blink_to_log.get("title", "N/A"),
+                    "title": blink_to_log.get("title", "N/A"), # Consider using title_summary if available
                     "positive_votes": blink_to_log.get("positive_votes", "N/A"),
                     "negative_votes": blink_to_log.get("negative_votes", "N/A"),
                     "interest": blink_to_log.get("interest", "N/A"),
                     "publication_date": blink_to_log.get("publication_date", "N/A")
                 }
-                vote_bar_fix_logger.info(f"Blink {i+1} sample: {log_output}")
-            vote_bar_fix_logger.info(f"--- END DIAGNOSTIC LOG ---")
+                vote_fix_logger.info(f"Blink {i+1} sample (detail): {log_output}")
+            vote_fix_logger.info(f"--- END DIAGNOSTIC LOG (Detail) ---")
         else:
-            vote_bar_fix_logger.info("--- DIAGNOSTIC LOG: sorted_blinks list is empty PRE-JSONIFY ---")
+            vote_fix_logger.info("--- DIAGNOSTIC LOG (Detail): sorted_blinks list is empty PRE-JSONIFY ---")
         # END DIAGNOSTIC LOGGING BLOCK
 
+        vote_fix_logger.info(f"Returning {len(sorted_blinks)} blinks.")
         return jsonify(sorted_blinks)
     except Exception as e:
-        current_app.logger.error(f"Error fetching blinks: {e}")
+        vote_fix_logger.error(f"Error in get_blinks: {e}", exc_info=True)
+        current_app.logger.error(f"Error fetching blinks: {e}") # Keep current_app.logger for now
         return jsonify({"error": "Failed to fetch blinks"}), 500
 
 @api_bp.route('/blinks/<string:id>/vote', methods=['POST'])
 def vote_blink(id):
     """Procesa un voto para un blink específico."""
+    data = request.get_json()
+    vote_fix_logger.info(f"vote_blink called for id: {id}. Payload: {data}")
     try:
-        data = request.get_json()
-        vote_type = data.get('voteType') # Cambiado de 'vote_type' a 'voteType' para coincidir con el frontend
-        previous_vote_status = data.get('previousVote') # Cambiado de 'previous_vote_status' a 'previousVote'
-        user_id = data.get('userId') # Asegurarse de obtener el userId
+        vote_type = data.get('voteType')
+        previous_vote_status = data.get('previousVote')
+        user_id = data.get('userId') # Logged in initial message
 
         if vote_type not in ['like', 'dislike']:
+            vote_fix_logger.warning(f"Invalid vote_type: {vote_type} for blink {id}.")
             return jsonify({"error": "Invalid vote type"}), 400
 
         blink_data = get_blink_data(id)
         if not blink_data:
+            vote_fix_logger.warning(f"Blink not found for id: {id} in vote_blink.")
             return jsonify({"error": "Blink not found"}), 404
 
-        # Asegurar que los contadores de votos existen y tienen valor por defecto
-        blink_data.setdefault('positive_votes', 0)
-        blink_data.setdefault('negative_votes', 0)
+        blink_summary = {k: blink_data[k] for k in ('id', 'title', 'positive_votes', 'negative_votes') if k in blink_data}
+        vote_fix_logger.info(f"Fetched blink_data for {id} (summary): {blink_summary}")
 
-        # Determinar si se está quitando un voto (hacer clic en el mismo botón activo)
+        current_positive_votes = blink_data.setdefault('positive_votes', 0)
+        current_negative_votes = blink_data.setdefault('negative_votes', 0)
+        vote_fix_logger.info(f"Current votes for {id}: +{current_positive_votes}/-{current_negative_votes}")
+
         is_removing_vote = (vote_type == 'like' and previous_vote_status == 'like') or \
                           (vote_type == 'dislike' and previous_vote_status == 'dislike')
 
-        # Lógica para manejar el voto
+        action_taken = "No change"
         if vote_type == 'like':
-            if is_removing_vote: # Quitar like
+            if is_removing_vote:
+                action_taken = "Removing like"
                 blink_data['positive_votes'] = max(0, blink_data['positive_votes'] - 1)
                 blink_data['currentUserVoteStatus'] = None
-            elif previous_vote_status == 'dislike': # Cambiar de dislike a like
+            elif previous_vote_status == 'dislike':
+                action_taken = "Changing vote from dislike to like"
                 blink_data['negative_votes'] = max(0, blink_data['negative_votes'] - 1)
                 blink_data['positive_votes'] += 1
                 blink_data['currentUserVoteStatus'] = 'like'
-            else: # Añadir like
+            else:
+                action_taken = "Adding like"
                 blink_data['positive_votes'] += 1
                 blink_data['currentUserVoteStatus'] = 'like'
         elif vote_type == 'dislike':
-            if is_removing_vote: # Quitar dislike
+            if is_removing_vote:
+                action_taken = "Removing dislike"
                 blink_data['negative_votes'] = max(0, blink_data['negative_votes'] - 1)
                 blink_data['currentUserVoteStatus'] = None
-            elif previous_vote_status == 'like': # Cambiar de like a dislike
+            elif previous_vote_status == 'like':
+                action_taken = "Changing vote from like to dislike"
                 blink_data['positive_votes'] = max(0, blink_data['positive_votes'] - 1)
                 blink_data['negative_votes'] += 1
                 blink_data['currentUserVoteStatus'] = 'dislike'
-            else: # Añadir dislike
+            else:
+                action_taken = "Adding dislike"
                 blink_data['negative_votes'] += 1
                 blink_data['currentUserVoteStatus'] = 'dislike'
 
+        vote_fix_logger.info(f"Vote processing action for {id}: {action_taken}. User: {user_id}, Vote: {vote_type}, PrevStatus: {previous_vote_status}")
+        vote_fix_logger.info(f"New votes for {id}: +{blink_data['positive_votes']}/-{blink_data['negative_votes']}")
+
         save_blink_data(id, blink_data)
-        # Recalcular el interés y devolver el blink actualizado
+        vote_fix_logger.info(f"Saved blink_data for {id}.")
+
         blink_data['interest'] = calculate_interest(blink_data['positive_votes'], blink_data['negative_votes'])
-        return jsonify({"data": blink_data}) # Envuelto en 'data' para coincidir con el frontend
+        vote_fix_logger.info(f"Recalculated interest for {id}: {blink_data['interest']}%")
+
+        final_blink_summary = {k: blink_data[k] for k in ('id', 'title', 'positive_votes', 'negative_votes', 'interest', 'currentUserVoteStatus') if k in blink_data}
+        vote_fix_logger.info(f"Returning updated blink data for {id} (summary): {final_blink_summary}")
+        return jsonify({"data": blink_data})
 
     except Exception as e:
-        current_app.logger.error(f"Error processing vote for blink {id}: {e}")
+        vote_fix_logger.error(f"Error processing vote for blink {id}: {e}", exc_info=True)
+        current_app.logger.error(f"Error processing vote for blink {id}: {e}") # Keep current_app.logger
         return jsonify({"error": "Failed to process vote"}), 500
 
 @api_bp.route('/blinks/<string:id>', methods=['GET'])
 def get_blink_details(id):
     """Obtiene los detalles de un blink específico y su artículo asociado."""
+    vote_fix_logger.info(f"get_blink_details called for id: {id}")
     try:
         blink_data = get_blink_data(id)
         if not blink_data:
+            vote_fix_logger.warning(f"Blink not found for id: {id} in get_blink_details.")
             return jsonify({"error": "Blink not found"}), 404
 
-        # Calcular y añadir el interés al blink
+        blink_summary = {k: blink_data[k] for k in ('id', 'title', 'url', 'publication_date', 'positive_votes', 'negative_votes') if k in blink_data}
+        vote_fix_logger.info(f"Fetched blink_data for {id} (summary): {blink_summary}")
+
         positive_votes = blink_data.setdefault('positive_votes', 0)
         negative_votes = blink_data.setdefault('negative_votes', 0)
         blink_data['interest'] = calculate_interest(positive_votes, negative_votes)
+        vote_fix_logger.info(f"Calculated interest for {id}: {blink_data['interest']}%")
 
         article_file_path = os.path.join(ARTICLES_DIR, f"{id}.json")
+        vote_fix_logger.info(f"Attempting to fetch article from: {article_file_path}")
         if not os.path.exists(article_file_path):
-            # Si no hay artículo, devolver solo la info del blink con su interés
+            vote_fix_logger.info(f"Article file not found for {id}. Returning blink data only.")
             return jsonify(blink_data)
 
         with open(article_file_path, 'r', encoding='utf-8') as f:
-            article_content = json.load(f)
+            article_content_data = json.load(f)
 
-        # Combinar datos del blink y del artículo
-        detailed_blink = {**blink_data, "content": article_content.get("content", "")} # Asumiendo que el contenido está bajo la clave 'content'
+        article_content_summary = "Article content present" if article_content_data.get("content") else "Article content empty/missing"
+        vote_fix_logger.info(f"Article content summary for {id}: {article_content_summary}")
 
+        detailed_blink = {**blink_data, "content": article_content_data.get("content", "")}
+
+        final_details_summary = {k: detailed_blink[k] for k in ('id', 'title', 'interest', 'publication_date') if k in detailed_blink}
+        final_details_summary['content_present'] = bool(detailed_blink.get("content"))
+        vote_fix_logger.info(f"Returning combined blink and article details for {id} (summary): {final_details_summary}")
         return jsonify(detailed_blink)
     except Exception as e:
-        current_app.logger.error(f"Error fetching blink detail for {id}: {e}")
+        vote_fix_logger.error(f"Error fetching blink detail for {id}: {e}", exc_info=True)
+        current_app.logger.error(f"Error fetching blink detail for {id}: {e}") # Keep current_app.logger
         return jsonify({"error": "Failed to fetch blink details"}), 500
 
 
