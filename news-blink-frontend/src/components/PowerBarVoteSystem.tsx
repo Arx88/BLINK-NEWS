@@ -19,7 +19,8 @@ export const PowerBarVoteSystem = ({
   const logPrefix = `[PowerBarVoteSystem Log - ${articleId}]`;
   const handleVoteLogPrefix = `[PowerBarVoteSystem HandleVote - ${articleId}]`;
 
-  console.log(`${logPrefix} Props received:`, { articleId, initialLikes, initialDislikes, displayInterest });
+  // UserVoteStatusFromStore is initialized after hooks, so we log it after its declaration.
+  // console.log(`${logPrefix} Props received:`, { articleId, initialLikes, initialDislikes, displayInterest });
   const { isDarkMode } = useTheme();
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
@@ -34,12 +35,25 @@ export const PowerBarVoteSystem = ({
   const handleVoteFromStore = useNewsStore((state) => state.handleVote);
   const userVoteStatusFromStore = useNewsStore((state) => state.userVotes[articleId] || null);
 
-  // Ensure local state is always in sync with props
+  // Log props and initial userVoteStatusFromStore at the beginning
+  console.log(`${logPrefix} Init/Re-render. Props:`, { articleId, initialLikes, initialDislikes, displayInterest });
+  console.log(`${logPrefix} Init/Re-render. Initial userVoteStatusFromStore: ${userVoteStatusFromStore}`);
+
+  // Ensure local state is always in sync with props, but not when a vote is actively being processed locally
   useEffect(() => {
-    console.log(`${logPrefix} useEffect: Syncing local state with props. New initialLikes: ${initialLikes}, New initialDislikes: ${initialDislikes}`);
-    setLikes(initialLikes);
-    setDislikes(initialDislikes);
-  }, [initialLikes, initialDislikes, articleId, logPrefix]);
+    const effectLogPrefix = `${logPrefix} useEffect [${articleId}]`;
+    console.log(`${effectLogPrefix}: Props received for potential sync: initialLikes=${initialLikes}, initialDislikes=${initialDislikes}. Current isVoting=${isVoting}.`);
+
+    if (!isVoting) {
+      console.log(`${effectLogPrefix}: Not currently voting (isVoting: false), proceeding with prop sync.`);
+      console.log(`${effectLogPrefix}: Local state before prop sync: likes=${likes}, dislikes=${dislikes}`);
+      setLikes(initialLikes);
+      setDislikes(initialDislikes);
+      console.log(`${effectLogPrefix}: Called setLikes(${initialLikes}), setDislikes(${initialDislikes})`);
+    } else {
+      console.log(`${effectLogPrefix}: Currently voting (isVoting: true), skipping prop sync to preserve optimistic updates.`);
+    }
+  }, [initialLikes, initialDislikes, articleId, logPrefix, isVoting]); // Added isVoting to dependency array
 
   const total = likes + dislikes;
   const calculatedLikePercentage = total > 0 ? (likes / total) * 100 : 50;
@@ -48,10 +62,9 @@ export const PowerBarVoteSystem = ({
 
   const handleVote = async (voteType: 'like' | 'dislike') => {
     const previousVoteStatus = userVoteStatusFromStore; // Capture before any changes
-    // Corrected: Log the actual state variable 'isVoting' instead of the setter 'isVotingInternal'
-    console.log(`${handleVoteLogPrefix} Called with voteType: ${voteType}. Current isVoting: ${isVoting}, userVoteStatusFromStore: ${previousVoteStatus}`);
+    // Enhanced Log: Add current local likes and dislikes
+    console.log(`${handleVoteLogPrefix} START - voteType: ${voteType}. Local likes: ${likes}, Local dislikes: ${dislikes}. Current isVoting: ${isVoting}, userVoteStatusFromStore: ${previousVoteStatus}`);
 
-    // Corrected: Use the actual state variable 'isVoting' for the check
     if (isVoting) {
       console.log(`${handleVoteLogPrefix} Already voting, exiting.`);
       return;

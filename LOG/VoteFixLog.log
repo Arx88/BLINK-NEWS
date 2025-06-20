@@ -1,0 +1,27 @@
+2025-06-20 14:11:12,930 - blink_backend - INFO - api.vote_blink:302 - Vote processing action for test_blink_main: Adding like. User: test_user_comprehensive, Vote: like, PrevStatus: None
+2025-06-20 14:11:13,440 - blink_backend - INFO - api.vote_blink:302 - Vote processing action for test_blink_main: Changing vote from like to dislike. User: test_user_comprehensive, Vote: dislike, PrevStatus: like
+2025-06-20 14:11:13,948 - blink_backend - INFO - api.vote_blink:302 - Vote processing action for test_blink_main: Removing like. User: test_user_comprehensive, Vote: like, PrevStatus: like
+2025-06-20 14:11:14,455 - blink_backend - INFO - api.vote_blink:302 - Vote processing action for test_blink_zero_votes: Adding like. User: test_user_comprehensive, Vote: like, PrevStatus: None
+e_votes: 1, negative_votes: 0, currentUserVoteStatus: like
+2025-06-20 14:11:12,931 - INFO - After save_blink_data and calculate_interest for ID test_blink_main: interest: 100.0, positive_votes: 1, negative_votes: 0, currentUserVoteStatus: like
+2025-06-20 14:11:13,439 - INFO - vote_blink invoked. ID: test_blink_main, voteType: dislike, previous_vote_status: like, user_id: test_user_comprehensive
+2025-06-20 14:11:13,439 - INFO - Initial blink_data for ID test_blink_main: positive_votes: 1, negative_votes: 0, currentUserVoteStatus: like
+2025-06-20 14:11:13,440 - INFO - Vote conditions for ID test_blink_main: is_removing_vote: False, is_changing_vote: True. voteType: dislike, previous_vote_status: like
+2025-06-20 14:11:13,440 - INFO - Action for ID test_blink_main: Attempting to change like to dislike. Before: PV=1, NV=0
+2025-06-20 14:11:13,440 - INFO - Action for ID test_blink_main: Changed like to dislike. After: PV=0, NV=1. New currentUserVoteStatus: dislike
+2025-06-20 14:11:13,440 - INFO - Before saving blink_data for ID test_blink_main: positive_votes: 0, negative_votes: 1, currentUserVoteStatus: dislike
+2025-06-20 14:11:13,440 - INFO - After save_blink_data and calculate_interest for ID test_blink_main: interest: 0.0, positive_votes: 0, negative_votes: 1, currentUserVoteStatus: dislike
+2025-06-20 14:11:13,947 - INFO - vote_blink invoked. ID: test_blink_main, voteType: like, previous_vote_status: like, user_id: test_user_comprehensive
+2025-06-20 14:11:13,947 - INFO - Initial blink_data for ID test_blink_main: positive_votes: 1, negative_votes: 0, currentUserVoteStatus: like
+2025-06-20 14:11:13,947 - INFO - Vote conditions for ID test_blink_main: is_removing_vote: True, is_changing_vote: False. voteType: like, previous_vote_status: like
+2025-06-20 14:11:13,948 - INFO - Action for ID test_blink_main: Attempting to remove like. Before: PV=1, NV=0
+2025-06-20 14:11:13,948 - INFO - Action for ID test_blink_main: Removed like. After: PV=0, NV=0. New currentUserVoteStatus: None
+2025-06-20 14:11:13,948 - INFO - Before saving blink_data for ID test_blink_main: positive_votes: 0, negative_votes: 0, currentUserVoteStatus: None
+2025-06-20 14:11:13,948 - INFO - After save_blink_data and calculate_interest for ID test_blink_main: interest: 50.0, positive_votes: 0, negative_votes: 0, currentUserVoteStatus: None
+2025-06-20 14:11:14,455 - INFO - vote_blink invoked. ID: test_blink_zero_votes, voteType: like, previous_vote_status: None, user_id: test_user_comprehensive
+2025-06-20 14:11:14,455 - INFO - Initial blink_data for ID test_blink_zero_votes: positive_votes: 0, negative_votes: 0, currentUserVoteStatus: None
+2025-06-20 14:11:14,455 - INFO - Vote conditions for ID test_blink_zero_votes: is_removing_vote: False, is_changing_vote: False. voteType: like, previous_vote_status: None
+2025-06-20 14:11:14,455 - INFO - Action for ID test_blink_zero_votes: Attempting to add like. Before: PV=0, NV=0
+2025-06-20 14:11:14,455 - INFO - Action for ID test_blink_zero_votes: Added like. After: PV=1, NV=0. New currentUserVoteStatus: like
+2025-06-20 14:11:14,456 - INFO - Before saving blink_data for ID test_blink_zero_votes: positive_votes: 1, negative_votes: 0, currentUserVoteStatus: like
+2025-06-20 14:11:14,456 - INFO - After save_blink_data and calculate_interest for ID test_blink_zero_votes: interest: 100.0, positive_votes: 1, negative_votes: 0, currentUserVoteStatus: like
