@@ -14,6 +14,7 @@ class Config:
     DEBUG = True
 
 def create_app():
+    print("--- create_app() in app.py ENTERED ---", flush=True) # Added print
     """
     Creates and configures the Flask application.
     """

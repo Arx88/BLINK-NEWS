@@ -6,6 +6,25 @@ from flask import Blueprint, jsonify, request, current_app
 from functools import cmp_to_key
 from datetime import datetime
 
+# --- VERY EARLY DIAGNOSTICS ---
+print("--- TOP OF api.py REACHED ---", flush=True)
+# Raw file write test
+raw_log_dir_test = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
+raw_log_path_test = os.path.join(raw_log_dir_test, 'VoteFixLog_RAW_TEST.log')
+print(f"--- Attempting RAW write to: {raw_log_path_test} ---", flush=True)
+try:
+    if not os.path.exists(raw_log_dir_test):
+        print(f"--- LOG directory for raw test not found, attempting to create: {raw_log_dir_test} ---", flush=True)
+        os.makedirs(raw_log_dir_test, exist_ok=True)
+        print(f"--- LOG directory for raw test creation attempted. ---", flush=True)
+
+    with open(raw_log_path_test, "w") as f_test:
+        f_test.write("RAW TEST WRITE FROM TOP OF api.py SUCCESSFUL AT " + datetime.now().isoformat() + "\n")
+    print(f"--- RAW write to {raw_log_path_test} SUCCEEDED ---", flush=True)
+except Exception as e_raw:
+    print(f"--- RAW write to {raw_log_path_test} FAILED: {e_raw} ---", flush=True)
+# --- END OF VERY EARLY DIAGNOSTICS ---
+
 LOG_DIR_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
 if not os.path.exists(LOG_DIR_PATH):
     os.makedirs(LOG_DIR_PATH)
