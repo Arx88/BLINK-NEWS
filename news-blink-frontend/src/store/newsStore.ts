@@ -65,10 +65,9 @@ export const useNewsStore = create<NewsState>((set, get) => ({
         const sampleProcessedItems = itemsWithDisplayInterest.slice(0, 2).map(item => ({
           id: item.id,
           title: item.title,
-          // Assuming item.likes and item.dislikes are the correct fields based on current NewsItem type
-          // If they are nested under 'votes', it would be item.votes?.likes, item.votes?.dislikes
-          likes: item.likes,
-          dislikes: item.dislikes,
+          // Updated to correctly log nested votes from NewsItem type
+          likes: item.votes?.likes,
+          dislikes: item.votes?.dislikes,
           currentUserVoteStatus: item.currentUserVoteStatus, // Already part of NewsItem
           interest: item.interest, // Raw interest from backend
           displayInterest: item.displayInterest // Calculated display interest
@@ -110,7 +109,14 @@ export const useNewsStore = create<NewsState>((set, get) => ({
 
     try {
       const apiVoteType = newVoteType === 'positive' ? 'like' : 'dislike';
+      // Existing general log for API call attempt
       console.log(`${logPrefix} Attempting to call apiVoteOnBlink for blinkId: ${blinkId}, apiVoteType: ${apiVoteType}, previousVoteStatus (for API): ${previousVoteStatus}`);
+
+      // Specific log for when removing a vote
+      if (isRemovingVote) {
+        console.log(`${logPrefix} VOTE REMOVAL: Calling apiVoteOnBlink to remove vote. Parameters: blinkId=${blinkId}, newVoteType (frontend term)=${newVoteType}, apiVoteType=${apiVoteType}, previousVoteStatus=${previousVoteStatus}`);
+      }
+
       const updatedBlinkData = await apiVoteOnBlink(blinkId, apiVoteType, previousVoteStatus); // Assuming apiVoteOnBlink might return updated item
 
       console.log(`${logPrefix} apiVoteOnBlink successful for blinkId: ${blinkId}.`);
@@ -151,7 +157,14 @@ export const useNewsStore = create<NewsState>((set, get) => ({
         ...state.userVotes,
         [blinkId]: voteStatus,
       };
-      console.log(`${logPrefix} For blinkId: ${blinkId}, vote changed from: ${oldVoteStatusForId} to: ${updatedUserVotes[blinkId]}. Full userVotes (sample of current change): { ${blinkId}: "${updatedUserVotes[blinkId]}" }`);
+      // General log for vote change
+      console.log(`${logPrefix} For blinkId: ${blinkId}, vote changed from: ${oldVoteStatusForId} to: ${updatedUserVotes[blinkId]}.`);
+      // Specific log if voteStatus is being set to null
+      if (voteStatus === null) {
+        console.log(`${logPrefix} VOTE CLEARED: User vote for blinkId: ${blinkId} has been set to null.`);
+      }
+      // Optional: Log a sample of the userVotes map if needed for broader context, but can be verbose.
+      // console.log(`${logPrefix} Current userVotes (sample): { ${blinkId}: "${updatedUserVotes[blinkId]}" }`);
       return { userVotes: updatedUserVotes };
     });
   },
