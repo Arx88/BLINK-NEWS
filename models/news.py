@@ -1,4 +1,23 @@
 import os
+import sys
+print("DEBUG_MODELS_NEWS: --- Path Diagnostics (models/news.py) ---", flush=True)
+print(f"DEBUG_MODELS_NEWS: Current working directory (cwd): {os.getcwd()}", flush=True)
+print(f"DEBUG_MODELS_NEWS: sys.path: {sys.path}", flush=True)
+print(f"DEBUG_MODELS_NEWS: __file__: {__file__}", flush=True)
+print(f"DEBUG_MODELS_NEWS: os.path.abspath(os.path.dirname(__file__)): {os.path.abspath(os.path.dirname(__file__))}", flush=True)
+try:
+    print(f"DEBUG_MODELS_NEWS: Listing contents of cwd '{os.getcwd()}': {os.listdir(os.getcwd())}", flush=True)
+except Exception as e:
+    print(f"DEBUG_MODELS_NEWS: Error listing contents of cwd '{os.getcwd()}': {e}", flush=True)
+# Also list contents of /app if cwd is not /app, for comparison
+if os.getcwd() != '/app':
+    try:
+        print(f"DEBUG_MODELS_NEWS: Listing contents of '/app': {os.listdir('/app')}", flush=True)
+    except Exception as e:
+        print(f"DEBUG_MODELS_NEWS: Error listing contents of '/app': {e}", flush=True)
+print("DEBUG_MODELS_NEWS: --- End Path Diagnostics (models/news.py) ---", flush=True)
+
+# import os # os is already imported by the diagnostic block above
 import json
 from datetime import datetime, timezone
 from functools import cmp_to_key
