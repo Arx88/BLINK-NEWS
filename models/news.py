@@ -135,17 +135,19 @@ class News:
                 # Add currentUserVoteStatus
                 if user_id:
                     data['currentUserVoteStatus'] = self._get_user_vote_status(data, user_id)
-            # Specific log for VoteFixLog when getting blink for a user (likely for voting/display)
-            vote_fix_logger_model_level.info(f"get_blink for voting/display: id='{blink_id}', user_id='{user_id}'. Votes: {data.get('votes')}, UserVotes: {data.get('user_votes', {}).get(user_id, 'N/A')}, Determined status: {data['currentUserVoteStatus']}")
+                    # Specific log for VoteFixLog when getting blink for a user (likely for voting/display)
+                    vote_fix_logger_model_level.info(f"get_blink for voting/display: id='{blink_id}', user_id='{user_id}'. Votes: {data.get('votes')}, UserVotes: {data.get('user_votes', {}).get(user_id, 'N/A')}, Determined status: {data['currentUserVoteStatus']}")
                 else:
                     data['currentUserVoteStatus'] = None
-            vote_fix_logger_model_level.debug(f"get_blink for general purpose: id='{blink_id}', no user_id. Votes: {data.get('votes')}")
-
+                    # Log for general purpose when no user_id is present
+                    vote_fix_logger_model_level.debug(f"get_blink for general purpose: id='{blink_id}', no user_id. Votes: {data.get('votes')}")
 
                 app_logger.debug(f"Successfully loaded blink_id='{blink_id}'. Votes: {data.get('votes')}, UserVote: {data.get('currentUserVoteStatus')}")
                 return data
             except Exception as e:
-                app_logger.error(f"Error reading blink_id='{blink_id}' from {filepath}: {e}", exc_info=True)
+                app_logger.error(f"Error reading or processing blink_id='{blink_id}' from {filepath}: {e}", exc_info=True)
+                # Optionally, add a VoteFixLogLogger error here too if this specific log file needs to capture this error
+                vote_fix_logger_model_level.error(f"Error reading or processing blink_id='{blink_id}' in get_blink: {e}", exc_info=True)
         else:
             app_logger.warning(f"Blink file not found for blink_id='{blink_id}' at {filepath}")
         return None
