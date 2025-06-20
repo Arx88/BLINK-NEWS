@@ -9,22 +9,29 @@ from datetime import datetime
 LOG_DIR_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'LOG')
 if not os.path.exists(LOG_DIR_PATH):
     os.makedirs(LOG_DIR_PATH)
-VOTE_FIX_LOG_FILE = os.path.join(LOG_DIR_PATH, 'VoteFixLog.log') # Renamed variable and filename
 
-vote_fix_logger = logging.getLogger('VoteFixLogLogger') # Renamed logger instance and logger name
+print(f"ROUTES.API: LOG_DIR_PATH for VoteFixLog.log is: {LOG_DIR_PATH}", flush=True)
+VOTE_FIX_LOG_FILE = os.path.join(LOG_DIR_PATH, 'VoteFixLog.log')
+print(f"ROUTES.API: Attempting to configure VoteFixLogLogger. Log file path: {VOTE_FIX_LOG_FILE}", flush=True)
+
+vote_fix_logger = logging.getLogger('VoteFixLogLogger')
 vote_fix_logger.setLevel(logging.DEBUG)
-# Prevent duplicate logs if root logger is also configured for file output
 vote_fix_logger.propagate = False
 
-# Remove any existing handlers to avoid duplication during reloads/multiple calls
 for handler in vote_fix_logger.handlers[:]:
     vote_fix_logger.removeHandler(handler)
     handler.close()
 
-file_handler_votefixlog = logging.FileHandler(VOTE_FIX_LOG_FILE, mode='w') # Renamed handler, use new log file variable, ensure mode='w'
-formatter_votefixlog = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s') # Renamed formatter
-file_handler_votefixlog.setFormatter(formatter_votefixlog) # Use new formatter name
-vote_fix_logger.addHandler(file_handler_votefixlog) # Add new handler name to new logger name
+file_handler_votefixlog = logging.FileHandler(VOTE_FIX_LOG_FILE, mode='w')
+print(f"ROUTES.API: FileHandler configured for {VOTE_FIX_LOG_FILE} with mode 'w'.", flush=True)
+formatter_votefixlog = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler_votefixlog.setFormatter(formatter_votefixlog)
+vote_fix_logger.addHandler(file_handler_votefixlog)
+print(f"ROUTES.API: FileHandler added to vote_fix_logger. Logger effective level: {vote_fix_logger.getEffectiveLevel()}", flush=True)
+
+print("ROUTES.API: Attempting to write initial test message to vote_fix_logger.", flush=True)
+vote_fix_logger.info("--- VoteFixLogLogger successfully initialized and configured in api.py ---")
+print("ROUTES.API: Initial test message sent to vote_fix_logger.", flush=True)
 
 api_bp = Blueprint('api_bp', __name__)
 
@@ -117,6 +124,8 @@ def get_blinks():
 
                 blink_data['interest'] = calculate_interest(positive_votes, negative_votes)
                 vote_fix_logger.info(f"Calculated interest for {blink_id}: {blink_data['interest']}%")
+                # Adding "Pre-append" log
+                vote_fix_logger.info(f"Pre-append data for {blink_id}: PVotes={blink_data.get('positive_votes', 'NOT_SET')}, NVotes={blink_data.get('negative_votes', 'NOT_SET')}, Interest={blink_data.get('interest', 'NOT_SET')}, Keys={list(blink_data.keys())}")
                 all_blinks.append(blink_data)
             else:
                 vote_fix_logger.warning(f"No data found for blink_id: {blink_id} during get_blinks scan.")

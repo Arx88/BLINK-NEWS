@@ -22,8 +22,11 @@ def create_app():
     # os.path.dirname(os.path.abspath(__file__)) is /app/news-blink-backend/src
     # So, ../.. takes it to /app, then LOG means /app/LOG
     log_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'LOG')
+
+    print(f"Attempting to clear LOG directory: {log_directory}", flush=True) # Added print
     try:
         if os.path.exists(log_directory):
+            print(f"LOG directory exists. Proceeding to clear contents of: {log_directory}", flush=True) # Added print
             logger.info(f"Clearing LOG directory: {log_directory}")
             for item in os.listdir(log_directory):
                 item_path = os.path.join(log_directory, item)
@@ -34,10 +37,13 @@ def create_app():
                     shutil.rmtree(item_path)
                     logger.info(f"Deleted directory: {item_path}")
             logger.info("LOG directory cleared successfully.")
+            print("LOG directory cleared successfully via print.", flush=True) # Added print
         else:
             logger.info(f"LOG directory not found, skipping cleanup: {log_directory}")
+            print(f"LOG directory NOT found at {log_directory}, skipping cleanup via print.", flush=True) # Added print
     except Exception as e:
         logger.error(f"Error clearing LOG directory: {e}", exc_info=True)
+        print(f"ERROR clearing LOG directory via print: {e}", flush=True) # Added print
 
 
     app = Flask(__name__)
