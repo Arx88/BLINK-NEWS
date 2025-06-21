@@ -35,6 +35,7 @@ ARTICLES_DIR = os.path.join(DATA_DIR, 'articles')
 
 @api_bp.route('/blinks', methods=['GET'])
 def get_blinks():
+    app_logger.info("get_blinks - API_PY_VERSION_1.1_HOTFIX_LOGGING") # Version Marker Added
     app_logger.info(f"get_blinks called, using News model. Query parameters: {request.args}")
     try:
         user_id = request.args.get('userId')
@@ -89,7 +90,19 @@ def get_blinks():
             blink_item['isHot'] = True if i < 4 else False
         app_logger.info("isHot logic application complete.")
 
-        if api_response_blinks:
+        # --- DEFINITIVE isHot LOGGING (after assignment) ---
+        app_logger.info("--- DEFINITIVE isHot LOGGING (after assignment) ---")
+        log_sample_size = min(5, len(api_response_blinks))
+        if log_sample_size > 0:
+            for i in range(log_sample_size):
+                item_to_log = api_response_blinks[i]
+                app_logger.info(f"Item {i+1} PRE-JSONIFY: ID={item_to_log.get('id')}, Title='{item_to_log.get('title', '')[:30]}...', Interest={item_to_log.get('interest')}, isHot={item_to_log.get('isHot')}")
+        else:
+            app_logger.info("api_response_blinks is empty, cannot log isHot status sample.")
+        app_logger.info("--- END DEFINITIVE isHot LOGGING ---")
+        # --- END DEFINITIVE isHot LOGGING ---
+
+        if api_response_blinks: # This is the existing diagnostic log block
             sample_size = min(5, len(api_response_blinks))
             app_logger.info(f"--- DIAGNOSTIC LOG: First {sample_size} blinks PRE-JSONIFY (from News model) ---")
             for i in range(sample_size):
