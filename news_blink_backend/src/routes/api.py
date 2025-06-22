@@ -35,7 +35,7 @@ ARTICLES_DIR = os.path.join(DATA_DIR, 'articles')
 
 @api_bp.route('/blinks', methods=['GET'])
 def get_blinks():
-    app_logger.info("get_blinks - API_PY_VERSION_1.1_HOTFIX_LOGGING") # Version Marker Added
+    app_logger.info("get_blinks - API_PY_VERSION_1.2") # Version Marker Updated
     app_logger.info(f"get_blinks called, using News model. Query parameters: {request.args}")
     try:
         user_id = request.args.get('userId')
@@ -209,3 +209,54 @@ def get_blink_details(id):
     except Exception as e:
         app_logger.error(f"Error fetching blink detail for {id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch blink details"}), 500
+
+# (Potentially add other imports if needed for this function, e.g., threading, time, but keep it minimal for now)
+
+def collect_and_process_news():
+    app_logger.info("collect_and_process_news - BACKGROUND TASK STARTED - API_PY_VERSION_1.2")
+    news_model = None # Initialize to None for broader scope in error logging
+    try:
+        news_model = News(data_dir=DATA_DIR) # Use the global DATA_DIR
+
+        # Call the get_all_blinks method. For a background task, user_id is likely None.
+        # This method in news.py now handles all calculations and sorting.
+        app_logger.info("collect_and_process_news: Calling news_model.get_all_blinks()")
+        all_blinks = news_model.get_all_blinks()
+
+        if all_blinks:
+            app_logger.info(f"collect_and_process_news: Successfully fetched {len(all_blinks)} blinks.")
+            # Placeholder for any further processing that this function was originally intended to do.
+            # For now, just logging the count is sufficient to show it worked.
+            # Example: Log details of the first few blinks fetched by the background task
+            sample_size = min(3, len(all_blinks))
+            app_logger.info(f"collect_and_process_news: Sample of fetched blinks (first {sample_size}):")
+            for i in range(sample_size):
+                blink = all_blinks[i]
+                app_logger.info(
+                    f"  - ID: {blink.get('id')}, Title: {blink.get('title', 'N/A')[:50]}, "
+                    f"Interest: {blink.get('interestPercentage', 0.0):.2f}%"
+                )
+        else:
+            app_logger.info("collect_and_process_news: news_model.get_all_blinks() returned no blinks or an empty list.")
+
+    except AttributeError as ae:
+        # This specific logging helps if the AttributeError somehow persists
+        app_logger.error(f"collect_and_process_news - ATTRIBUTE ERROR: {ae}", exc_info=True)
+        if news_model is not None:
+            app_logger.error(f"collect_and_process_news: news_model type: {type(news_model)}")
+            if hasattr(news_model, '__dict__'):
+                 app_logger.error(f"collect_and_process_news: news_model attributes: {dir(news_model)}")
+            else:
+                 app_logger.error(f"collect_and_process_news: news_model has no __dict__ (dir: {dir(news_model)})")
+        else:
+            app_logger.error("collect_and_process_news: news_model was None when AttributeError occurred.")
+
+
+    except Exception as e:
+        app_logger.error(f"collect_and_process_news - BACKGROUND TASK ERROR: {e}", exc_info=True)
+    finally:
+        app_logger.info("collect_and_process_news - BACKGROUND TASK FINISHED - API_PY_VERSION_1.2")
+
+# It's common for such background tasks to be initiated somewhere,
+# but for this fix, just defining the function correctly is the goal.
+# The actual initiation (e.g., in a thread in app.py) is outside this scope.
